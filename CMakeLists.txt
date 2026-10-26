@@ -4,6 +4,8 @@ project(MySuperAssistant VERSION 0.1.0 LANGUAGES CXX)
 
 include(cmake/Warnings.cmake)
 
+enable_testing()
+
 add_subdirectory(src/core)
 add_subdirectory(src/infra)
 add_subdirectory(src/ui/common)
@@ -15,4 +17,7 @@ else()
     add_subdirectory(src/apps/server)
     add_subdirectory(src/ui/desktop)
     add_subdirectory(src/apps/desktop)
+
+    include(cmake/Dependencies.cmake)
+    add_subdirectory(tests/core)
 endif()
