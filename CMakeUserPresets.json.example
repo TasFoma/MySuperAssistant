@@ -22,5 +22,19 @@
         "CMAKE_PREFIX_PATH": "C:/Qt/6.10.2/msvc2022_64"
       }
     }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-debug-local",
+      "displayName": "Windows Debug (local Qt)",
+      "configurePreset": "windows-debug-local",
+      "configuration": "Debug"
+    },
+    {
+      "name": "windows-release-local",
+      "displayName": "Windows Release (local Qt)",
+      "configurePreset": "windows-release-local",
+      "configuration": "Release"
+    }
   ]
 }

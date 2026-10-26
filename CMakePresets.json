@@ -14,10 +14,7 @@
         "value": "x64",
         "strategy": "set"
       },
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
-      }
+      "binaryDir": "${sourceDir}/out/build/${presetName}"
     },
     {
       "name": "windows-release",
@@ -27,10 +24,7 @@
         "value": "x64",
         "strategy": "set"
       },
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
+      "binaryDir": "${sourceDir}/out/build/${presetName}"
     }
   ]
 }
