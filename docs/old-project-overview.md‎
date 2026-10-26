@@ -1,0 +1,99 @@
+```markdown
+# Обзор старого проекта MyAssistant
+
+Источники: `qt_client_clean\CMakeLists.txt`, все заголовки `qt_client_clean\src*.h`,
+`server\server.cpp`, Dart-файлы `android_client\lib` (без `build`).
+
+## 1. Приложения
+
+| Приложение | Платформа | Что делает |
+|---|---|---|
+| `qt_client` | ПК (Windows, Qt 6.10.2, MSVC) | Тонкий клиент с интерфейсом (QML) и голосом. Данные не хранит, берёт их с `companion_server` по TCP. |
+| `companion_server` | ПК/ноутбук, без окна | «Мозг»: менеджеры, SQLite, сервер синхронизации на порту 8765. Клиенты подключаются к нему. |
+| `android_client` | Android (Flutter) | Мобильный клиент: чат, планы, напоминания, настройки. |
+| `server/server.cpp` | Windows, Winsock | Отдельная простая программа на порту 12000: принимает строку, возвращает «Привет! Твоё сообщение: ...». Не связана с остальными приложениями по коду. |
+
+Примечание: в `qt_client_clean\CMakeLists.txt` `qt_client` и `companion_server` собираются из одного репозитория
+как две цели одного CMake-проекта. Также CMake копирует скрипты `voice_listener.py`, `voice_daemon.py`, `recognize.py`
+рядом с `qt_client`.
+
+## 2. Модули
+
+### 2.1 Модули `qt_client_clean` (C++ / Qt)
+
+| Модуль | Где используется | Назначение |
+|---|---|---|
+| `ChatManager` | `companion_server`, `SyncServer` | История чатов в SQLite, сборка истории для llama.cpp. |
+| `CommandParser` | `companion_server`, `SyncServer` | Локальный разбор русских команд (напоминания, задачи, события, маршруты) без нейросети. Также определяет, нужен ли интернет-поиск. |
+| `DatabaseManager` | `companion_server` и менеджеры | Единая SQLite-база: чаты, события, задачи, напоминания, привычки, маршруты, настроение, настройки. Синглтон. |
+| `LlamaClient` | Модуль LLM (не подключён к сборке `CMakeLists.txt`) | Клиент OpenAI-совместимого `/v1/chat/completions` у llama-server и поиск с ответом. |
+| `MentorManager` | `companion_server` | Простой анализ тона по словарю, дневник настроения, подсказки-упражнения. |
+| `MusicPlayer` | `qt_client` | Воспроизведение треков из локальной папки, громкость и папка запоминаются. |
+| `NavigationManager` | `companion_server`, `SyncServer` | Геокодинг (Nominatim), маршруты (OSRM), погода (open-meteo), статистика маршрутов. |
+| `PlannerManager` | `companion_server`, `SyncServer` | Календарь, задачи, напоминания (таймер раз в 30 секунд), привычки, профиль пользователя, утреннее приветствие. |
+| `RemoteBackend` | `qt_client` | Клиент `companion_server`: кэш данных с сервера, команды по TCP. Повторяет интерфейс менеджеров, чтобы QML почти не менялся. |
+| `SyncServer` | `companion_server` | TCP-сервер для мобильного клиента и десктопного клиента. Проксирует чат в llama-server, выполняет команды, рассылает снапшоты. |
+| `VoiceInput` | `qt_client` | Голосовой ввод и озвучка через внешние процессы (Python-скрипты, Vosk, SAPI). |
+
+### 2.2 Модули `android_client\lib` (Dart / Flutter)
+
+| Файл | Назначение |
+|---|---|
+| `main.dart` | Точка входа. Четыре вкладки: Чат, Планы, Напоминания, Настройки. Запускает `SyncService`. |
+| `app_settings.dart` | Настройки в `SharedPreferences`: IP ноутбука (Tailscale), IP и порт llama-server, порт синхронизации, токен, модель, передача геолокации, озвучка. |
+| `sync_service.dart` | Ядро связи с ПК: TCP-соединение, авторизация, кэш снапшотов, команды, запросы календаря, чат через ноутбук, геолокация. |
+| `llama_service.dart` | Отправка чата: сначала через `SyncService` (ноутбук), иначе напрямую к llama-server по домашнему Wi-Fi. Содержит системный промпт. |
+| `notification_service.dart` | Локальные уведомления и планирование напоминаний через AlarmManager. |
+| `screens/chat_screen.dart` | Чат: история с ПК и кэш на телефоне, голос, озвучка, кнопка «Открыть в Яндекс Картах». |
+| `screens/planner_screen.dart` | Календарь месяца, события дня, добавление задач и событий. |
+| `screens/reminders_screen.dart` | Список напоминаний (время и место), добавление и удаление. |
+| `screens/settings_screen.dart` | Адреса, порты, токен, выбор модели, переключатель геолокации, подключение. |
+
+## 3. Кто с кем и как общается
+
+### 3.1 Схема связей
+```
+
+android_client (телефон) ПК / ноутбук ───────────────────────── ───────────────────────────────────── SyncService ──TCP 8765, JSON по строкам──────> SyncServer (companion_server) ▲ │ ├─ PlannerManager │ снапшоты, ответы, напоминания │ ├─ ChatManager │ │ ├─ NavigationManager LlamaService ─(если нет sync)─ HTTP 8080 ──────> llama-server (отдельная машина) │ qt_client (ПК, QML) ──RemoteBackend──TCP 8765──> SyncServer
+
+```javascript
+
+### 3.2 Протокол синхронизации (телефон/ПК ↔ companion_server)
+
+- Транспорт: TCP, порт 8765. Сообщения — JSON-объекты, разделённые переводом строки.
+- Первое сообщение клиента — `auth` с токеном. Токен создаётся при первом запуске и хранится в настройках БД.
+- Транспортное шифрование обеспечивает Tailscale (WireGuard). Сервер рассчитан на доступ только через tailnet.
+- После `auth_ok` клиент запрашивает `get_all` (снапшот: задачи, напоминания, события, привычки) и `get_chat` (история).
+- Команды от телефона: `command` (текст разбирает `CommandParser` на ПК), `chat` (запрос к llama-server), `add_task`, `add_event`, `add_reminder`, `log_habit`, `get_month`, `get_day`, `location` и другие.
+- Ответы сервера: `snapshot`, `chat_history`, `chat_reply`, `chat_error`, `command_result`, `month_events`, `day_events`, `reminder_due`, `route_result`, `assistant_message`.
+- Проактивные сообщения (`assistant_message`) приходят от `PlannerManager` (приветствие, чек-ин настроения) и от `SyncServer` (погода).
+
+### 3.3 Чат
+
+- Телефон отправляет сообщение по схеме: сначала `command` на ПК. Если ПК не распознал команду (`handled: false`), сообщение уходит как `chat`.
+- `SyncServer` пересылает `chat` в llama-server по адресу из настройки `llama_url`, отвечает `chat_reply` и сохраняет переписку через `ChatManager`.
+- Если ноутбук недоступен, `LlamaService` обращается к llama-server напрямую (запасной путь по домашнему Wi-Fi).
+- Сообщения с телефона сохраняются на ПК и показываются в чате `qt_client` через сигнал `chatActivity`.
+
+### 3.4 Напоминания и геолокация
+
+- `PlannerManager` проверяет напоминания по времени раз в 30 секунд и отправляет `reminder_due` на телефон. Телефон показывает уведомление и планирует локальные уведомления по снапшоту.
+- Телефон каждые 3 минуты присылает `location` (если включена передача геолокации). `SyncServer` вызывает `checkGeoReminders` у `PlannerManager`.
+- `NavigationManager` при запросе маршрута с телефона отправляет `route_result` с текстом шагов и ссылкой на Яндекс Карты.
+
+### 3.5 Связи внутри ПК
+
+- `qt_client` не содержит логику данных. Все операции уходят в `companion_server` через `RemoteBackend`.
+- Менеджеры `companion_server` (`PlannerManager`, `ChatManager`, `NavigationManager`) передаются `SyncServer` через конструктор.
+- Все менеджеры используют общий `DatabaseManager`.
+- `VoiceInput` работает с внешними процессами, он не связан с сервером.
+
+## 4. Замечания и ограничения старого проекта
+
+- `DatabaseManager` — синглтон с глобальным доступом. В новом проекте это запрещено правилами (зависимости через конструктор).
+- `LlamaClient` объявлен, но не входит в `SOURCES`/`companion_server` в `CMakeLists.txt` при текущей конфигурации.
+- `server/server.cpp` — отдельный тестовый эхо-сервер на порту 12000, не совпадает с протоколом на порту 8765.
+- В `app_settings.dart` и `sync_service.dart` прошиты IP-адреса, токен и резервный домашний IP. Это личные значения, их не стоит переносить как есть.
+- В `qt_client_clean\CMakeLists.txt` указан `CMAKE_CXX_STANDARD 17`, а новые правила проекта требуют C++20.
+- Протокол в `SyncServer` описан в комментариях заголовка и реализован в `.cpp`, которые не читались. Детали команд взяты из `sync_service.dart` (клиентская сторона), поэтому серверная часть может отличаться.
+```

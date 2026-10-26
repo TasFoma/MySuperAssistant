@@ -1,0 +1,11 @@
+build/
+out/
+*.dll
+*.exe
+*.lib
+*.pdb
+.dart_tool/
+.idea/
+.qtcreator/
+android_client/build/
+**/CMakeFiles/
