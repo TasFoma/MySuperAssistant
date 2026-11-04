@@ -1,5 +1,3 @@
-find_package(Qt6 6.10 REQUIRED COMPONENTS Gui)
-
 qt_add_executable(msa_mobile
     src/main.cpp
 )

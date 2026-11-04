@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.25)
 
 project(MySuperAssistant VERSION 0.1.0 LANGUAGES CXX)
 
+find_package(Qt6 6.10 REQUIRED COMPONENTS Gui Quick)
+qt_standard_project_setup()
+
 include(cmake/Warnings.cmake)
 
 enable_testing()

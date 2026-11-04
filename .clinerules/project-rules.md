@@ -104,6 +104,11 @@ src/<слой>/src/                  — реализации
 
 - Имена: camelCase — функции и переменные, `m_camelCase` — поля, PascalCase — типы,
   `kName` — константы. Не короче 3 символов; шаблонные параметры осмысленные (`ItemType`, не `T`).
+- Значения `enum class` — PascalCase: `TravelMode::Driving`.
+- Интерфейсы без префикса `I`: `Clock`, `TaskRepository`; реализации называются по сути:
+  `SystemClock`, `SqliteTaskRepository`, `FakeClock`.
+- Файлы называются как главный класс в них, PascalCase: `CommandParser.h`, `CommandParser.cpp`.
+  Тесты: `CommandParserTest.cpp`.
 - `std::ranges` где возможно. В лямбдах только явные захваты, никогда `[&]` и `[=]`.
 - `const auto`, `auto*`, `auto&` — с явными квалификаторами; `typename`, а не `class`, в шаблонах.
 - `[[nodiscard]]` на геттерах, чистых функциях и фабриках; `[[maybe_unused]]` для неиспользуемых

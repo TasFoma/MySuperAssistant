@@ -1,5 +1,3 @@
-find_package(Qt6 6.10 REQUIRED COMPONENTS Quick)
-
 add_library(msa_ui_desktop STATIC
     src/placeholder.cpp
 )
