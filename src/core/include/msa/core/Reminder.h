@@ -10,6 +10,13 @@
 
 namespace msa::core {
 
+/// @brief Состояние однократного напоминания.
+enum class ReminderStatus : std::uint8_t {
+    Pending,
+    Fired,
+    Missed,
+};
+
 /// @brief Однократное напоминание по местным часам сервера.
 struct TimedReminder {
     /// @brief Идентификатор записи; ноль — ещё не сохранена.
@@ -18,8 +25,8 @@ struct TimedReminder {
     std::string title{};
     /// @brief Момент срабатывания.
     std::chrono::local_time<std::chrono::seconds> dueAt{};
-    /// @brief Было ли напоминание уже выдано.
-    bool fired{false};
+    /// @brief Ожидает, показано или пропущено.
+    ReminderStatus status{ReminderStatus::Pending};
 };
 
 /// @brief Напоминание с интервалом и следующим моментом срабатывания.
@@ -44,8 +51,8 @@ struct PlaceReminder {
     std::string place{};
     /// @brief Координаты; отсутствуют, пока место не определено.
     std::optional<GeoCoordinates> coordinates{};
-    /// @brief Было ли напоминание уже выдано.
-    bool fired{false};
+    /// @brief Ожидает, показано или пропущено.
+    ReminderStatus status{ReminderStatus::Pending};
 };
 
 /// @brief Напоминание одного из трёх поддерживаемых видов.

@@ -9,6 +9,7 @@ add_executable(msa_core_tests
     PlannerRepositoriesTest.cpp
     PlannerTypesTest.cpp
     Pcre2RegexTest.cpp
+    ReminderServiceTest.cpp
 )
 
 target_compile_features(msa_core_tests PRIVATE cxx_std_20)

@@ -133,7 +133,7 @@ TEST(PlannerRepositoriesTest, ReminderKindsShareIdentifiersAndKeepTheirData)
     const auto moment = std::chrono::local_days{
         std::chrono::year{2026} / std::chrono::November / 5} + std::chrono::hours{12};
     const auto timedIdentifier = repository.add(TimedReminder{
-        .title = "Звонок", .dueAt = moment, .fired = true});
+        .title = "Звонок", .dueAt = moment, .status = ReminderStatus::Fired});
     const auto recurringIdentifier = repository.add(RecurringReminder{
         .title = "Разминка", .dueAt = moment, .interval = std::chrono::minutes{45}});
     const auto placeIdentifier = repository.add(PlaceReminder{
@@ -153,7 +153,7 @@ TEST(PlannerRepositoriesTest, ReminderKindsShareIdentifiersAndKeepTheirData)
     ASSERT_TRUE(std::holds_alternative<PlaceReminder>(*place));
     EXPECT_EQ(std::get<TimedReminder>(*timed).identifier, timedIdentifier);
     EXPECT_EQ(std::get<TimedReminder>(*timed).dueAt, moment);
-    EXPECT_TRUE(std::get<TimedReminder>(*timed).fired);
+    EXPECT_EQ(std::get<TimedReminder>(*timed).status, ReminderStatus::Fired);
     EXPECT_EQ(std::get<RecurringReminder>(*recurring).interval, std::chrono::minutes{45});
     ASSERT_TRUE(std::get<PlaceReminder>(*place).coordinates.has_value());
     EXPECT_DOUBLE_EQ(std::get<PlaceReminder>(*place).coordinates->latitude, 0);

@@ -12,6 +12,7 @@ add_library(msa_core STATIC
     include/msa/core/HabitRepository.h
     include/msa/core/Reminder.h
     include/msa/core/ReminderRepository.h
+    include/msa/core/ReminderService.h
     include/msa/core/Task.h
     include/msa/core/TaskRepository.h
     include/msa/core/UserProfile.h
@@ -23,6 +24,7 @@ add_library(msa_core STATIC
     src/Pcre2Regex.cpp
     src/Pcre2Regex.h
     src/ReminderRepository.cpp
+    src/ReminderService.cpp
     src/TaskRepository.cpp
     src/UserProfileRepository.cpp
     src/Utf8Text.cpp
