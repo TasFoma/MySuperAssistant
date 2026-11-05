@@ -100,5 +100,22 @@ TEST(CalendarServiceTest, InvalidDatesAndEmptyRepositoryProduceEmptyResults)
     EXPECT_TRUE(calendar.eventDaysInMonth(year{2025} / 13).empty());
 }
 
+TEST(CalendarServiceTest, MonthDaysIncludeDailyAndWeeklyRepeatsOnlyFromSeriesStart)
+{
+    InMemoryEventRepository repository;
+    const auto weekly = repository.add(Event{
+        .date = year{2026} / 11 / 23, .repeat = EventRepeat::Weekly});
+    CalendarService calendar{repository};
+    EXPECT_EQ(calendar.eventDaysInMonth(year{2026} / 11),
+        (std::vector<day>{day{23}, day{30}}));
+    EXPECT_EQ(calendar.eventDaysInMonth(year{2026} / 12),
+        (std::vector<day>{day{7}, day{14}, day{21}, day{28}}));
+    static_cast<void>(repository.add(Event{
+        .date = year{2026} / 11 / 29, .repeat = EventRepeat::Daily}));
+    EXPECT_EQ(calendar.eventDaysInMonth(year{2026} / 11),
+        (std::vector<day>{day{23}, day{29}, day{30}}));
+    EXPECT_EQ(repository.find(weekly)->date, year{2026} / 11 / 23);
+}
+
 }  // namespace
 }  // namespace msa::core

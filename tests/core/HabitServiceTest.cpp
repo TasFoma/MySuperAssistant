@@ -104,5 +104,41 @@ TEST(HabitServiceTest, DetectsOverflowOfStoredProgress)
     EXPECT_THROW(static_cast<void>(service.habits()), std::runtime_error);
 }
 
+TEST(HabitServiceTest, RejectsUnknownPeriodWithoutCreatingHabit)
+{
+    FakeClock clock{std::chrono::local_days{year{2026} / 11 / 5}};
+    InMemoryHabitRepository repository;
+    HabitService service{clock, repository};
+    const auto result = service.addHabit("Чтение", 20.0, "стр", static_cast<HabitPeriod>(255));
+    ASSERT_TRUE(std::holds_alternative<HabitRejection>(result));
+    EXPECT_FALSE(std::get<HabitRejection>(result).reason.empty());
+    EXPECT_TRUE(repository.all().empty());
+}
+
+TEST(HabitServiceTest, SkipsInvalidLogDatesButRejectsInvalidValuesInCurrentPeriod)
+{
+    const auto date = year{2026} / 11 / 5;
+    FakeClock clock{std::chrono::local_days{date}};
+    for (const auto value : {0.0, -1.0, std::numeric_limits<double>::infinity(),
+                             std::numeric_limits<double>::quiet_NaN()}) {
+        InMemoryHabitRepository repository;
+        HabitService service{clock, repository};
+        const auto identifier = repository.add(Habit{.name = "Чтение", .target = 20.0});
+        ASSERT_TRUE(repository.addLog(HabitLogEntry{.habitIdentifier = identifier,
+            .date = year{2026} / 2 / 30, .value = value}));
+        ASSERT_TRUE(repository.addLog(HabitLogEntry{.habitIdentifier = identifier,
+            .date = year{2026} / 11 / 4, .value = value}));
+        ASSERT_TRUE(repository.addLog(HabitLogEntry{.habitIdentifier = identifier,
+            .date = year{2026} / 11 / 6, .value = value}));
+        const auto progress = service.habits();
+        ASSERT_EQ(progress.size(), 1U);
+        EXPECT_DOUBLE_EQ(progress.front().progress, 0.0);
+        ASSERT_TRUE(repository.addLog(HabitLogEntry{
+            .habitIdentifier = identifier, .date = date, .value = value}));
+        EXPECT_THROW(static_cast<void>(service.habits()), std::runtime_error);
+        EXPECT_EQ(repository.logs(identifier).size(), 4U);
+    }
+}
+
 }  // namespace
 }  // namespace msa::core
