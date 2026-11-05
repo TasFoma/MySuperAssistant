@@ -4,7 +4,7 @@
 
 Проект разделён на статические библиотеки слоёв и три исполняемые цели.
 Реальная предметная функциональность находится в `src/core`: парсер команд,
-типы планировщика, абстрактные интерфейсы и сервисы напоминаний по времени и календаря. Связки парсера с репозиториями
+типы планировщика, абстрактные интерфейсы и сервисы напоминаний по времени, календаря и привычек. Связки парсера с репозиториями
 или приложениями пока нет. Поток «клиент → сервер → хранилище» не реализован.
 
 `msa_server` содержит только `return 0`. Оба клиента создают `QGuiApplication`
@@ -62,6 +62,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Модуль | Что есть сейчас | Путь |
 | --- | --- | --- |
 | CommandParser | Разбор UTF-8 текста в `Command`, без выполнения действий | `src/core/include/msa/core/CommandParser.h`, `src/core/src/CommandParser.cpp` |
+| HabitService | Создание привычек, отметки и текущий прогресс через Clock и HabitRepository | `src/core/include/msa/core/HabitService.h`, `src/core/src/HabitService.cpp` |
 | CalendarService | События дня и дни месяца с учётом повторений | `src/core/include/msa/core/CalendarService.h`, `src/core/src/CalendarService.cpp` |
 | ReminderService | Создание и обработка напоминаний по времени через Clock и ReminderRepository | `src/core/include/msa/core/ReminderService.h`, `src/core/src/ReminderService.cpp` |
 | Command | Вариант типов результатов разбора, включая `NoCommand` | `src/core/include/msa/core/Command.h` |
@@ -87,7 +88,9 @@ Qt ищется один раз в корневом CMake; поэтому уст
 Напоминания объединены в `std::variant`. Однократные имеют статус `Pending/Fired/Missed`.
 `ReminderService` обновляет репозиторий и возвращает сработавшие записи; при запуске
 отдельный вызов пропускает просроченные однократные напоминания. Таймеров и доставки
-уведомлений пока нет. Геонапоминания и прогресс привычек ещё не обрабатываются.
+уведомлений пока нет. Геонапоминания ещё не обрабатываются. Прогресс привычек вычисляет `HabitService`: за сегодня
+либо с понедельника по сегодня, без ограничения целью. Подробнее —
+[HabitService](modules/HabitService.md).
 Подробности — в [ReminderService](modules/ReminderService.md).
 
 ## Границы реализации

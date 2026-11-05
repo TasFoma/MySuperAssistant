@@ -2,6 +2,7 @@ add_executable(msa_core_tests
     CalendarServiceTest.cpp
     CommandParserTest.cpp
     FakeClock.cpp
+    HabitServiceTest.cpp
     InMemoryEventRepository.cpp
     InMemoryHabitRepository.cpp
     InMemoryReminderRepository.cpp
