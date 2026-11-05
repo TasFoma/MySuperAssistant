@@ -7,6 +7,7 @@
 типы планировщика, абстрактные интерфейсы и сервисы напоминаний по времени и месту, календаря, привычек, задач, создания/изменения событий, предупреждений о событиях и ежедневного приветствия. Связки парсера с репозиториями
 или приложениями пока нет. `UserProfileService` добавляет факты памяти пользователя,
 `DailyContextService` формирует сводку дня для будущего контекста LLM.
+`EveningCheckInService` подготавливает вечерний опрос с 20:00 один раз за день.
 Поток «клиент → сервер → хранилище» не реализован.
 
 `msa_server` содержит только `return 0`. Оба клиента создают `QGuiApplication`
@@ -65,6 +66,8 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | --- | --- | --- |
 | CommandParser | Разбор UTF-8 текста в `Command`, без выполнения действий | `src/core/include/msa/core/CommandParser.h`, `src/core/src/CommandParser.cpp` |
 | DailyContextService | Текст сводки: дата/время, события, пять открытых задач, прогресс привычек | `src/core/include/msa/core/DailyContextService.h`, `src/core/src/DailyContextService.cpp` |
+| EveningCheckInService | Подготовка вечернего опроса раз за день с 20:00 | `src/core/include/msa/core/EveningCheckInService.h`, `src/core/src/EveningCheckInService.cpp` |
+| EveningCheckInRepository | Интерфейс хранения даты последнего подготовленного опроса | `src/core/include/msa/core/EveningCheckInRepository.h`, `src/core/src/EveningCheckInRepository.cpp` |
 | EventWarningService | Предупреждения за час, накануне и в день события с отметками выдачи | `src/core/include/msa/core/EventWarningService.h`, `src/core/src/EventWarningService.cpp` |
 | EventWarningRepository | Интерфейс отметок ID + дата вхождения + вид предупреждения | `src/core/include/msa/core/EventWarningRepository.h`, `src/core/src/EventWarningRepository.cpp` |
 | EventService | Создание и изменение всей серии событий с проверкой ввода | `src/core/include/msa/core/EventService.h`, `src/core/src/EventService.cpp` |
@@ -82,7 +85,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Pcre2Regex | Внутренняя обёртка поиска совпадений PCRE2 с UTF, Unicode-свойствами и без учёта регистра | `src/core/src/Pcre2Regex.h`, `src/core/src/Pcre2Regex.cpp` |
 | Utf8Text | Внутренние операции длины, обрезки пробелов Unicode и регистра латиницы/кириллицы | `src/core/src/Utf8Text.h`, `src/core/src/Utf8Text.cpp` |
 | PlannerText | Общий для приветствия и сводки формат русской даты и времени HH:MM | `src/core/src/PlannerText.h`, `src/core/src/PlannerText.cpp` |
-| Тестовая инфраструктура | `FakeClock`, семь `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
+| Тестовая инфраструктура | `FakeClock`, восемь `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
 | infra | Пустая библиотека | `src/infra/` |
 | Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
@@ -129,7 +132,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 Аудит полноты переноса планировщика приведён в [этапе 1 плана](migration-plan.md).
 Пока отсутствуют общий список активных напоминаний,
-полная сборка контекста LLM и вечерний опрос. Контракты репозиториев
+полная сборка контекста LLM и обработка ответа на вечерний опрос. Контракты репозиториев
 и тесты существующих сервисов не означают, что эти функции уже реализованы.
 
 `TaskService` использует `Clock` и `TaskRepository`: создаёт незавершённые задачи,
@@ -159,3 +162,8 @@ LLM и возможные теги относятся к этапу 2; серв�
 и всеми привычками без изменения данных. Профиль в неё не входит; объединение
 с отобранной памятью и историей чата относится к этапу 2. Подробнее —
 [DailyContextService](modules/DailyContextService.md).
+
+`EveningCheckInService` использует Clock и EveningCheckInRepository: при первой
+проверке с 20:00 до конца дня сохраняет дату и возвращает текст опроса. SQLite
+относится к этапу 3; таймер, доставка и обработка ответа пока не реализованы.
+Подробнее — [EveningCheckInService](modules/EveningCheckInService.md).
