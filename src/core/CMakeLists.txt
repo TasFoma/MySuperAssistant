@@ -1,18 +1,30 @@
 include(${PROJECT_SOURCE_DIR}/cmake/Pcre2.cmake)
 
 add_library(msa_core STATIC
+    include/msa/core/Clock.h
     include/msa/core/Command.h
     include/msa/core/CommandParser.h
     include/msa/core/Event.h
+    include/msa/core/EventRepository.h
     include/msa/core/GeoCoordinates.h
     include/msa/core/Habit.h
     include/msa/core/HabitLogEntry.h
+    include/msa/core/HabitRepository.h
     include/msa/core/Reminder.h
+    include/msa/core/ReminderRepository.h
     include/msa/core/Task.h
+    include/msa/core/TaskRepository.h
     include/msa/core/UserProfile.h
+    include/msa/core/UserProfileRepository.h
+    src/Clock.cpp
     src/CommandParser.cpp
+    src/EventRepository.cpp
+    src/HabitRepository.cpp
     src/Pcre2Regex.cpp
     src/Pcre2Regex.h
+    src/ReminderRepository.cpp
+    src/TaskRepository.cpp
+    src/UserProfileRepository.cpp
     src/Utf8Text.cpp
     src/Utf8Text.h
 )

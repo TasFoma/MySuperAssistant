@@ -31,10 +31,10 @@ public:
     Pcre2Regex(Pcre2Regex&&) = delete;
     Pcre2Regex& operator=(Pcre2Regex&&) = delete;
 
-    /// @brief Первое совпадение в строке. Некорректный UTF-8 даёт отсутствие совпадения.
+    /// @brief Первое совпадение; отсутствие — nullopt, ошибка поиска — std::runtime_error.
     [[nodiscard]] std::optional<RegexMatch> match(std::string_view subject) const;
 
-    /// @brief Все непересекающиеся совпадения. Шаблоны не должны совпадать с пустой строкой.
+    /// @brief Все непересекающиеся совпадения; ошибка поиска — std::runtime_error.
     [[nodiscard]] std::vector<RegexMatch> matchAll(std::string_view subject) const;
 
 private:

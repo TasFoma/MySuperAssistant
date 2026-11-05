@@ -302,4 +302,28 @@ TEST(CommandParserTest, RejectsFreeFormsWithTooShortTitles)
     }
 }
 
+TEST(CommandParserTest, RejectsShortResultsInEveryCommandKind)
+{
+    const CommandParser parser;
+    for (const auto text : {"запомни: Я", "напомни Я каждый час",
+                            "список дел: 1. Я 2. Ты", "маршрут до Я",
+                            "напомни Я, когда буду около магазина",
+                            "напомни завтра Я", "добавь задачу Я",
+                            "Я, добавь в календарь", "Я, добавь в задачи",
+                            "добавь событие Я", "напомни завтра",
+                            "добавь встречу Я"}) {
+        SCOPED_TRACE(text);
+        EXPECT_TRUE(std::holds_alternative<NoCommand>(parser.parse(text, tuesdayNoon())));
+    }
+}
+
+TEST(CommandParserTest, AcceptsThreeCyrillicCodePoints)
+{
+    const CommandParser parser;
+    const auto command = parser.parse("добавь задачу Сон", tuesdayNoon());
+
+    ASSERT_TRUE(std::holds_alternative<TaskCommand>(command));
+    EXPECT_EQ(std::get<TaskCommand>(command).title, "Сон");
+}
+
 }  // namespace msa::core

@@ -30,11 +30,17 @@ constexpr std::size_t kContinuationMark = 0x80;
                                                    std::size_t from)
 {
     pcre2_match_data* matchData = pcre2_match_data_create_from_pattern(code, nullptr);
+    if (matchData == nullptr) {
+        throw std::runtime_error{"Не удалось выделить данные поиска PCRE2"};
+    }
     const int result = pcre2_match(code, reinterpret_cast<PCRE2_SPTR>(subject.data()), subject.size(),
                                    from, 0, matchData, nullptr);
     if (result < 0) {
         pcre2_match_data_free(matchData);
-        return std::nullopt;
+        if (result == PCRE2_ERROR_NOMATCH) {
+            return std::nullopt;
+        }
+        throw std::runtime_error{"Ошибка поиска PCRE2: " + std::to_string(result)};
     }
 
     // Необязательные хвостовые группы могут не попасть в ovector, поэтому считаем по шаблону.

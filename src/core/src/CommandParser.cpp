@@ -268,9 +268,6 @@ struct When {
     static const Pcre2Regex kSpaceRun{R"(\s+)"};
     title = trimmedText(replaceAll(replaceAll(title, kCleanWords, ""), kSpaceRun, " "));
     title = tidy(title);
-    if (utf8::charCount(title) < kMinTitleLength) {
-        return std::nullopt;
-    }
     return RecurringReminderCommand{title, std::chrono::minutes{minutes}};
 }
 
@@ -464,6 +461,9 @@ struct When {
     }
     When w = extractWhen(ev->groups[2], now);
     std::string title = tidy(w.cleaned);
+    if (utf8::charCount(title) < kMinTitleLength) {
+        return std::nullopt;
+    }
     // «встречу с Иваном» → «Встреча с Иваном»
     if (utf8::toLower(ev->groups[1]) == "встречу" && !title.empty()) {
         title = "Встреча " + utf8::lowerFirst(title);
@@ -471,9 +471,7 @@ struct When {
     return EventCommand{title, w.date.value_or(dayOf(now)), w.time};
 }
 
-}  // namespace
-
-Command CommandParser::parse(std::string_view text, LocalSeconds now) const
+[[nodiscard]] Command parseCommand(std::string_view text, LocalSeconds now)
 {
     const std::string t = stripLeadingPhrases(text);
 
@@ -514,6 +512,29 @@ Command CommandParser::parse(std::string_view text, LocalSeconds now) const
         return std::move(*event);
     }
     return NoCommand{};
+}
+
+}  // namespace
+
+Command CommandParser::parse(std::string_view text, LocalSeconds now) const
+{
+    Command command = parseCommand(text, now);
+    const bool valid = std::visit([](const auto& value) {
+        if constexpr (requires { value.title; }) {
+            return utf8::charCount(value.title) >= kMinTitleLength;
+        } else if constexpr (requires { value.fact; }) {
+            return utf8::charCount(value.fact) >= kMinTitleLength;
+        } else if constexpr (requires { value.place; }) {
+            return utf8::charCount(value.place) >= kMinTitleLength;
+        } else {
+            return true;
+        }
+    }, command);
+    if (!valid) {
+        return NoCommand{};
+    }
+
+    return command;
 }
 
 }  // namespace msa::core
