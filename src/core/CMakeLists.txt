@@ -8,6 +8,8 @@ add_library(msa_core STATIC
     include/msa/core/Event.h
     include/msa/core/EventRepository.h
     include/msa/core/EventService.h
+    include/msa/core/EventWarningRepository.h
+    include/msa/core/EventWarningService.h
     include/msa/core/GeoCoordinates.h
     include/msa/core/GreetingRepository.h
     include/msa/core/GreetingService.h
@@ -28,6 +30,8 @@ add_library(msa_core STATIC
     src/CommandParser.cpp
     src/EventRepository.cpp
     src/EventService.cpp
+    src/EventWarningRepository.cpp
+    src/EventWarningService.cpp
     src/GreetingRepository.cpp
     src/GreetingService.cpp
     src/HabitRepository.cpp

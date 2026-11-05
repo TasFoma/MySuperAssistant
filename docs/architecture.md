@@ -4,7 +4,7 @@
 
 Проект разделён на статические библиотеки слоёв и три исполняемые цели.
 Реальная предметная функциональность находится в `src/core`: парсер команд,
-типы планировщика, абстрактные интерфейсы и сервисы напоминаний по времени и месту, календаря, привычек, задач, создания/изменения событий и ежедневного приветствия. Связки парсера с репозиториями
+типы планировщика, абстрактные интерфейсы и сервисы напоминаний по времени и месту, календаря, привычек, задач, создания/изменения событий, предупреждений о событиях и ежедневного приветствия. Связки парсера с репозиториями
 или приложениями пока нет. Поток «клиент → сервер → хранилище» не реализован.
 
 `msa_server` содержит только `return 0`. Оба клиента создают `QGuiApplication`
@@ -62,6 +62,8 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Модуль | Что есть сейчас | Путь |
 | --- | --- | --- |
 | CommandParser | Разбор UTF-8 текста в `Command`, без выполнения действий | `src/core/include/msa/core/CommandParser.h`, `src/core/src/CommandParser.cpp` |
+| EventWarningService | Предупреждения за час, накануне и в день события с отметками выдачи | `src/core/include/msa/core/EventWarningService.h`, `src/core/src/EventWarningService.cpp` |
+| EventWarningRepository | Интерфейс отметок ID + дата вхождения + вид предупреждения | `src/core/include/msa/core/EventWarningRepository.h`, `src/core/src/EventWarningRepository.cpp` |
 | EventService | Создание и изменение всей серии событий с проверкой ввода | `src/core/include/msa/core/EventService.h`, `src/core/src/EventService.cpp` |
 | TaskService | Создание, изменение, завершение и сортировка задач | `src/core/include/msa/core/TaskService.h`, `src/core/src/TaskService.cpp` |
 | GreetingService | Приветствие с датой, событиями и пятью задачами | `src/core/include/msa/core/GreetingService.h`, `src/core/src/GreetingService.cpp` |
@@ -75,7 +77,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Clock | Абстрактный источник местного времени с точностью до секунд | `src/core/include/msa/core/Clock.h`, `src/core/src/Clock.cpp` |
 | Pcre2Regex | Внутренняя обёртка поиска совпадений PCRE2 с UTF, Unicode-свойствами и без учёта регистра | `src/core/src/Pcre2Regex.h`, `src/core/src/Pcre2Regex.cpp` |
 | Utf8Text | Внутренние операции длины в кодовых точках и регистра латиницы/кириллицы | `src/core/src/Utf8Text.h`, `src/core/src/Utf8Text.cpp` |
-| Тестовая инфраструктура | `FakeClock`, шесть `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
+| Тестовая инфраструктура | `FakeClock`, семь `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
 | infra | Пустая библиотека | `src/infra/` |
 | Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
@@ -121,7 +123,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 Подробнее — [GreetingService](modules/GreetingService.md).
 
 Аудит полноты переноса планировщика приведён в [этапе 1 плана](migration-plan.md).
-Пока отсутствуют предупреждения о событиях, общий список активных напоминаний, добавление
+Пока отсутствуют общий список активных напоминаний, добавление
 фактов с ограничением 30, контекст дня для LLM и вечерний опрос. Контракты репозиториев
 и тесты существующих сервисов не означают, что эти функции уже реализованы.
 
@@ -134,3 +136,9 @@ Qt ищется один раз в корневом CMake; поэтому уст
 Проверяет название, обязательную дату, необязательное время и повтор; прошедшая
 дата допустима. Чтение календаря остаётся в `CalendarService`, приложения пока
 не вызывают операции. Подробнее — [EventService](modules/EventService.md).
+
+`EventWarningService` использует `Clock`, `CalendarService` и `EventWarningRepository`.
+Со временем выдаёт за 0 < срок ≤ 60 минут, без времени — с 08:00 накануне и в день
+события, включая повторы. Сохраняет отметку до возврата структурированных данных.
+Тестовое хранилище отметок — в памяти, SQLite относится к этапу 3; доставки клиентам
+пока нет. Подробнее — [EventWarningService](modules/EventWarningService.md).
