@@ -19,6 +19,7 @@ add_executable(msa_core_tests
     PlaceReminderTest.cpp
     ReminderServiceTest.cpp
     TaskServiceTest.cpp
+    UserProfileServiceTest.cpp
 )
 
 target_compile_features(msa_core_tests PRIVATE cxx_std_20)

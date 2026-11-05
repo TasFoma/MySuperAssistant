@@ -25,6 +25,7 @@ add_library(msa_core STATIC
     include/msa/core/TaskService.h
     include/msa/core/UserProfile.h
     include/msa/core/UserProfileRepository.h
+    include/msa/core/UserProfileService.h
     src/CalendarService.cpp
     src/Clock.cpp
     src/CommandParser.cpp
@@ -43,6 +44,7 @@ add_library(msa_core STATIC
     src/TaskRepository.cpp
     src/TaskService.cpp
     src/UserProfileRepository.cpp
+    src/UserProfileService.cpp
     src/Utf8Text.cpp
     src/Utf8Text.h
 )

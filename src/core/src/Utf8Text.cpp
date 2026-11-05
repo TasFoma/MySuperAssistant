@@ -1,5 +1,6 @@
 #include "Utf8Text.h"
 
+#include <string_view>
 #include <vector>
 
 namespace msa::core::text {
@@ -148,6 +149,21 @@ std::size_t charCount(std::string_view text)
         }
     }
     return count;
+}
+
+std::string trim(std::string_view text)
+{
+    constexpr std::u32string_view kWhitespace = U"\t\n\v\f\r \u0085\u00A0\u1680"
+        U"\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A"
+        U"\u2028\u2029\u202F\u205F\u3000";
+    const auto codePoints = decode(text);
+    const auto first = codePoints.find_first_not_of(kWhitespace);
+    if (first == std::u32string::npos) {
+        return {};
+    }
+    const auto last = codePoints.find_last_not_of(kWhitespace);
+
+    return encode(codePoints.substr(first, last - first + 1));
 }
 
 std::string toLower(std::string_view text)
