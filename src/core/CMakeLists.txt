@@ -5,6 +5,7 @@ add_library(msa_core STATIC
     include/msa/core/Clock.h
     include/msa/core/Command.h
     include/msa/core/CommandParser.h
+    include/msa/core/DailyContextService.h
     include/msa/core/Event.h
     include/msa/core/EventRepository.h
     include/msa/core/EventService.h
@@ -29,6 +30,7 @@ add_library(msa_core STATIC
     src/CalendarService.cpp
     src/Clock.cpp
     src/CommandParser.cpp
+    src/DailyContextService.cpp
     src/EventRepository.cpp
     src/EventService.cpp
     src/EventWarningRepository.cpp
@@ -39,6 +41,8 @@ add_library(msa_core STATIC
     src/HabitService.cpp
     src/Pcre2Regex.cpp
     src/Pcre2Regex.h
+    src/PlannerText.cpp
+    src/PlannerText.h
     src/ReminderRepository.cpp
     src/ReminderService.cpp
     src/TaskRepository.cpp

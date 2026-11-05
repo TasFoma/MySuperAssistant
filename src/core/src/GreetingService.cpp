@@ -1,10 +1,10 @@
 #include "msa/core/GreetingService.h"
 
+#include "PlannerText.h"
+
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <cstddef>
-#include <string_view>
 
 namespace msa::core {
 namespace {
@@ -12,31 +12,7 @@ namespace {
 constexpr int kMorningHour = 8;
 constexpr int kDayHour = 12;
 constexpr int kEveningHour = 18;
-constexpr int kMinutesPerHour = 60;
 constexpr std::size_t kMaxTasks = 5;
-
-[[nodiscard]] std::string russianDate(std::chrono::year_month_day date)
-{
-    static constexpr std::array<std::string_view, 7> kDays{
-        "понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"};
-    static constexpr std::array<std::string_view, 12> kMonths{
-        "января", "февраля", "марта", "апреля", "мая", "июня",
-        "июля", "августа", "сентября", "октября", "ноября", "декабря"};
-    const auto weekday = std::chrono::weekday{std::chrono::sys_days{date}}.iso_encoding();
-
-    return std::string{kDays[weekday - 1]} + ", " + std::to_string(static_cast<unsigned>(date.day()))
-           + " " + std::string{kMonths[static_cast<unsigned>(date.month()) - 1]}
-           + " " + std::to_string(static_cast<int>(date.year()));
-}
-
-[[nodiscard]] std::string timeText(std::chrono::minutes time)
-{
-    const auto hour = time.count() / kMinutesPerHour;
-    const auto minute = time.count() % kMinutesPerHour;
-
-    return (hour < 10 ? "0" : "") + std::to_string(hour) + ":"
-           + (minute < 10 ? "0" : "") + std::to_string(minute);
-}
 
 }  // namespace
 
@@ -58,12 +34,12 @@ std::optional<std::string> GreetingService::greetingIfNeeded()
     const std::string salutation = hour < kMorningHour ? "Доброй ночи"
                                    : hour < kDayHour ? "Доброе утро"
                                    : hour < kEveningHour ? "Добрый день" : "Добрый вечер";
-    std::string message = salutation + "! Сегодня " + russianDate(today) + ".";
+    std::string message = salutation + "! Сегодня " + text::russianDate(today) + ".";
     const auto events = m_calendar.eventsForDate(today);
     if (!events.empty()) {
         message += "\n\n📅 Планы на сегодня:";
         for (const auto& event : events) {
-            message += "\n• " + (event.time ? timeText(*event.time) + " — " : "") + event.title;
+            message += "\n• " + (event.time ? text::timeText(*event.time) + " — " : "") + event.title;
         }
     }
     auto tasks = m_tasks.all();

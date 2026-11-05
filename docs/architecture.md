@@ -5,7 +5,8 @@
 Проект разделён на статические библиотеки слоёв и три исполняемые цели.
 Реальная предметная функциональность находится в `src/core`: парсер команд,
 типы планировщика, абстрактные интерфейсы и сервисы напоминаний по времени и месту, календаря, привычек, задач, создания/изменения событий, предупреждений о событиях и ежедневного приветствия. Связки парсера с репозиториями
-или приложениями пока нет. `UserProfileService` добавляет факты памяти пользователя.
+или приложениями пока нет. `UserProfileService` добавляет факты памяти пользователя,
+`DailyContextService` формирует сводку дня для будущего контекста LLM.
 Поток «клиент → сервер → хранилище» не реализован.
 
 `msa_server` содержит только `return 0`. Оба клиента создают `QGuiApplication`
@@ -63,6 +64,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Модуль | Что есть сейчас | Путь |
 | --- | --- | --- |
 | CommandParser | Разбор UTF-8 текста в `Command`, без выполнения действий | `src/core/include/msa/core/CommandParser.h`, `src/core/src/CommandParser.cpp` |
+| DailyContextService | Текст сводки: дата/время, события, пять открытых задач, прогресс привычек | `src/core/include/msa/core/DailyContextService.h`, `src/core/src/DailyContextService.cpp` |
 | EventWarningService | Предупреждения за час, накануне и в день события с отметками выдачи | `src/core/include/msa/core/EventWarningService.h`, `src/core/src/EventWarningService.cpp` |
 | EventWarningRepository | Интерфейс отметок ID + дата вхождения + вид предупреждения | `src/core/include/msa/core/EventWarningRepository.h`, `src/core/src/EventWarningRepository.cpp` |
 | EventService | Создание и изменение всей серии событий с проверкой ввода | `src/core/include/msa/core/EventService.h`, `src/core/src/EventService.cpp` |
@@ -79,6 +81,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Clock | Абстрактный источник местного времени с точностью до секунд | `src/core/include/msa/core/Clock.h`, `src/core/src/Clock.cpp` |
 | Pcre2Regex | Внутренняя обёртка поиска совпадений PCRE2 с UTF, Unicode-свойствами и без учёта регистра | `src/core/src/Pcre2Regex.h`, `src/core/src/Pcre2Regex.cpp` |
 | Utf8Text | Внутренние операции длины, обрезки пробелов Unicode и регистра латиницы/кириллицы | `src/core/src/Utf8Text.h`, `src/core/src/Utf8Text.cpp` |
+| PlannerText | Общий для приветствия и сводки формат русской даты и времени HH:MM | `src/core/src/PlannerText.h`, `src/core/src/PlannerText.cpp` |
 | Тестовая инфраструктура | `FakeClock`, семь `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
 | infra | Пустая библиотека | `src/infra/` |
 | Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
@@ -126,7 +129,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 Аудит полноты переноса планировщика приведён в [этапе 1 плана](migration-plan.md).
 Пока отсутствуют общий список активных напоминаний,
-контекст дня для LLM и вечерний опрос. Контракты репозиториев
+полная сборка контекста LLM и вечерний опрос. Контракты репозиториев
 и тесты существующих сервисов не означают, что эти функции уже реализованы.
 
 `TaskService` использует `Clock` и `TaskRepository`: создаёт незавершённые задачи,
@@ -150,3 +153,9 @@ Qt ищется один раз в корневом CMake; поэтому уст
 добавления. Повторы и внутренние переносы строк сохраняются. Ограничение контекста
 LLM и возможные теги относятся к этапу 2; сервис пока не вызывается приложениями.
 Подробнее — [UserProfileService](modules/UserProfileService.md).
+
+`DailyContextService` читает Clock, CalendarService, TaskService и HabitService:
+формирует сводку с датой/временем, событиями сегодня, пятью открытыми задачами
+и всеми привычками без изменения данных. Профиль в неё не входит; объединение
+с отобранной памятью и историей чата относится к этапу 2. Подробнее —
+[DailyContextService](modules/DailyContextService.md).

@@ -1,6 +1,7 @@
 add_executable(msa_core_tests
     CalendarServiceTest.cpp
     CommandParserTest.cpp
+    DailyContextServiceTest.cpp
     EventServiceTest.cpp
     EventWarningServiceTest.cpp
     FakeClock.cpp
