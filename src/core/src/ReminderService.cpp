@@ -6,6 +6,8 @@
 #include <cmath>
 #include <numbers>
 #include <stdexcept>
+#include <tuple>
+#include <type_traits>
 
 namespace msa::core {
 
@@ -16,6 +18,28 @@ constexpr double kPlaceRadiusMeters = 200.0;
 constexpr double kMaxLatitude = 90.0;
 constexpr double kMaxLongitude = 180.0;
 constexpr double kRadiansPerDegree = std::numbers::pi / kMaxLongitude;
+
+[[nodiscard]] bool isActive(const Reminder& reminder)
+{
+    return std::visit([](const auto& item) {
+        if constexpr (std::is_same_v<std::decay_t<decltype(item)>, RecurringReminder>) {
+            return true;
+        } else {
+            return item.status == ReminderStatus::Pending;
+        }
+    }, reminder);
+}
+
+[[nodiscard]] auto reminderOrder(const Reminder& reminder)
+{
+    return std::visit([](const auto& item) {
+        if constexpr (std::is_same_v<std::decay_t<decltype(item)>, PlaceReminder>) {
+            return std::tuple{true, std::chrono::local_time<std::chrono::seconds>{}, item.identifier};
+        } else {
+            return std::tuple{false, item.dueAt, item.identifier};
+        }
+    }, reminder);
+}
 
 [[nodiscard]] bool validCoordinates(GeoCoordinates coordinates)
 {
@@ -99,6 +123,15 @@ ReminderCreationResult ReminderService::addPlace(const std::string& title,
     }
 
     return m_repository.add(PlaceReminder{.title = title, .place = place, .coordinates = coordinates});
+}
+
+std::vector<Reminder> ReminderService::activeReminders() const
+{
+    auto reminders = m_repository.all();
+    std::erase_if(reminders, [](const Reminder& reminder) { return !isActive(reminder); });
+    std::ranges::sort(reminders, {}, reminderOrder);
+
+    return reminders;
 }
 
 PlaceCheckResult ReminderService::checkNearPlace(GeoCoordinates position)

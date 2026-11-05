@@ -103,5 +103,71 @@ TEST(ReminderServiceTest, CorruptStoredIntervalThrowsWithoutChangingRecord)
     EXPECT_EQ(std::get<RecurringReminder>(*repository.find(identifier)).dueAt, noon());
 }
 
+TEST(ReminderServiceTest, ActiveListIsEmptyWithoutPendingRecords)
+{
+    FakeClock clock{noon()};
+    InMemoryReminderRepository repository;
+    const ReminderService service{clock, repository};
+    EXPECT_TRUE(service.activeReminders().empty());
+    for (const auto status : {ReminderStatus::Fired, ReminderStatus::Missed}) {
+        static_cast<void>(repository.add(TimedReminder{.status = status}));
+        static_cast<void>(repository.add(PlaceReminder{.status = status}));
+    }
+    EXPECT_TRUE(service.activeReminders().empty());
+    EXPECT_EQ(repository.all().size(), 4U);
+}
+
+TEST(ReminderServiceTest, ActiveListOrdersMixedRecordsByTimeThenPlacesAndIdentifier)
+{
+    FakeClock clock{noon()};
+    InMemoryReminderRepository repository;
+    const ReminderService service{clock, repository};
+    const auto place = repository.add(PlaceReminder{.title = "Место", .place = "Дом"});
+    const auto later = repository.add(TimedReminder{.dueAt = noon() + minutes{1}});
+    const auto recurring = repository.add(RecurringReminder{
+        .dueAt = noon(), .interval = minutes{45}});
+    const auto timed = repository.add(TimedReminder{.dueAt = noon()});
+    const auto past = repository.add(TimedReminder{.dueAt = noon() - seconds{1}});
+    const auto located = repository.add(PlaceReminder{
+        .title = "Координаты", .place = "Парк", .coordinates = GeoCoordinates{0.0, 0.0}});
+    static_cast<void>(repository.add(TimedReminder{.status = ReminderStatus::Fired}));
+    static_cast<void>(repository.add(PlaceReminder{.status = ReminderStatus::Missed}));
+
+    const auto active = service.activeReminders();
+    ASSERT_EQ(active.size(), 6U);
+    EXPECT_EQ(std::get<TimedReminder>(active[0]).identifier, past);
+    EXPECT_EQ(std::get<RecurringReminder>(active[1]).identifier, recurring);
+    EXPECT_EQ(std::get<TimedReminder>(active[2]).identifier, timed);
+    EXPECT_EQ(std::get<TimedReminder>(active[3]).identifier, later);
+    EXPECT_EQ(std::get<PlaceReminder>(active[4]).identifier, place);
+    EXPECT_EQ(std::get<PlaceReminder>(active[5]).identifier, located);
+    EXPECT_FALSE(std::get<PlaceReminder>(active[4]).coordinates.has_value());
+}
+
+TEST(ReminderServiceTest, ActiveListReturnsCopiesWithoutProcessingDueRecords)
+{
+    FakeClock clock{noon()};
+    InMemoryReminderRepository repository;
+    ReminderService service{clock, repository};
+    const auto timed = repository.add(TimedReminder{.title = "Звонок", .dueAt = noon()});
+    const auto recurring = repository.add(RecurringReminder{
+        .title = "Вода", .dueAt = noon(), .interval = minutes{45}});
+    clock.advance(minutes{1});
+
+    auto active = service.activeReminders();
+    ASSERT_EQ(active.size(), 2U);
+    std::get<TimedReminder>(active.front()).title = "Изменённая копия";
+    EXPECT_EQ(std::get<TimedReminder>(*repository.find(timed)).title, "Звонок");
+    EXPECT_EQ(std::get<TimedReminder>(*repository.find(timed)).status, ReminderStatus::Pending);
+    EXPECT_EQ(std::get<RecurringReminder>(*repository.find(recurring)).dueAt, noon());
+
+    ASSERT_EQ(service.checkDue().size(), 2U);
+    const auto afterFiring = service.activeReminders();
+    ASSERT_EQ(afterFiring.size(), 1U);
+    EXPECT_EQ(std::get<RecurringReminder>(afterFiring.front()).dueAt, clock.now() + minutes{45});
+    ASSERT_TRUE(repository.remove(recurring));
+    EXPECT_TRUE(service.activeReminders().empty());
+}
+
 }  // namespace
 }  // namespace msa::core

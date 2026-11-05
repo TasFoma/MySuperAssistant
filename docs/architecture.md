@@ -77,7 +77,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | GreetingRepository | Интерфейс хранения даты последнего приветствия | `src/core/include/msa/core/GreetingRepository.h`, `src/core/src/GreetingRepository.cpp` |
 | HabitService | Создание привычек, отметки и текущий прогресс через Clock и HabitRepository | `src/core/include/msa/core/HabitService.h`, `src/core/src/HabitService.cpp` |
 | CalendarService | События дня и дни месяца с учётом повторений | `src/core/include/msa/core/CalendarService.h`, `src/core/src/CalendarService.cpp` |
-| ReminderService | Создание и обработка напоминаний по времени и месту через Clock и ReminderRepository | `src/core/include/msa/core/ReminderService.h`, `src/core/src/ReminderService.cpp` |
+| ReminderService | Создание, обработка и отсортированный список активных напоминаний по времени и месту | `src/core/include/msa/core/ReminderService.h`, `src/core/src/ReminderService.cpp` |
 | Command | Вариант типов результатов разбора, включая `NoCommand` | `src/core/include/msa/core/Command.h` |
 | Планировщик: данные | Задача, событие, три вида напоминаний, координаты, привычка, запись прогресса, профиль; без предметной валидации и расчётов | `src/core/include/msa/core/{Task,Event,Reminder,GeoCoordinates,Habit,HabitLogEntry,UserProfile}.h` |
 | Репозитории | Абстрактные интерфейсы задач, событий, напоминаний, привычек с журналом и профиля | `src/core/include/msa/core/*Repository.h`, деструкторы в `src/core/src/*Repository.cpp` |
@@ -131,7 +131,9 @@ Qt ищется один раз в корневом CMake; поэтому уст
 Подробнее — [GreetingService](modules/GreetingService.md).
 
 Аудит полноты переноса планировщика приведён в [этапе 1 плана](migration-plan.md).
-Пока отсутствуют общий список активных напоминаний,
+`ReminderService::activeReminders` возвращает копии Pending и всех повторяющихся:
+сначала по сроку, затем геонапоминания (включая записи без координат), при равенстве — ID.
+Чтение не меняет хранилище. Пока отсутствуют
 полная сборка контекста LLM и обработка ответа на вечерний опрос. Контракты репозиториев
 и тесты существующих сервисов не означают, что эти функции уже реализованы.
 
