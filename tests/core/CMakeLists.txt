@@ -13,9 +13,11 @@ add_executable(msa_core_tests
     InMemoryEveningCheckInRepository.cpp
     InMemoryGreetingRepository.cpp
     InMemoryHabitRepository.cpp
+    InMemoryMoodRepository.cpp
     InMemoryReminderRepository.cpp
     InMemoryTaskRepository.cpp
     InMemoryUserProfileRepository.cpp
+    MoodServiceTest.cpp
     PlannerRepositoriesTest.cpp
     PlannerTypesTest.cpp
     Pcre2RegexTest.cpp

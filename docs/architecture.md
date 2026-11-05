@@ -8,6 +8,8 @@
 или приложениями пока нет. `UserProfileService` добавляет факты памяти пользователя,
 `DailyContextService` формирует сводку дня для будущего контекста LLM.
 `EveningCheckInService` подготавливает вечерний опрос с 20:00 один раз за день.
+`MoodService` записывает явно указанное настроение и возвращает историю без удаления
+старых записей; анализ через LLM и связь с чатом ещё не реализованы.
 Поток «клиент → сервер → хранилище» не реализован.
 
 `msa_server` содержит только `return 0`. Оба клиента создают `QGuiApplication`
@@ -66,6 +68,9 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | --- | --- | --- |
 | CommandParser | Разбор UTF-8 текста в `Command`, без выполнения действий | `src/core/include/msa/core/CommandParser.h`, `src/core/src/CommandParser.cpp` |
 | DailyContextService | Текст сводки: дата/время, события, пять открытых задач, прогресс привычек | `src/core/include/msa/core/DailyContextService.h`, `src/core/src/DailyContextService.cpp` |
+| MoodService | Явная запись настроения с полным текстом и история по календарным дням | `src/core/include/msa/core/MoodService.h`, `src/core/src/MoodService.cpp` |
+| MoodRepository | Интерфейс добавления и чтения дневника без очистки по возрасту | `src/core/include/msa/core/MoodRepository.h`, `src/core/src/MoodRepository.cpp` |
+| MoodEntry | Запись настроения: ID, время, MoodScore и полный текст | `src/core/include/msa/core/MoodEntry.h` |
 | EveningCheckInService | Подготовка вечернего опроса раз за день с 20:00 | `src/core/include/msa/core/EveningCheckInService.h`, `src/core/src/EveningCheckInService.cpp` |
 | EveningCheckInRepository | Интерфейс хранения даты последнего подготовленного опроса | `src/core/include/msa/core/EveningCheckInRepository.h`, `src/core/src/EveningCheckInRepository.cpp` |
 | EventWarningService | Предупреждения за час, накануне и в день события с отметками выдачи | `src/core/include/msa/core/EventWarningService.h`, `src/core/src/EventWarningService.cpp` |
@@ -85,7 +90,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Pcre2Regex | Внутренняя обёртка поиска совпадений PCRE2 с UTF, Unicode-свойствами и без учёта регистра | `src/core/src/Pcre2Regex.h`, `src/core/src/Pcre2Regex.cpp` |
 | Utf8Text | Внутренние операции длины, обрезки пробелов Unicode и регистра латиницы/кириллицы | `src/core/src/Utf8Text.h`, `src/core/src/Utf8Text.cpp` |
 | PlannerText | Общий для приветствия и сводки формат русской даты и времени HH:MM | `src/core/src/PlannerText.h`, `src/core/src/PlannerText.cpp` |
-| Тестовая инфраструктура | `FakeClock`, восемь `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
+| Тестовая инфраструктура | `FakeClock`, девять `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
 | infra | Пустая библиотека | `src/infra/` |
 | Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
@@ -169,3 +174,11 @@ LLM и возможные теги относятся к этапу 2; серв�
 проверке с 20:00 до конца дня сохраняет дату и возвращает текст опроса. SQLite
 относится к этапу 3; таймер, доставка и обработка ответа пока не реализованы.
 Подробнее — [EveningCheckInService](modules/EveningCheckInService.md).
+
+`MoodService` зависит от Clock и MoodRepository. По явному вызову сохраняет
+Negative/Neutral/Positive, полную заметку и текущее время. История по умолчанию
+охватывает 14 календарных дней, включая сегодня, до текущего момента. Период
+ограничивает выборку, старые записи сохраняются. Репозиторий пока реализован
+только в памяти для тестов; SQLite — этап 3. Анализа тона, автоматической записи
+переписки и переноса важных событий в профиль пока нет. Подробнее —
+[MoodService](modules/MoodService.md).

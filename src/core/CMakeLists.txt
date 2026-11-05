@@ -20,6 +20,9 @@ add_library(msa_core STATIC
     include/msa/core/HabitLogEntry.h
     include/msa/core/HabitRepository.h
     include/msa/core/HabitService.h
+    include/msa/core/MoodEntry.h
+    include/msa/core/MoodRepository.h
+    include/msa/core/MoodService.h
     include/msa/core/Reminder.h
     include/msa/core/ReminderRepository.h
     include/msa/core/ReminderService.h
@@ -43,6 +46,8 @@ add_library(msa_core STATIC
     src/GreetingService.cpp
     src/HabitRepository.cpp
     src/HabitService.cpp
+    src/MoodRepository.cpp
+    src/MoodService.cpp
     src/Pcre2Regex.cpp
     src/Pcre2Regex.h
     src/PlannerText.cpp
