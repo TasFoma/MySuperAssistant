@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <chrono>
 #include <format>
+#include <iterator>
 #include <stdexcept>
 
 namespace msa::core {
@@ -96,6 +97,27 @@ std::vector<ChatMessage> ChatService::loadMessages() const
     std::ranges::sort(messages, {}, &ChatMessage::identifier);
 
     return messages;
+}
+
+ChatHistoryResult ChatService::historyMessages(std::size_t maxChars) const
+{
+    const auto messages = loadMessages();
+    auto first = messages.end();
+    auto remaining = maxChars;
+    while (first != messages.begin()) {
+        const auto previous = std::prev(first);
+        const auto count = text::charCount(previous->text);
+        if (count > remaining) {
+            if (first == messages.end()) {
+                return ChatRejection{"Последнее сообщение не помещается в бюджет истории. Увеличьте лимит."};
+            }
+            break;
+        }
+        remaining -= count;
+        first = previous;
+    }
+
+    return std::vector<ChatMessage>{first, messages.end()};
 }
 
 }  // namespace msa::core

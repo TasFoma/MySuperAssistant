@@ -3,6 +3,7 @@
 #include "msa/core/ChatRepository.h"
 #include "msa/core/Clock.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <variant>
@@ -20,8 +21,10 @@ struct ChatRejection {
 using ChatWriteResult = std::variant<std::int64_t, ChatRejection>;
 /// @brief Успех переключения либо причина отказа.
 using ChatChangeResult = std::variant<std::monostate, ChatRejection>;
+/// @brief Отобранные сохранённые сообщения либо отказ из-за недостаточного бюджета.
+using ChatHistoryResult = std::variant<std::vector<ChatMessage>, ChatRejection>;
 
-/// @brief Чаты и полная история без генерации ответов и отбора контекста LLM.
+/// @brief Чаты, полная история и отбор её последних сообщений без генерации ответов LLM.
 class ChatService {
 public:
     /// @brief Восстанавливает сохранённый чат; иначе выбирает максимальный ID или создаёт чат.
@@ -43,6 +46,12 @@ public:
     /// @brief Возвращает копии всех сообщений текущего чата по возрастанию ID.
     /// Не обрезает текст и не удаляет сообщения; технические ошибки пробрасываются.
     [[nodiscard]] std::vector<ChatMessage> loadMessages() const;
+    /// @brief Отбирает непрерывную последнюю часть истории в пределах maxChars кодовых точек UTF-8.
+    /// Только целые сообщения, по возрастанию ID; при первом непоместившемся останавливается.
+    /// Если последнее сообщение не помещается — ChatRejection; пустая история допустима при нуле.
+    /// Бюджет учитывает только текст, не токены модели; значение по умолчанию не задано.
+    /// Хранилище не меняет; технические ошибки пробрасываются.
+    [[nodiscard]] ChatHistoryResult historyMessages(std::size_t maxChars) const;
 
 private:
     const Clock& m_clock;

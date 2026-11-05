@@ -7,7 +7,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -338,6 +340,109 @@ TEST_F(ChatServiceTest, MessageAndListFailuresPropagateWithoutChangingHistory)
     const auto messages = m_storage.messages(service.currentChatId());
     ASSERT_EQ(messages.size(), 1U);
     EXPECT_EQ(messages.front().text, "Сохранено");
+}
+
+TEST_F(ChatServiceTest, EmptyHistoryAcceptsZeroAndMaximumBudget)
+{
+    ChatService service{m_clock, m_repository};
+    for (const auto budget : {std::size_t{0}, std::numeric_limits<std::size_t>::max()}) {
+        const auto result = service.historyMessages(budget);
+        ASSERT_TRUE(std::holds_alternative<std::vector<ChatMessage>>(result));
+        EXPECT_TRUE(std::get<std::vector<ChatMessage>>(result).empty());
+    }
+}
+
+TEST_F(ChatServiceTest, HistorySelectsContinuousNewestSuffixWithoutSkippingOversizedMiddle)
+{
+    ChatService service{m_clock, m_repository};
+    static_cast<void>(service.addMessage("а", MessageRole::User));
+    const auto middle = std::get<std::int64_t>(service.addMessage("12345678", MessageRole::Assistant));
+    const auto recent = std::get<std::int64_t>(service.addMessage("Да", MessageRole::User));
+    m_clock.advance(-hours{1});
+    const auto latest = std::get<std::int64_t>(service.addMessage("🙂", MessageRole::Assistant));
+
+    const auto limited = std::get<std::vector<ChatMessage>>(service.historyMessages(4));
+    ASSERT_EQ(limited.size(), 2U);
+    EXPECT_EQ(limited[0].identifier, recent);
+    EXPECT_EQ(limited[0].text, "Да");
+    EXPECT_EQ(limited[1].identifier, latest);
+    EXPECT_EQ(limited[1].role, MessageRole::Assistant);
+    EXPECT_EQ(limited[1].createdAt, m_clock.now());
+    const auto exact = std::get<std::vector<ChatMessage>>(service.historyMessages(11));
+    ASSERT_EQ(exact.size(), 3U);
+    EXPECT_EQ(exact.front().identifier, middle);
+    EXPECT_EQ(std::get<std::vector<ChatMessage>>(service.historyMessages(12)).size(), 4U);
+    EXPECT_EQ(service.loadMessages().size(), 4U);
+}
+
+TEST_F(ChatServiceTest, HistoryCountsUnicodeCodePointsAndRejectsTooSmallBudgetWithoutTruncating)
+{
+    ChatService service{m_clock, m_repository};
+    static_cast<void>(service.addMessage("е\u0301", MessageRole::User));
+    static_cast<void>(service.addMessage("Я🙂", MessageRole::Assistant));
+    for (const auto budget : {std::size_t{0}, std::size_t{1}}) {
+        const auto result = service.historyMessages(budget);
+        ASSERT_TRUE(std::holds_alternative<ChatRejection>(result));
+        EXPECT_FALSE(std::get<ChatRejection>(result).reason.empty());
+    }
+    const auto exact = std::get<std::vector<ChatMessage>>(service.historyMessages(2));
+    ASSERT_EQ(exact.size(), 1U);
+    EXPECT_EQ(exact.front().text, "Я🙂");
+    const auto spare = std::get<std::vector<ChatMessage>>(service.historyMessages(3));
+    ASSERT_EQ(spare.size(), 1U);
+    EXPECT_EQ(spare.front().text, "Я🙂");
+    const auto all = std::get<std::vector<ChatMessage>>(service.historyMessages(4));
+    ASSERT_EQ(all.size(), 2U);
+    EXPECT_EQ(all.front().text, "е\u0301");
+    EXPECT_EQ(service.loadMessages().back().text, "Я🙂");
+}
+
+TEST_F(ChatServiceTest, HistoryReadsOnlyCurrentChatAndReturnsCopies)
+{
+    ChatService service{m_clock, m_repository};
+    const auto first = service.currentChatId();
+    static_cast<void>(service.addMessage("Первый чат", MessageRole::User));
+    const auto second = service.newChat();
+    static_cast<void>(service.addMessage("Второй чат", MessageRole::Assistant));
+    auto selected = std::get<std::vector<ChatMessage>>(service.historyMessages(100));
+    ASSERT_EQ(selected.size(), 1U);
+    EXPECT_EQ(selected.front().chatIdentifier, second);
+    EXPECT_EQ(selected.front().text, "Второй чат");
+    selected.front().text.clear();
+    EXPECT_EQ(service.loadMessages().front().text, "Второй чат");
+    ASSERT_TRUE(std::holds_alternative<std::monostate>(service.switchChat(first)));
+    const auto previous = std::get<std::vector<ChatMessage>>(service.historyMessages(100));
+    ASSERT_EQ(previous.size(), 1U);
+    EXPECT_EQ(previous.front().text, "Первый чат");
+    EXPECT_EQ(m_storage.messages(second).front().text, "Второй чат");
+}
+
+TEST_F(ChatServiceTest, HistoryHasNoSeparateFortyMessageOrFourThousandCharacterLimit)
+{
+    ChatService service{m_clock, m_repository};
+    const std::string longText(5000, 'x');
+    static_cast<void>(service.addMessage(longText, MessageRole::User));
+    constexpr int kExtraMessages = 45;
+    for (int index = 0; index < kExtraMessages; ++index) {
+        static_cast<void>(service.addMessage("Я", MessageRole::Assistant));
+    }
+    const auto shortHistory = std::get<std::vector<ChatMessage>>(service.historyMessages(kExtraMessages));
+    EXPECT_EQ(shortHistory.size(), kExtraMessages);
+    const auto full = std::get<std::vector<ChatMessage>>(
+        service.historyMessages(std::numeric_limits<std::size_t>::max()));
+    ASSERT_EQ(full.size(), 1U + kExtraMessages);
+    EXPECT_EQ(full.front().text, longText);
+    EXPECT_EQ(service.loadMessages().front().text, longText);
+}
+
+TEST_F(ChatServiceTest, HistoryPropagatesReadFailureEvenWithZeroBudget)
+{
+    ChatService service{m_clock, m_repository};
+    static_cast<void>(service.addMessage("Сохранено", MessageRole::User));
+    m_repository.setFault(ChatFault::ReadMessages);
+    EXPECT_THROW(static_cast<void>(service.historyMessages(100)), std::runtime_error);
+    EXPECT_THROW(static_cast<void>(service.historyMessages(0)), std::runtime_error);
+    EXPECT_EQ(m_storage.messages(service.currentChatId()).front().text, "Сохранено");
 }
 
 TEST(ChatRepositoryTest, KeepsCopiesAndForeignKeysAndSelectionWithoutDeletingData)
