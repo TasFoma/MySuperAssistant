@@ -4,7 +4,7 @@
 
 Проект разделён на статические библиотеки слоёв и три исполняемые цели.
 Реальная предметная функциональность находится в `src/core`: парсер команд,
-типы планировщика, абстрактные интерфейсы и сервис напоминаний по времени. Связки парсера с репозиториями
+типы планировщика, абстрактные интерфейсы и сервисы напоминаний по времени и календаря. Связки парсера с репозиториями
 или приложениями пока нет. Поток «клиент → сервер → хранилище» не реализован.
 
 `msa_server` содержит только `return 0`. Оба клиента создают `QGuiApplication`
@@ -62,6 +62,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Модуль | Что есть сейчас | Путь |
 | --- | --- | --- |
 | CommandParser | Разбор UTF-8 текста в `Command`, без выполнения действий | `src/core/include/msa/core/CommandParser.h`, `src/core/src/CommandParser.cpp` |
+| CalendarService | События дня и дни месяца с учётом повторений | `src/core/include/msa/core/CalendarService.h`, `src/core/src/CalendarService.cpp` |
 | ReminderService | Создание и обработка напоминаний по времени через Clock и ReminderRepository | `src/core/include/msa/core/ReminderService.h`, `src/core/src/ReminderService.cpp` |
 | Command | Вариант типов результатов разбора, включая `NoCommand` | `src/core/include/msa/core/Command.h` |
 | Планировщик: данные | Задача, событие, три вида напоминаний, координаты, привычка, запись прогресса, профиль; без предметной валидации и расчётов | `src/core/include/msa/core/{Task,Event,Reminder,GeoCoordinates,Habit,HabitLogEntry,UserProfile}.h` |
@@ -100,3 +101,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 Сборка и тесты описаны в [README](../README.md), устройство парсера —
 в [CommandParser](modules/CommandParser.md). Тесты типов и контрактов находятся
 в `tests/core/PlannerTypesTest.cpp` и `tests/core/PlannerRepositoriesTest.cpp`.
+
+Календарь читает `EventRepository` без изменений: повторы начинаются с исходной даты,
+ежемесячные события переносятся на последний день короткого месяца. Приложения
+пока не вызывают сервис. Подробности — в [CalendarService](modules/CalendarService.md).

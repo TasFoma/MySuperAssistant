@@ -1,6 +1,7 @@
 include(${PROJECT_SOURCE_DIR}/cmake/Pcre2.cmake)
 
 add_library(msa_core STATIC
+    include/msa/core/CalendarService.h
     include/msa/core/Clock.h
     include/msa/core/Command.h
     include/msa/core/CommandParser.h
@@ -17,6 +18,7 @@ add_library(msa_core STATIC
     include/msa/core/TaskRepository.h
     include/msa/core/UserProfile.h
     include/msa/core/UserProfileRepository.h
+    src/CalendarService.cpp
     src/Clock.cpp
     src/CommandParser.cpp
     src/EventRepository.cpp

@@ -1,4 +1,5 @@
 add_executable(msa_core_tests
+    CalendarServiceTest.cpp
     CommandParserTest.cpp
     FakeClock.cpp
     InMemoryEventRepository.cpp
