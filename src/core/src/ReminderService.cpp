@@ -1,10 +1,41 @@
 #include "msa/core/ReminderService.h"
 
+#include "Utf8Text.h"
+
+#include <algorithm>
+#include <cmath>
+#include <numbers>
 #include <stdexcept>
 
 namespace msa::core {
 
 namespace {
+
+constexpr double kEarthRadiusMeters = 6371000.0;
+constexpr double kPlaceRadiusMeters = 200.0;
+constexpr double kMaxLatitude = 90.0;
+constexpr double kMaxLongitude = 180.0;
+constexpr double kRadiansPerDegree = std::numbers::pi / kMaxLongitude;
+
+[[nodiscard]] bool validCoordinates(GeoCoordinates coordinates)
+{
+    return std::isfinite(coordinates.latitude) && std::isfinite(coordinates.longitude)
+           && std::abs(coordinates.latitude) <= kMaxLatitude
+           && std::abs(coordinates.longitude) <= kMaxLongitude;
+}
+
+[[nodiscard]] double distanceMeters(GeoCoordinates first, GeoCoordinates second)
+{
+    const auto halfLatitude = (second.latitude - first.latitude) * kRadiansPerDegree / 2.0;
+    const auto halfLongitude = (second.longitude - first.longitude) * kRadiansPerDegree / 2.0;
+    const auto latitudeSine = std::sin(halfLatitude);
+    const auto longitudeSine = std::sin(halfLongitude);
+    const auto haversine = latitudeSine * latitudeSine
+        + std::cos(first.latitude * kRadiansPerDegree)
+          * std::cos(second.latitude * kRadiansPerDegree) * longitudeSine * longitudeSine;
+    // Ограничение компенсирует округление у совпадающих и противоположных точек.
+    return 2.0 * kEarthRadiusMeters * std::asin(std::sqrt(std::clamp(haversine, 0.0, 1.0)));
+}
 
 [[nodiscard]] bool canSchedule(std::chrono::local_time<std::chrono::seconds> now,
                                std::chrono::minutes interval)
@@ -55,6 +86,45 @@ ReminderCreationResult ReminderService::addRecurring(
 
     return m_repository.add(RecurringReminder{
         .title = title, .dueAt = now + interval, .interval = interval});
+}
+
+ReminderCreationResult ReminderService::addPlace(const std::string& title,
+    const std::string& place, std::optional<GeoCoordinates> coordinates)
+{
+    if (text::charCount(title) < 1 || text::charCount(place) < 1) {
+        return ReminderRejection{"Введите название напоминания и место."};
+    }
+    if (coordinates && !validCoordinates(*coordinates)) {
+        return ReminderRejection{"Укажите корректные координаты места."};
+    }
+
+    return m_repository.add(PlaceReminder{.title = title, .place = place, .coordinates = coordinates});
+}
+
+PlaceCheckResult ReminderService::checkNearPlace(GeoCoordinates position)
+{
+    if (!validCoordinates(position)) {
+        return ReminderRejection{"Укажите корректную текущую позицию."};
+    }
+    std::vector<PlaceReminder> due;
+    for (auto reminder : m_repository.all()) {
+        auto* place = std::get_if<PlaceReminder>(&reminder);
+        if (place == nullptr || place->status != ReminderStatus::Pending || !place->coordinates) {
+            continue;
+        }
+        if (!validCoordinates(*place->coordinates)) {
+            throw std::runtime_error{"Некорректные координаты сохранённого напоминания"};
+        }
+        if (distanceMeters(position, *place->coordinates) >= kPlaceRadiusMeters) {
+            continue;
+        }
+        const auto original = *place;
+        place->status = ReminderStatus::Fired;
+        saveUpdate(m_repository, reminder);
+        due.push_back(original);
+    }
+
+    return due;
 }
 
 void ReminderService::skipMissedOnStartup()

@@ -14,6 +14,7 @@ add_executable(msa_core_tests
     PlannerRepositoriesTest.cpp
     PlannerTypesTest.cpp
     Pcre2RegexTest.cpp
+    PlaceReminderTest.cpp
     ReminderServiceTest.cpp
     TaskServiceTest.cpp
 )
