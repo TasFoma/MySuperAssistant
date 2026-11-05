@@ -4,7 +4,7 @@
 
 Проект разделён на статические библиотеки слоёв и три исполняемые цели.
 Реальная предметная функциональность находится в `src/core`: парсер команд,
-типы планировщика, абстрактные интерфейсы и сервисы напоминаний по времени, календаря и привычек. Связки парсера с репозиториями
+типы планировщика, абстрактные интерфейсы и сервисы напоминаний по времени, календаря, привычек и ежедневного приветствия. Связки парсера с репозиториями
 или приложениями пока нет. Поток «клиент → сервер → хранилище» не реализован.
 
 `msa_server` содержит только `return 0`. Оба клиента создают `QGuiApplication`
@@ -62,6 +62,8 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Модуль | Что есть сейчас | Путь |
 | --- | --- | --- |
 | CommandParser | Разбор UTF-8 текста в `Command`, без выполнения действий | `src/core/include/msa/core/CommandParser.h`, `src/core/src/CommandParser.cpp` |
+| GreetingService | Приветствие с датой, событиями и пятью задачами | `src/core/include/msa/core/GreetingService.h`, `src/core/src/GreetingService.cpp` |
+| GreetingRepository | Интерфейс хранения даты последнего приветствия | `src/core/include/msa/core/GreetingRepository.h`, `src/core/src/GreetingRepository.cpp` |
 | HabitService | Создание привычек, отметки и текущий прогресс через Clock и HabitRepository | `src/core/include/msa/core/HabitService.h`, `src/core/src/HabitService.cpp` |
 | CalendarService | События дня и дни месяца с учётом повторений | `src/core/include/msa/core/CalendarService.h`, `src/core/src/CalendarService.cpp` |
 | ReminderService | Создание и обработка напоминаний по времени через Clock и ReminderRepository | `src/core/include/msa/core/ReminderService.h`, `src/core/src/ReminderService.cpp` |
@@ -71,7 +73,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Clock | Абстрактный источник местного времени с точностью до секунд | `src/core/include/msa/core/Clock.h`, `src/core/src/Clock.cpp` |
 | Pcre2Regex | Внутренняя обёртка поиска совпадений PCRE2 с UTF, Unicode-свойствами и без учёта регистра | `src/core/src/Pcre2Regex.h`, `src/core/src/Pcre2Regex.cpp` |
 | Utf8Text | Внутренние операции длины в кодовых точках и регистра латиницы/кириллицы | `src/core/src/Utf8Text.h`, `src/core/src/Utf8Text.cpp` |
-| Тестовая инфраструктура | `FakeClock`, пять `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
+| Тестовая инфраструктура | `FakeClock`, шесть `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
 | infra | Пустая библиотека | `src/infra/` |
 | Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
@@ -108,3 +110,9 @@ Qt ищется один раз в корневом CMake; поэтому уст
 Календарь читает `EventRepository` без изменений: повторы начинаются с исходной даты,
 ежемесячные события переносятся на последний день короткого месяца. Приложения
 пока не вызывают сервис. Подробности — в [CalendarService](modules/CalendarService.md).
+
+`GreetingService` использует `Clock`, `CalendarService`, `TaskRepository` и
+`GreetingRepository`: формирует текст и сохраняет дату до возврата. Приветствие
+зависит от времени суток и выдаётся раз за местный день. Хранилище даты пока есть
+только в тестах; SQLite и отправка клиентам не реализованы.
+Подробнее — [GreetingService](modules/GreetingService.md).

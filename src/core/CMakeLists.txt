@@ -8,6 +8,8 @@ add_library(msa_core STATIC
     include/msa/core/Event.h
     include/msa/core/EventRepository.h
     include/msa/core/GeoCoordinates.h
+    include/msa/core/GreetingRepository.h
+    include/msa/core/GreetingService.h
     include/msa/core/Habit.h
     include/msa/core/HabitLogEntry.h
     include/msa/core/HabitRepository.h
@@ -23,6 +25,8 @@ add_library(msa_core STATIC
     src/Clock.cpp
     src/CommandParser.cpp
     src/EventRepository.cpp
+    src/GreetingRepository.cpp
+    src/GreetingService.cpp
     src/HabitRepository.cpp
     src/HabitService.cpp
     src/Pcre2Regex.cpp
