@@ -2,6 +2,10 @@ include(${PROJECT_SOURCE_DIR}/cmake/Pcre2.cmake)
 
 add_library(msa_core STATIC
     include/msa/core/CalendarService.h
+    include/msa/core/Chat.h
+    include/msa/core/ChatMessage.h
+    include/msa/core/ChatRepository.h
+    include/msa/core/ChatService.h
     include/msa/core/Clock.h
     include/msa/core/Command.h
     include/msa/core/CommandParser.h
@@ -33,6 +37,8 @@ add_library(msa_core STATIC
     include/msa/core/UserProfileRepository.h
     include/msa/core/UserProfileService.h
     src/CalendarService.cpp
+    src/ChatRepository.cpp
+    src/ChatService.cpp
     src/Clock.cpp
     src/CommandParser.cpp
     src/DailyContextService.cpp

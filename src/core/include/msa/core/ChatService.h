@@ -1,0 +1,54 @@
+#pragma once
+
+#include "msa/core/ChatRepository.h"
+#include "msa/core/Clock.h"
+
+#include <cstdint>
+#include <string>
+#include <variant>
+#include <vector>
+
+namespace msa::core {
+
+/// @brief Причина отказа из-за пользовательских параметров операции чата.
+struct ChatRejection {
+    /// @brief Объяснение для вызывающей стороны.
+    std::string reason;
+};
+
+/// @brief ID нового сообщения либо причина отказа.
+using ChatWriteResult = std::variant<std::int64_t, ChatRejection>;
+/// @brief Успех переключения либо причина отказа.
+using ChatChangeResult = std::variant<std::monostate, ChatRejection>;
+
+/// @brief Чаты и полная история без генерации ответов и отбора контекста LLM.
+class ChatService {
+public:
+    /// @brief Восстанавливает сохранённый чат; иначе выбирает максимальный ID или создаёт чат.
+    /// Новый выбор сохраняется до завершения конструктора; ошибки хранилища пробрасываются.
+    /// Зависимости невладеющие и должны жить дольше сервиса.
+    ChatService(const Clock& clock, ChatRepository& repository);
+    /// @brief Возвращает ID текущего чата сервиса.
+    [[nodiscard]] std::int64_t currentChatId() const;
+    /// @brief Создаёт и выбирает новый чат с названием «Чат от ДД.ММ.ГГГГ ЧЧ:ММ».
+    /// Выбор меняется после сохранения; при ошибке сохранённый новый чат может остаться в списке.
+    [[nodiscard]] std::int64_t newChat();
+    /// @brief Все чаты по убыванию ID, без изменения хранилища.
+    [[nodiscard]] std::vector<Chat> chatList() const;
+    /// @brief Выбирает существующий чат; при отсутствии возвращает отказ без смены выбора.
+    [[nodiscard]] ChatChangeResult switchChat(std::int64_t identifier);
+    /// @brief Сохраняет полное сообщение текущего чата с временем из Clock.
+    /// Пустой или только пробельный текст и неизвестная роль отклоняются без записи.
+    [[nodiscard]] ChatWriteResult addMessage(const std::string& text, MessageRole role);
+    /// @brief Возвращает копии всех сообщений текущего чата по возрастанию ID.
+    /// Не обрезает текст и не удаляет сообщения; технические ошибки пробрасываются.
+    [[nodiscard]] std::vector<ChatMessage> loadMessages() const;
+
+private:
+    const Clock& m_clock;
+    ChatRepository& m_repository;
+    std::int64_t m_currentChatId{0};
+};
+
+}  // namespace msa::core
+

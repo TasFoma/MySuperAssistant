@@ -10,6 +10,8 @@
 `EveningCheckInService` подготавливает вечерний опрос с 20:00 один раз за день.
 `MoodService` записывает явно указанное настроение и возвращает историю без удаления
 старых записей; анализ через LLM и связь с чатом ещё не реализованы.
+`ChatService` управляет несколькими чатами, восстанавливает текущий выбор и сохраняет
+полную переписку; соединения с моделью и сборки контекста пока нет.
 Поток «клиент → сервер → хранилище» не реализован.
 
 `msa_server` содержит только `return 0`. Оба клиента создают `QGuiApplication`
@@ -67,6 +69,9 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Модуль | Что есть сейчас | Путь |
 | --- | --- | --- |
 | CommandParser | Разбор UTF-8 текста в `Command`, без выполнения действий | `src/core/include/msa/core/CommandParser.h`, `src/core/src/CommandParser.cpp` |
+| ChatService | Создание и выбор чатов, восстановление выбора, полная история сообщений | `src/core/include/msa/core/ChatService.h`, `src/core/src/ChatService.cpp` |
+| ChatRepository | Интерфейс хранения чатов, сообщений и выбранного ID | `src/core/include/msa/core/ChatRepository.h`, `src/core/src/ChatRepository.cpp` |
+| Chat и ChatMessage | Чат с названием и временем; сообщение с ролью, полным текстом и временем | `src/core/include/msa/core/Chat.h`, `src/core/include/msa/core/ChatMessage.h` |
 | DailyContextService | Текст сводки: дата/время, события, пять открытых задач, прогресс привычек | `src/core/include/msa/core/DailyContextService.h`, `src/core/src/DailyContextService.cpp` |
 | MoodService | Явная запись настроения с полным текстом и история по календарным дням | `src/core/include/msa/core/MoodService.h`, `src/core/src/MoodService.cpp` |
 | MoodRepository | Интерфейс добавления и чтения дневника без очистки по возрасту | `src/core/include/msa/core/MoodRepository.h`, `src/core/src/MoodRepository.cpp` |
@@ -90,7 +95,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Pcre2Regex | Внутренняя обёртка поиска совпадений PCRE2 с UTF, Unicode-свойствами и без учёта регистра | `src/core/src/Pcre2Regex.h`, `src/core/src/Pcre2Regex.cpp` |
 | Utf8Text | Внутренние операции длины, обрезки пробелов Unicode и регистра латиницы/кириллицы | `src/core/src/Utf8Text.h`, `src/core/src/Utf8Text.cpp` |
 | PlannerText | Общий для приветствия и сводки формат русской даты и времени HH:MM | `src/core/src/PlannerText.h`, `src/core/src/PlannerText.cpp` |
-| Тестовая инфраструктура | `FakeClock`, девять `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
+| Тестовая инфраструктура | `FakeClock`, десять `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
 | infra | Пустая библиотека | `src/infra/` |
 | Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
@@ -182,3 +187,10 @@ Negative/Neutral/Positive, полную заметку и текущее вре�
 только в памяти для тестов; SQLite — этап 3. Анализа тона, автоматической записи
 переписки и переноса важных событий в профиль пока нет. Подробнее —
 [MoodService](modules/MoodService.md).
+
+`ChatService` зависит от Clock и ChatRepository. В конструкторе восстанавливает
+существующий выбранный чат, иначе выбирает последний по ID или создаёт новый.
+Выбор сохраняется в репозиторий до изменения текущего ID сервиса. Полные сообщения
+User/Assistant читаются по возрастанию ID; лимиты контекста не применяются.
+Репозиторий пока реализован только в памяти для тестов. Приложения, сеть и SQLite
+не подключены. Подробнее — [ChatService](modules/ChatService.md).

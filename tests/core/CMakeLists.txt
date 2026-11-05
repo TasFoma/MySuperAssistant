@@ -1,5 +1,6 @@
 add_executable(msa_core_tests
     CalendarServiceTest.cpp
+    ChatServiceTest.cpp
     CommandParserTest.cpp
     DailyContextServiceTest.cpp
     EventServiceTest.cpp
@@ -8,6 +9,7 @@ add_executable(msa_core_tests
     FakeClock.cpp
     GreetingServiceTest.cpp
     HabitServiceTest.cpp
+    InMemoryChatRepository.cpp
     InMemoryEventRepository.cpp
     InMemoryEventWarningRepository.cpp
     InMemoryEveningCheckInRepository.cpp
