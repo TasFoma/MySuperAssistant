@@ -1,9 +1,12 @@
-// Тесты разбора команд: по одному на каждый тип команды и на нераспознанный текст.
+// Тесты типов команд, временных границ и свободных форм.
 #include "msa/core/CommandParser.h"
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <chrono>
+#include <optional>
+#include <string_view>
 #include <variant>
 
 namespace {
@@ -175,6 +178,128 @@ TEST(CommandParserTest, ReturnsNoCommandForUnrecognizedText)
     const Command command = parser.parse("как дела", tuesdayNoon());
 
     EXPECT_TRUE(std::holds_alternative<NoCommand>(command));
+}
+
+TEST(CommandParserTest, ParsesRelativeReminderIntervals)
+{
+    struct Example {
+        std::string_view text;
+        minutes delay;
+    };
+    const std::array examples{
+        Example{"напомни через полчаса пить воду", minutes{30}},
+        Example{"напомни через минуту пить воду", minutes{1}},
+        Example{"напомни через 45 минут пить воду", minutes{45}},
+        Example{"напомни через пять минут пить воду", minutes{5}},
+        Example{"напомни через пару часов пить воду", minutes{120}},
+        Example{"напомни через час пить воду", minutes{60}},
+        Example{"напомни через 2 дня пить воду", minutes{2880}},
+    };
+    const CommandParser parser;
+    for (const auto& example : examples) {
+        SCOPED_TRACE(example.text);
+        const auto command = parser.parse(example.text, tuesdayNoon());
+        const auto* reminder = std::get_if<TimedReminderCommand>(&command);
+        ASSERT_NE(reminder, nullptr);
+        EXPECT_EQ(reminder->title, "Пить воду");
+        EXPECT_EQ(reminder->dueAt,
+                  localAt(dateOf(kTuesdayDay), hours{kNoonHour}) + example.delay);
+    }
+}
+
+TEST(CommandParserTest, RelativeReminderCrossesMonthBoundary)
+{
+    const CommandParser parser;
+    const auto now = localAt(dateOf(31), hours{23}) + minutes{45};
+    const auto command = parser.parse("напомни через полчаса пить воду", now);
+    const auto* reminder = std::get_if<TimedReminderCommand>(&command);
+    ASSERT_NE(reminder, nullptr);
+    EXPECT_EQ(reminder->title, "Пить воду");
+    EXPECT_EQ(reminder->dueAt,
+              localAt(year{2026} / month{11} / day{1}, hours{0}) + minutes{15});
+}
+
+TEST(CommandParserTest, PastOrCurrentReminderTimeMovesToTomorrow)
+{
+    const CommandParser parser;
+    for (const auto text : {"напомни в 11:00 пить воду", "напомни в 12:00 пить воду"}) {
+        SCOPED_TRACE(text);
+        const auto command = parser.parse(text, tuesdayNoon());
+        const auto* reminder = std::get_if<TimedReminderCommand>(&command);
+        ASSERT_NE(reminder, nullptr);
+        EXPECT_EQ(reminder->title, "Пить воду");
+        EXPECT_EQ(std::chrono::floor<std::chrono::days>(reminder->dueAt),
+                  local_days{sys_days{dateOf(kTomorrowDay)}.time_since_epoch()});
+        EXPECT_EQ(reminder->dueAt.time_since_epoch() % std::chrono::days{1},
+                  text == std::string_view{"напомни в 11:00 пить воду"} ? hours{11} : hours{12});
+    }
+}
+
+TEST(CommandParserTest, DefaultReminderCrossesMidnight)
+{
+    const CommandParser parser;
+    const auto now = localAt(dateOf(kTuesdayDay), hours{23}) + minutes{45};
+    const auto command = parser.parse("напомни пить воду", now);
+    const auto* reminder = std::get_if<TimedReminderCommand>(&command);
+    ASSERT_NE(reminder, nullptr);
+    EXPECT_EQ(reminder->title, "Пить воду");
+    EXPECT_EQ(reminder->dueAt, localAt(dateOf(kTomorrowDay), hours{0}) + minutes{45});
+}
+
+TEST(CommandParserTest, ParsesFreeTasks)
+{
+    struct Example {
+        std::string_view text;
+        std::optional<year_month_day> dueDate;
+    };
+    const std::array examples{
+        Example{"прочитать книгу на завтра, добавь в задачи", dateOf(kTomorrowDay)},
+        Example{"добавь пожалуйста в список задач: «прочитать книгу»", std::nullopt},
+        Example{"у меня появилась новая задача прочитать книгу, добавь пожалуйста", std::nullopt},
+        Example{"сегодня мне надо прочитать книгу, добавь в задачи", dateOf(kTuesdayDay)},
+    };
+    const CommandParser parser;
+    for (const auto& example : examples) {
+        SCOPED_TRACE(example.text);
+        const auto command = parser.parse(example.text, tuesdayNoon());
+        const auto* task = std::get_if<TaskCommand>(&command);
+        ASSERT_NE(task, nullptr);
+        EXPECT_EQ(task->title, "Прочитать книгу");
+        EXPECT_EQ(task->dueDate, example.dueDate);
+    }
+}
+
+TEST(CommandParserTest, ParsesFreeEvents)
+{
+    struct Example {
+        std::string_view text;
+        year_month_day date;
+        std::optional<minutes> time;
+    };
+    const std::array examples{
+        Example{"завтра тренировка в 18:00, добавь в календарь", dateOf(kTomorrowDay), minutes{1080}},
+        Example{"у меня будет тренировка, запиши в календарь", dateOf(kTuesdayDay), std::nullopt},
+        Example{"создай пожалуйста событие «Тренировка» на завтра", dateOf(kTomorrowDay), std::nullopt},
+    };
+    const CommandParser parser;
+    for (const auto& example : examples) {
+        SCOPED_TRACE(example.text);
+        const auto command = parser.parse(example.text, tuesdayNoon());
+        const auto* event = std::get_if<EventCommand>(&command);
+        ASSERT_NE(event, nullptr);
+        EXPECT_EQ(event->title, "Тренировка");
+        EXPECT_EQ(event->date, example.date);
+        EXPECT_EQ(event->time, example.time);
+    }
+}
+
+TEST(CommandParserTest, RejectsFreeFormsWithTooShortTitles)
+{
+    const CommandParser parser;
+    for (const auto text : {"добавь в задачи «Я»", "Я, добавь в календарь"}) {
+        SCOPED_TRACE(text);
+        EXPECT_TRUE(std::holds_alternative<NoCommand>(parser.parse(text, tuesdayNoon())));
+    }
 }
 
 }  // namespace msa::core
