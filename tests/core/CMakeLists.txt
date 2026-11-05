@@ -14,6 +14,7 @@ add_executable(msa_core_tests
     PlannerTypesTest.cpp
     Pcre2RegexTest.cpp
     ReminderServiceTest.cpp
+    TaskServiceTest.cpp
 )
 
 target_compile_features(msa_core_tests PRIVATE cxx_std_20)

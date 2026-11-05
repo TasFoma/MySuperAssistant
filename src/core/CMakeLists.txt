@@ -19,6 +19,7 @@ add_library(msa_core STATIC
     include/msa/core/ReminderService.h
     include/msa/core/Task.h
     include/msa/core/TaskRepository.h
+    include/msa/core/TaskService.h
     include/msa/core/UserProfile.h
     include/msa/core/UserProfileRepository.h
     src/CalendarService.cpp
@@ -34,6 +35,7 @@ add_library(msa_core STATIC
     src/ReminderRepository.cpp
     src/ReminderService.cpp
     src/TaskRepository.cpp
+    src/TaskService.cpp
     src/UserProfileRepository.cpp
     src/Utf8Text.cpp
     src/Utf8Text.h
