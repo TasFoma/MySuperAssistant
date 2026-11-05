@@ -1,5 +1,6 @@
 add_executable(msa_core_tests
     CommandParserTest.cpp
+    PlannerTypesTest.cpp
 )
 
 target_compile_features(msa_core_tests PRIVATE cxx_std_20)

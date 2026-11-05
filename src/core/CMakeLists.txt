@@ -3,6 +3,13 @@ include(${PROJECT_SOURCE_DIR}/cmake/Pcre2.cmake)
 add_library(msa_core STATIC
     include/msa/core/Command.h
     include/msa/core/CommandParser.h
+    include/msa/core/Event.h
+    include/msa/core/GeoCoordinates.h
+    include/msa/core/Habit.h
+    include/msa/core/HabitLogEntry.h
+    include/msa/core/Reminder.h
+    include/msa/core/Task.h
+    include/msa/core/UserProfile.h
     src/CommandParser.cpp
     src/Pcre2Regex.cpp
     src/Pcre2Regex.h
