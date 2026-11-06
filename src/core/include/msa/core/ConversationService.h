@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <variant>
+#include <vector>
 
 namespace msa::core {
 
@@ -27,6 +28,8 @@ struct ConversationReply {
     std::optional<MoodScore> tone{};
     /// @brief ID созданной записи дневника, если была явная запись.
     std::optional<std::int64_t> moodIdentifier{};
+    /// @brief ID новых фактов/версий, сохранённых из текущего сообщения.
+    std::vector<std::int64_t> profileFactIdentifiers{};
 };
 
 /// @brief Отказ из-за ввода, бюджета или отсутствия сообщения для повтора.
@@ -42,7 +45,7 @@ using ConversationResult = std::variant<ConversationReply, ConversationRejection
 class ConversationService {
 public:
     /// @brief Все зависимости невладеющие, часы и репозиторий опроса общие с его сервисом.
-    ConversationService(const Clock& clock, ChatService& chat, const UserProfileService& profile,
+    ConversationService(const Clock& clock, ChatService& chat, UserProfileService& profile,
         const DailyContextService& daily, LlmClient& client, MoodService& moods,
         EveningCheckInService& checkIn, EveningCheckInRepository& checkIns);
     /// @brief Публикует опрос в текущем чате и сохраняет ожидание; nullopt — опрос не нужен.
@@ -61,7 +64,7 @@ private:
 
     const Clock& m_clock;
     ChatService& m_chat;
-    const UserProfileService& m_profile;
+    UserProfileService& m_profile;
     const DailyContextService& m_daily;
     LlmClient& m_client;
     MoodService& m_moods;

@@ -32,6 +32,7 @@ add_library(msa_core STATIC
     include/msa/core/MoodEntry.h
     include/msa/core/MoodRepository.h
     include/msa/core/MoodService.h
+    include/msa/core/ProfileFactProposal.h
     include/msa/core/Reminder.h
     include/msa/core/ReminderRepository.h
     include/msa/core/ReminderService.h

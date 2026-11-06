@@ -34,10 +34,24 @@ struct Candidate {
 std::vector<std::string> UserProfileFactSelector::select(
     const UserProfile& profile, const std::string& question) const
 {
+    std::vector<std::string> selected;
+    for (const auto& fact : selectFacts(profile, question)) {
+        selected.push_back(fact.text);
+    }
+
+    return selected;
+}
+
+std::vector<UserProfileFact> UserProfileFactSelector::selectFacts(
+    const UserProfile& profile, const std::string& question) const
+{
     const detail::Pcre2Regex pattern{R"([\p{L}\p{N}][\p{L}\p{N}\p{M}]*)"};
     const auto queryWords = words(pattern, question);
     std::vector<Candidate> candidates;
     for (const auto& fact : profile.facts) {
+        if (fact.supersededByFactIdentifier) {
+            continue;
+        }
         auto factWords = words(pattern, fact.text);
         for (const auto& tag : fact.tags) {
             const auto tagWords = words(pattern, tag);
@@ -60,9 +74,9 @@ std::vector<std::string> UserProfileFactSelector::select(
 
             return left.score > right.score;
         });
-    std::vector<std::string> selected;
+    std::vector<UserProfileFact> selected;
     for (const auto& candidate : candidates) {
-        selected.push_back(candidate.fact->text);
+        selected.push_back(*candidate.fact);
     }
 
     return selected;

@@ -22,6 +22,9 @@ LLM-клиентом, анализ настоящей моделью ещё не
 HTTP и JSON-разбор отсутствуют.
 `ConversationService` связывает эти части, MentorPrompt задаёт согласованные
 инструкции. Ожидание вечернего ответа хранится в EveningCheckInRepository.
+Предложения фактов сохраняются через UserProfileService автоматически: с ID
+источника и дневника, точные повторы пропускаются, исправления создают версии.
+Прежние записи остаются, отбор профиля для LLM использует только актуальные версии.
 Поток «клиент → сервер → хранилище» не реализован.
 
 `msa_server` содержит только `return 0`. Оба клиента создают `QGuiApplication`
@@ -98,6 +101,8 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | EventService | Создание и изменение всей серии событий с проверкой ввода | `src/core/include/msa/core/EventService.h`, `src/core/src/EventService.cpp` |
 | TaskService | Создание, изменение, завершение и сортировка задач | `src/core/include/msa/core/TaskService.h`, `src/core/src/TaskService.cpp` |
 | UserProfileService | Добавление фактов профиля без автоматического удаления старых | `src/core/include/msa/core/UserProfileService.h`, `src/core/src/UserProfileService.cpp` |
+| ProfileFactProposal | Предложение нового факта или исправления по ID из контекста | `src/core/include/msa/core/ProfileFactProposal.h` |
+| UserProfileFact и ProfileFactSource | Текст, ID, теги, приоритет, ссылки версий и исходного сообщения/дневника | `src/core/include/msa/core/UserProfile.h` |
 | UserProfileFactSelector | Локальный поиск по словам и ручным тегам, приоритет alwaysInclude перед тематическими фактами | `src/core/include/msa/core/UserProfileFactSelector.h`, `src/core/src/UserProfileFactSelector.cpp` |
 | GreetingService | Приветствие с датой, событиями и пятью задачами | `src/core/include/msa/core/GreetingService.h`, `src/core/src/GreetingService.cpp` |
 | GreetingRepository | Интерфейс хранения даты последнего приветствия | `src/core/include/msa/core/GreetingRepository.h`, `src/core/src/GreetingRepository.cpp` |
@@ -183,10 +188,12 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 `UserProfileService` добавляет факты через `UserProfileRepository`: обрезает
 пробельные символы по краям, отклоняет пустой текст и сохраняет все факты в порядке
-добавления. Повторы и внутренние переносы строк сохраняются. UserProfileFact хранит
-текст, ручные теги и alwaysInclude, задаваемые при добавлении. Сервис пока не
+добавления. Ручные повторы и внутренние переносы строк сохраняются. UserProfileFact хранит
+текст, ручные теги, alwaysInclude, постоянный ID, источник и ссылки версий.
+Автоматический пакет пропускает точные повторы и создаёт новую версию при явной
+замене, не удаляя предыдущую. Сервис пока не
 вызывается приложениями. UserProfileFactSelector получает снимок профиля и вопрос,
-возвращает копии полных текстов: сначала alwaysInclude в порядке добавления, затем
+возвращает копии актуальных полных текстов: сначала alwaysInclude в порядке добавления, затем
 совпадения по словам в тексте и тегах по убыванию оценки; при равенстве — по порядку
 добавления. Бюджет применяет LlmContextBuilder. Новых связей между слоями нет.
 Подробнее — [UserProfileFactSelector](modules/UserProfileFactSelector.md).
@@ -209,8 +216,9 @@ Negative/Neutral/Positive, полную заметку и текущее вре�
 охватывает 14 календарных дней, включая сегодня, до текущего момента. Период
 ограничивает выборку, старые записи сохраняются. Репозиторий пока реализован
 только в памяти для тестов; SQLite — этап 3. Типизированное предложение записи
-обрабатывает ConversationService. Анализ настоящей моделью и перенос важных
-событий в профиль ещё не реализованы; переписка автоматически не записывается в дневник. Подробнее —
+обрабатывает ConversationService. Предложения важных фактов сохраняются в профиль
+со ссылкой на сообщение и при наличии дневник. Анализ настоящей моделью ещё
+не проверен; переписка автоматически не записывается в дневник. Подробнее —
 [MoodService](modules/MoodService.md).
 
 `ChatService` зависит от Clock и ChatRepository. В конструкторе восстанавливает
@@ -254,10 +262,13 @@ flowchart LR
     builder --> llm[LlmClient: пока FakeLlmClient]
     llm --> conversation
     conversation --> mood[MoodService: явная запись]
+    conversation -->|факты и версии| profile
     conversation --> pending[EveningCheckInRepository: ожидание]
 ```
 
-Связка сохраняет User до запроса, затем при успехе — необязательную запись дневника,
-Assistant и снятие ожидания. Общей транзакции между этими операциями пока нет;
+Связка сохраняет User до запроса, проверяет пакет фактов, затем при успехе —
+необязательную запись дневника, факты с источником, Assistant и снятие ожидания.
+Модель может исправлять только ID актуальных фактов, реально вошедших в бюджет;
+метки ID учитываются в тексте контекста. Общей транзакции между операциями пока нет;
 после технического сбоя повтор может дублировать запись. Подробности и ограничения —
 в [ConversationService](modules/ConversationService.md).

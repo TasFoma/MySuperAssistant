@@ -2,8 +2,10 @@
 
 #include "Utf8Text.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <optional>
+#include <set>
 #include <string>
 
 namespace msa::core {
@@ -32,6 +34,12 @@ namespace {
             return "В истории допустимы только роли User и Assistant.";
         }
     }
+    std::set<std::int64_t> identifiers;
+    for (const auto identifier : request.profileFactIdentifiers) {
+        if (identifier <= 0 || !identifiers.insert(identifier).second) {
+            return "ID фактов контекста должны быть положительными и уникальными.";
+        }
+    }
 
     return std::nullopt;
 }
@@ -44,6 +52,19 @@ namespace {
     }
     if (response.tone && !validScore(*response.tone)) {
         return "Модель вернула неизвестную оценку тона.";
+    }
+    std::set<std::int64_t> replaced;
+    for (const auto& fact : response.profileFacts) {
+        if (text::trim(fact.text).empty()) {
+            return "Модель вернула пустой факт профиля.";
+        }
+        if (fact.replacesFactIdentifier) {
+            const auto target = *fact.replacesFactIdentifier;
+            if (std::ranges::find(request.profileFactIdentifiers, target) == request.profileFactIdentifiers.end()
+                || !replaced.insert(target).second) {
+                return "Модель предложила повторную замену или исправление факта вне контекста.";
+            }
+        }
     }
     if (!response.moodRecording) {
         return std::nullopt;

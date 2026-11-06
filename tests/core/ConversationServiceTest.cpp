@@ -14,6 +14,8 @@
 #include "msa/core/MentorPrompt.h"
 #include "msa/core/TaskService.h"
 
+#include "Utf8Text.h"
+
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -356,6 +358,116 @@ TEST_F(ConversationServiceTest, PendingRepositoryReturnsCopiesAndClearingKeepsIs
     EXPECT_FALSE(m_checkIns.pendingCheckIn());
     EXPECT_EQ(m_checkIns.lastDate(), date);
     EXPECT_FALSE(service.offerEveningCheckIn());
+}
+
+TEST_F(ConversationServiceTest, AutomaticallySavesFactWithSourceWithoutCreatingMoodEntry)
+{
+    m_client.setResult(LlmResponse{.reply = "Поздравляю!", .tone = MoodScore::Positive,
+        .profileFacts = {{.text = "  Начала работать разработчиком  "}}});
+    auto service = conversation();
+    const std::string original = "  Сегодня устроилась разработчиком\n  Все подробности 🙂  ";
+    const auto result = service.sendMessage(original, kContextBudget);
+    ASSERT_TRUE(std::holds_alternative<ConversationReply>(result));
+    const auto reply = std::get<ConversationReply>(result);
+    ASSERT_EQ(reply.profileFactIdentifiers.size(), 1U);
+    const auto profile = m_profile.profile();
+    ASSERT_EQ(profile.facts.size(), 1U);
+    const auto& fact = profile.facts.front();
+    ASSERT_TRUE(fact.source);
+    EXPECT_EQ(fact.identifier, reply.profileFactIdentifiers.front());
+    EXPECT_EQ(fact.source->chatIdentifier, m_chat.currentChatId());
+    EXPECT_EQ(fact.source->messageIdentifier, m_chat.loadMessages().front().identifier);
+    EXPECT_FALSE(fact.source->moodIdentifier);
+    EXPECT_EQ(m_chat.loadMessages().front().text, original);
+    EXPECT_TRUE(diary().empty());
+    EXPECT_EQ(reply.text, "Поздравляю!\n\nСохранено в памяти:\n• Начала работать разработчиком");
+    EXPECT_EQ(m_chat.loadMessages().back().text, reply.text);
+    EXPECT_TRUE(fact.tags.empty());
+    const auto repeated = std::get<ConversationReply>(service.sendMessage("Напомню о работе", kContextBudget));
+    EXPECT_TRUE(repeated.profileFactIdentifiers.empty());
+    EXPECT_EQ(repeated.text, "Поздравляю!");
+    EXPECT_EQ(m_profile.profile().facts.size(), 1U);
+}
+
+TEST_F(ConversationServiceTest, FactAndMoodEntryShareOriginalMessageAndDiaryReference)
+{
+    m_client.setResult(LlmResponse{.reply = "Спасибо", .moodRecording = MoodRecordingProposal{
+        .score = MoodScore::Positive, .reason = MoodRecordingReason::ExplicitRequest},
+        .profileFacts = {{.text = "Начала работать разработчиком"}}});
+    auto service = conversation();
+    const std::string original = "Запиши настроение: рада, устроилась разработчиком\n  Подробности";
+    const auto reply = std::get<ConversationReply>(service.sendMessage(original, kContextBudget));
+    ASSERT_TRUE(reply.moodIdentifier);
+    ASSERT_EQ(diary().size(), 1U);
+    EXPECT_EQ(diary().front().note, original);
+    const auto fact = m_profile.profile().facts.front();
+    ASSERT_TRUE(fact.source);
+    EXPECT_EQ(fact.source->moodIdentifier, reply.moodIdentifier);
+    EXPECT_EQ(fact.source->messageIdentifier, m_chat.loadMessages().front().identifier);
+    EXPECT_NE(reply.text.find("Настроение сохранено в дневник."), std::string::npos);
+    EXPECT_NE(reply.text.find("Сохранено в памяти:"), std::string::npos);
+}
+
+TEST_F(ConversationServiceTest, RevisionUsesVisibleStableIdAndNextContextContainsOnlyCurrentVersion)
+{
+    ASSERT_TRUE(std::holds_alternative<std::monostate>(m_profile.rememberFact("Работаю в A", {"работа"}, true)));
+    m_client.setResult(LlmResponse{.reply = "Понял", .profileFacts = {
+        {.text = "Работаю в B", .replacesFactIdentifier = 1}}});
+    auto service = conversation();
+    const auto result = service.sendMessage("Теперь работа в B", kContextBudget);
+    ASSERT_TRUE(std::holds_alternative<ConversationReply>(result));
+    EXPECT_EQ(m_client.requests().front().profileFactIdentifiers, (std::vector<std::int64_t>{1}));
+    EXPECT_NE(m_client.requests().front().messages.front().text.find("[Факт ID=1]\nРаботаю в A"), std::string::npos);
+    const auto snapshot = m_profile.profile();
+    ASSERT_EQ(snapshot.facts.size(), 2U);
+    EXPECT_EQ(snapshot.facts.front().supersededByFactIdentifier, 2);
+    EXPECT_EQ(snapshot.facts.back().replacesFactIdentifier, 1);
+    ASSERT_TRUE(snapshot.facts.back().source);
+    EXPECT_EQ(snapshot.facts.back().source->messageIdentifier, m_chat.loadMessages().front().identifier);
+    m_client.setResult(LlmResponse{.reply = "Ответ"});
+    static_cast<void>(service.sendMessage("Работа", kContextBudget));
+    EXPECT_EQ(m_client.requests().back().profileFactIdentifiers, (std::vector<std::int64_t>{2}));
+    const auto& system = m_client.requests().back().messages.front().text;
+    EXPECT_EQ(system.find("[Факт ID=1]"), std::string::npos);
+    EXPECT_NE(system.find("[Факт ID=2]\nРаботаю в B"), std::string::npos);
+    EXPECT_EQ(m_profile.profile().facts, snapshot.facts);
+}
+
+TEST_F(ConversationServiceTest, FactOmittedByBudgetCannotBeRevisedAndResponseHasNoSideEffects)
+{
+    ASSERT_TRUE(std::holds_alternative<std::monostate>(m_profile.rememberFact("Работаю в A", {}, true)));
+    m_client.setResult(LlmResponse{.reply = "Ответ", .moodRecording = MoodRecordingProposal{
+        .score = MoodScore::Positive, .reason = MoodRecordingReason::ExplicitRequest},
+        .profileFacts = {{.text = "Работаю в B", .replacesFactIdentifier = 1}}});
+    const MentorPrompt prompt;
+    const std::string question = "Исправление";
+    const auto mandatoryBudget = text::charCount(prompt.build(false)) + text::charCount(question);
+    auto service = conversation();
+    const auto result = service.sendMessage(question, mandatoryBudget);
+    ASSERT_TRUE(std::holds_alternative<LlmFailure>(result));
+    EXPECT_EQ(std::get<LlmFailure>(result).kind, LlmFailureKind::InvalidResponse);
+    ASSERT_EQ(m_client.requests().size(), 1U);
+    EXPECT_TRUE(m_client.requests().front().profileFactIdentifiers.empty());
+    EXPECT_EQ(m_chat.loadMessages().size(), 1U);
+    EXPECT_TRUE(diary().empty());
+    EXPECT_EQ(m_profile.profile().facts.size(), 1U);
+    EXPECT_FALSE(m_profile.profile().facts.front().supersededByFactIdentifier);
+}
+
+TEST_F(ConversationServiceTest, AmbiguousProfileRevisionIsRejectedBeforeMoodRecording)
+{
+    ASSERT_TRUE(std::holds_alternative<std::monostate>(m_profile.rememberFact("Работаю в A", {}, true)));
+    ASSERT_TRUE(std::holds_alternative<std::monostate>(m_profile.rememberFact("Работаю в B", {}, true)));
+    const auto before = m_profile.profile();
+    m_client.setResult(LlmResponse{.reply = "Ответ", .moodRecording = MoodRecordingProposal{
+        .score = MoodScore::Positive, .reason = MoodRecordingReason::ExplicitRequest},
+        .profileFacts = {{.text = "Работаю в B", .replacesFactIdentifier = 1}}});
+    auto service = conversation();
+    const auto result = service.sendMessage("Исправь работу и запиши настроение", kContextBudget);
+    EXPECT_TRUE(std::holds_alternative<ConversationRejection>(result));
+    EXPECT_TRUE(diary().empty());
+    EXPECT_EQ(m_profile.profile().facts, before.facts);
+    EXPECT_EQ(m_chat.loadMessages().size(), 1U);
 }
 
 /// @brief Модель, заканчивающая ответ уже в следующие местные сутки.

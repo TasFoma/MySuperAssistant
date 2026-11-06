@@ -26,6 +26,7 @@ add_executable(msa_core_tests
     MoodServiceTest.cpp
     PlannerRepositoriesTest.cpp
     PlannerTypesTest.cpp
+    ProfileFactImportTest.cpp
     Pcre2RegexTest.cpp
     PlaceReminderTest.cpp
     ReminderServiceTest.cpp

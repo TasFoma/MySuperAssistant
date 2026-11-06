@@ -19,6 +19,9 @@ public:
     /// LlmContextBuilder; приоритет не гарантирует включения при нехватке места.
     [[nodiscard]] std::vector<std::string> select(
         const UserProfile& profile, const std::string& question) const;
+    /// @brief Тот же отбор с ID и метаданными; заменённые версии всегда исключаются.
+    [[nodiscard]] std::vector<UserProfileFact> selectFacts(
+        const UserProfile& profile, const std::string& question) const;
 };
 
 }  // namespace msa::core

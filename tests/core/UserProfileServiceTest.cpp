@@ -23,8 +23,8 @@ TEST(UserProfileServiceTest, TrimsEdgesAndPreservesMultilineFactsAndDuplicates)
         EXPECT_TRUE(std::holds_alternative<std::monostate>(service.rememberFact(input)));
     }
     EXPECT_EQ(service.profile().facts,
-        (std::vector<UserProfileFact>{{.text = "Я"}, {.text = "Люблю  чай"},
-            {.text = "Первая строка\n  Вторая строка"}, {.text = "Я"}}));
+        (std::vector<UserProfileFact>{{.text = "Я", .identifier = 1}, {.text = "Люблю  чай", .identifier = 2},
+            {.text = "Первая строка\n  Вторая строка", .identifier = 3}, {.text = "Я", .identifier = 4}}));
     auto copy = service.profile();
     copy.facts.front().text = "Изменённая копия";
     EXPECT_EQ(repository.load().facts.front().text, "Я");
@@ -33,19 +33,19 @@ TEST(UserProfileServiceTest, TrimsEdgesAndPreservesMultilineFactsAndDuplicates)
 TEST(UserProfileServiceTest, KeepsAllFactsBeyondOldLimitAndAcrossServiceInstances)
 {
     InMemoryUserProfileRepository repository;
-    repository.save(UserProfile{{{.text = "Важный давний факт"}}});
+    repository.save(UserProfile{{{.text = "Важный давний факт", .identifier = 1}}});
     UserProfileService service{repository};
     auto expected = repository.load().facts;
     constexpr int kAddedFactCount = 100;
     for (int index = 0; index < kAddedFactCount; ++index) {
         const auto fact = "Факт " + std::to_string(index);
         ASSERT_TRUE(std::holds_alternative<std::monostate>(service.rememberFact(fact)));
-        expected.push_back(UserProfileFact{.text = fact});
+        expected.push_back(UserProfileFact{.text = fact, .identifier = index + 2});
     }
     UserProfileService nextService{repository};
     EXPECT_EQ(nextService.profile().facts, expected);
     ASSERT_TRUE(std::holds_alternative<std::monostate>(nextService.rememberFact("Ещё один")));
-    expected.push_back(UserProfileFact{.text = "Ещё один"});
+    expected.push_back(UserProfileFact{.text = "Ещё один", .identifier = kAddedFactCount + 2});
     EXPECT_EQ(service.profile().facts, expected);
 }
 
@@ -73,7 +73,7 @@ UserProfile FailingUserProfileRepository::load() const
         throw std::runtime_error{"load failed"};
     }
 
-    return UserProfile{{{.text = "Сохранённый факт"}}};
+    return UserProfile{{{.text = "Сохранённый факт", .identifier = 1}}};
 }
 
 void FailingUserProfileRepository::save([[maybe_unused]] const UserProfile& profile)

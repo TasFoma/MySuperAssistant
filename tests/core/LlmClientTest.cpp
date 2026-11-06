@@ -172,6 +172,42 @@ TEST(LlmClientTest, ReturnsTransportAndFormatFailuresWithoutRetry)
     EXPECT_EQ(client.requests().size(), 1U);
 }
 
+TEST(LlmClientTest, ValidatesFactProposalsAndRestrictsRevisionsToContextIds)
+{
+    auto request = validRequest();
+    request.profileFactIdentifiers = {1, 2};
+    const std::vector<std::vector<ProfileFactProposal>> invalid{
+        {{.text = "\xC2\xA0"}}, {{.text = "Замена", .replacesFactIdentifier = 0}},
+        {{.text = "Замена", .replacesFactIdentifier = 3}},
+        {{.text = "Первая", .replacesFactIdentifier = 1}, {.text = "Вторая", .replacesFactIdentifier = 1}}};
+    for (const auto& facts : invalid) {
+        FakeLlmClient client{LlmResponse{.reply = "Ответ", .profileFacts = facts}};
+        const auto result = client.complete(request);
+        ASSERT_TRUE(std::holds_alternative<LlmFailure>(result));
+        EXPECT_EQ(std::get<LlmFailure>(result).kind, LlmFailureKind::InvalidResponse);
+        EXPECT_EQ(client.requests().size(), 1U);
+    }
+    FakeLlmClient client{LlmResponse{.reply = "Ответ",
+        .profileFacts = {{.text = "  Новый факт  "}, {.text = "Исправление", .replacesFactIdentifier = 2}}}};
+    const auto result = client.complete(request);
+    ASSERT_TRUE(std::holds_alternative<LlmResponse>(result));
+    EXPECT_EQ(std::get<LlmResponse>(result).profileFacts.size(), 2U);
+    EXPECT_EQ(std::get<LlmResponse>(result).profileFacts.front().text, "  Новый факт  ");
+}
+
+TEST(LlmClientTest, InvalidContextFactIdsDoNotCallImplementation)
+{
+    for (const auto& identifiers : std::vector<std::vector<std::int64_t>>{{0}, {-1}, {1, 1}}) {
+        auto request = validRequest();
+        request.profileFactIdentifiers = identifiers;
+        FakeLlmClient client{LlmResponse{.reply = "Ответ"}};
+        const auto result = client.complete(request);
+        ASSERT_TRUE(std::holds_alternative<LlmFailure>(result));
+        EXPECT_EQ(std::get<LlmFailure>(result).kind, LlmFailureKind::InvalidRequest);
+        EXPECT_TRUE(client.requests().empty());
+    }
+}
+
 TEST(LlmClientTest, CallerCanSaveOriginalProposalThroughMoodService)
 {
     FakeClock clock{std::chrono::local_days{std::chrono::year{2026} / 11 / 6}};

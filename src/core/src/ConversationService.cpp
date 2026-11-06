@@ -11,7 +11,7 @@
 namespace msa::core {
 
 ConversationService::ConversationService(const Clock& clock, ChatService& chat,
-    const UserProfileService& profile, const DailyContextService& daily, LlmClient& client,
+    UserProfileService& profile, const DailyContextService& daily, LlmClient& client,
     MoodService& moods, EveningCheckInService& checkIn, EveningCheckInRepository& checkIns)
     : m_clock{clock}, m_chat{chat}, m_profile{profile}, m_daily{daily}, m_client{client},
       m_moods{moods}, m_checkIn{checkIn}, m_checkIns{checkIns}
@@ -81,16 +81,26 @@ ConversationResult ConversationService::retryLastMessage(std::size_t maxChars)
     }
     const MentorPrompt prompt;
     const UserProfileFactSelector selector;
+    const auto selected = selector.selectFacts(m_profile.profile(), current.text);
+    std::vector<std::string> selectedTexts;
+    for (const auto& fact : selected) {
+        selectedTexts.push_back("[Факт ID=" + std::to_string(fact.identifier) + "]\n" + fact.text);
+    }
     const LlmContextInput input{.systemPrompt = prompt.build(awaiting), .currentQuestion = current.text,
-        .selectedFacts = selector.select(m_profile.profile(), current.text),
+        .selectedFacts = selectedTexts,
         .dailyContext = m_daily.dailyContext(), .history = history, .currentMessageId = current.identifier};
     const LlmContextBuilder builder;
     const auto context = builder.build(input, maxChars);
     if (const auto* rejection = std::get_if<LlmContextRejection>(&context)) {
         return ConversationRejection{rejection->reason};
     }
-    const auto result = m_client.complete(LlmRequest{
-        .messages = std::get<LlmContext>(context).messages, .awaitingEveningCheckIn = awaiting});
+    const auto& built = std::get<LlmContext>(context);
+    LlmRequest request{.messages = built.messages, .awaitingEveningCheckIn = awaiting};
+    const auto includedCount = selected.size() - built.omittedFacts;
+    for (std::size_t index = 0; index < includedCount; ++index) {
+        request.profileFactIdentifiers.push_back(selected[index].identifier);
+    }
+    const auto result = m_client.complete(request);
     // Ожидание могло истечь, пока модель готовила ответ.
     const auto activePending = currentPendingCheckIn();
     const bool matchingPending = sameChat && activePending
@@ -107,6 +117,9 @@ ConversationResult ConversationService::retryLastMessage(std::size_t maxChars)
         return ConversationRejection{"Ожидание вечернего ответа завершено. Повторите запрос."};
     }
     ConversationReply reply{.text = response.reply, .tone = response.tone};
+    if (const auto rejection = m_profile.validateExtractedFacts(response.profileFacts)) {
+        return ConversationRejection{rejection->reason};
+    }
     if (response.moodRecording) {
         const auto& proposal = *response.moodRecording;
         const auto saved = m_moods.logMood(proposal.score, proposal.note);
@@ -115,6 +128,20 @@ ConversationResult ConversationService::retryLastMessage(std::size_t maxChars)
         }
         reply.moodIdentifier = std::get<std::int64_t>(saved);
         reply.text += "\n\nНастроение сохранено в дневник.";
+    }
+    const auto imported = m_profile.rememberExtractedFacts(response.profileFacts, ProfileFactSource{
+        .chatIdentifier = current.chatIdentifier, .messageIdentifier = current.identifier,
+        .moodIdentifier = reply.moodIdentifier});
+    if (const auto* rejection = std::get_if<UserProfileRejection>(&imported)) {
+        return ConversationRejection{rejection->reason};
+    }
+    const auto& added = std::get<std::vector<UserProfileFact>>(imported);
+    if (!added.empty()) {
+        reply.text += "\n\nСохранено в памяти:";
+        for (const auto& fact : added) {
+            reply.profileFactIdentifiers.push_back(fact.identifier);
+            reply.text += "\n• " + fact.text;
+        }
     }
     const auto saved = m_chat.addMessage(reply.text, MessageRole::Assistant);
     if (const auto* rejection = std::get_if<ChatRejection>(&saved)) {

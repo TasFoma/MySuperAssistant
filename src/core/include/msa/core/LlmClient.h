@@ -2,6 +2,7 @@
 
 #include "msa/core/LlmMessage.h"
 #include "msa/core/MoodEntry.h"
+#include "msa/core/ProfileFactProposal.h"
 
 #include <cstdint>
 #include <optional>
@@ -17,6 +18,8 @@ struct LlmRequest {
     std::vector<LlmMessage> messages{};
     /// @brief Вызывающий код ожидает ответ на вечерний опрос в текущем чате.
     bool awaitingEveningCheckIn{false};
+    /// @brief ID актуальных фактов, реально вошедших в контекст; только их можно исправлять.
+    std::vector<std::int64_t> profileFactIdentifiers{};
 };
 
 /// @brief Распознанная моделью причина явной записи настроения.
@@ -44,6 +47,8 @@ struct LlmResponse {
     /// @brief Только явная запись; отсутствие предложения не создаёт запись по тону.
     /// Заметку заполняет complete из request.messages.back().text целиком.
     std::optional<MoodRecordingProposal> moodRecording{};
+    /// @brief Факты текущего User для автоматического сохранения без назначения тегов.
+    std::vector<ProfileFactProposal> profileFacts{};
 };
 
 /// @brief Вид ожидаемой ошибки запроса, формата ответа или внешнего сервиса.
