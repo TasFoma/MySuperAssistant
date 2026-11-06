@@ -62,6 +62,8 @@
 [SqliteGreetingRepository](docs/modules/SqliteGreetingRepository.md).
 Версия 5 сохраняет дату вечернего опроса и ожидание ответа через
 [SqliteEveningCheckInRepository](docs/modules/SqliteEveningCheckInRepository.md).
+Версия 6 сохраняет отметки предупреждений о событиях через
+[SqliteEventWarningRepository](docs/modules/SqliteEventWarningRepository.md).
 Начинаем с пустой базы без импорта старых
 данных. Остальные SQLite-репозитории и общие транзакции операций чата ещё впереди.
 Приложения базу пока не открывают. Подробнее —

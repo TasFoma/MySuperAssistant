@@ -80,7 +80,7 @@ TEST_F(SqliteEveningCheckInRepositoryTest, UpgradesVersionFourKeepingExistingDat
         profiles.save(profile);
     }
     SqliteDatabase database{path(), sqliteMigrations()};
-    EXPECT_EQ(database.schemaVersion(), 5);
+    EXPECT_EQ(database.schemaVersion(), sqliteMigrations().back().version);
     SqliteEveningCheckInRepository repository{database};
     EXPECT_FALSE(repository.lastDate());
     EXPECT_FALSE(repository.pendingCheckIn());

@@ -15,6 +15,8 @@
 [SqliteGreetingRepository](SqliteGreetingRepository.md).
 Версия 5 добавляет дату вечернего опроса и ожидание ответа для
 [SqliteEveningCheckInRepository](SqliteEveningCheckInRepository.md).
+Версия 6 добавляет отметки предупреждений для
+[SqliteEventWarningRepository](SqliteEventWarningRepository.md).
 Модуль не подключён к apps/server. Путь передаёт вызывающая сторона; постоянное
 расположение файла и настройки ещё не выбраны.
 

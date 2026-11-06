@@ -59,7 +59,15 @@ std::vector<SqliteMigration> sqliteMigrations()
                            "chat_identifier INTEGER NOT NULL CHECK(chat_identifier > 0), "
                            "message_identifier INTEGER NOT NULL CHECK(message_identifier > 0), "
                            "FOREIGN KEY(message_identifier, chat_identifier) "
-                           "REFERENCES chat_messages(identifier, chat_identifier))")}}};
+                           "REFERENCES chat_messages(identifier, chat_identifier))")}},
+        {.version = 6, .statements = {
+            QStringLiteral("CREATE TABLE event_warning_marks ("
+                           "event_identifier INTEGER NOT NULL CHECK(event_identifier > 0), "
+                           "year INTEGER NOT NULL CHECK(year BETWEEN -32767 AND 32767), "
+                           "month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12), "
+                           "day INTEGER NOT NULL CHECK(day BETWEEN 1 AND 31), "
+                           "kind TEXT NOT NULL CHECK(kind IN ('BeforeStart', 'DayBefore', 'OnDay')), "
+                           "PRIMARY KEY(event_identifier, year, month, day, kind))")}}};
 }
 
 }  // namespace msa::infra
