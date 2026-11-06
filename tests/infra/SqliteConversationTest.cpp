@@ -263,6 +263,118 @@ TEST_F(SqliteConversationTest, UserIsCommittedAndOtherConnectionCanWriteWhileMod
     EXPECT_EQ(greetings.lastDate(), kDate);
 }
 
+TEST_F(SqliteConversationTest, CheckInWriteFailuresRestorePreviousPublicationAndAllowExplicitRetry)
+{
+    const std::array triggers{
+        "CREATE TRIGGER fail_offer BEFORE INSERT ON evening_check_in_state "
+            "BEGIN SELECT RAISE(ABORT, 'date failure'); END",
+        "CREATE TRIGGER fail_offer BEFORE INSERT ON chat_messages "
+            "BEGIN SELECT RAISE(ABORT, 'message failure'); END",
+        "CREATE TRIGGER fail_offer BEFORE INSERT ON pending_evening_check_in "
+            "BEGIN SELECT RAISE(ABORT, 'pending failure'); END",
+        "CREATE TRIGGER fail_offer BEFORE DELETE ON pending_evening_check_in "
+            "BEGIN SELECT RAISE(ABORT, 'expiry failure'); END"};
+    auto service = conversation();
+    for (const auto* trigger : triggers) {
+        SCOPED_TRACE(trigger);
+        m_clock.advance(std::chrono::days{1});
+        const auto previousDate = m_checkIns.lastDate();
+        const auto previousPending = m_checkIns.pendingCheckIn();
+        const auto history = m_chat.loadMessages();
+        m_database.execute(QString::fromUtf8(trigger));
+        EXPECT_THROW(static_cast<void>(service.offerEveningCheckIn()), std::runtime_error);
+        EXPECT_EQ(m_checkIns.lastDate(), previousDate);
+        const auto afterFailure = m_checkIns.pendingCheckIn();
+        ASSERT_EQ(afterFailure.has_value(), previousPending.has_value());
+        if (previousPending) {
+            EXPECT_EQ(afterFailure->chatIdentifier, previousPending->chatIdentifier);
+            EXPECT_EQ(afterFailure->messageIdentifier, previousPending->messageIdentifier);
+            EXPECT_EQ(afterFailure->date, previousPending->date);
+        }
+        const auto afterHistory = m_chat.loadMessages();
+        ASSERT_EQ(afterHistory.size(), history.size());
+        if (!history.empty()) {
+            EXPECT_EQ(afterHistory.back().identifier, history.back().identifier);
+            EXPECT_EQ(afterHistory.back().text, history.back().text);
+        }
+        m_database.execute(QStringLiteral("DROP TRIGGER fail_offer"));
+        const auto retry = service.offerEveningCheckIn();
+        ASSERT_TRUE(retry);
+        EXPECT_EQ(m_chat.loadMessages().size(), history.size() + 1);
+        ASSERT_TRUE(m_checkIns.pendingCheckIn());
+        EXPECT_EQ(m_checkIns.pendingCheckIn()->messageIdentifier, retry);
+        EXPECT_FALSE(service.offerEveningCheckIn());
+    }
+    EXPECT_TRUE(m_client.requests().empty());
+    EXPECT_TRUE(m_moods.all().empty());
+    EXPECT_TRUE(m_profiles.load().facts.empty());
+}
+
+TEST_F(SqliteConversationTest, CheckInCommitFailureLeavesNoDateMessageOrPendingAndCanBeRetried)
+{
+    auto service = conversation();
+    m_database.execute(QStringLiteral("CREATE TABLE offer_commit_probe ("
+        "identifier INTEGER REFERENCES chats(identifier) DEFERRABLE INITIALLY DEFERRED)"));
+    m_database.execute(QStringLiteral("CREATE TRIGGER fail_offer_commit AFTER INSERT ON pending_evening_check_in "
+        "BEGIN INSERT INTO offer_commit_probe VALUES (999999); END"));
+    EXPECT_THROW(static_cast<void>(service.offerEveningCheckIn()), std::runtime_error);
+    EXPECT_FALSE(m_checkIns.lastDate());
+    EXPECT_FALSE(m_checkIns.pendingCheckIn());
+    EXPECT_TRUE(m_chat.loadMessages().empty());
+    m_database.execute(QStringLiteral("DROP TRIGGER fail_offer_commit"));
+    EXPECT_TRUE(service.offerEveningCheckIn());
+    EXPECT_EQ(m_chat.loadMessages().size(), 1U);
+    EXPECT_FALSE(service.offerEveningCheckIn());
+    EXPECT_TRUE(m_client.requests().empty());
+}
+
+TEST_F(SqliteConversationTest, CheckInPublicationSurvivesReopenWithoutRepeatingOrMovingBetweenChats)
+{
+    auto service = conversation();
+    const auto originalChat = m_chat.currentChatId();
+    const auto prompt = service.offerEveningCheckIn();
+    ASSERT_TRUE(prompt);
+    const auto otherChat = m_chat.newChat();
+    EXPECT_FALSE(service.offerEveningCheckIn());
+    SqliteDatabase reopened{m_directory.filePath(QStringLiteral("чат.sqlite")), sqliteMigrations()};
+    SqliteChatRepository chats{reopened};
+    core::ChatService restoredChat{m_clock, chats};
+    EXPECT_EQ(restoredChat.currentChatId(), otherChat);
+    SqliteEveningCheckInRepository checkIns{reopened};
+    EXPECT_EQ(checkIns.lastDate(), kDate);
+    const auto pending = checkIns.pendingCheckIn();
+    ASSERT_TRUE(pending);
+    EXPECT_EQ(pending->chatIdentifier, originalChat);
+    EXPECT_EQ(pending->messageIdentifier, prompt);
+    EXPECT_EQ(pending->date, kDate);
+    ASSERT_EQ(chats.messages(originalChat).size(), 1U);
+    EXPECT_EQ(chats.messages(originalChat).front().identifier, prompt);
+    EXPECT_TRUE(chats.messages(otherChat).empty());
+    SqliteUserProfileRepository profiles{reopened};
+    core::UserProfileService profile{profiles};
+    SqliteEventRepository events{reopened};
+    core::CalendarService calendar{events};
+    SqliteTaskRepository tasks{reopened};
+    core::TaskService taskService{m_clock, tasks};
+    SqliteHabitRepository habits{reopened};
+    core::HabitService habitService{m_clock, habits};
+    core::DailyContextService daily{m_clock, calendar, taskService, habitService};
+    SqliteMoodRepository moods{reopened};
+    core::MoodService moodService{m_clock, moods};
+    core::EveningCheckInService restoredCheckIn{m_clock, checkIns};
+    core::ConversationService restored{m_clock, restoredChat, profile, daily, m_client,
+        moodService, restoredCheckIn, checkIns, reopened};
+    EXPECT_FALSE(restored.offerEveningCheckIn());
+    m_clock.advance(std::chrono::days{1});
+    const auto nextPrompt = restored.offerEveningCheckIn();
+    ASSERT_TRUE(nextPrompt);
+    ASSERT_TRUE(checkIns.pendingCheckIn());
+    EXPECT_EQ(checkIns.pendingCheckIn()->chatIdentifier, otherChat);
+    EXPECT_EQ(chats.messages(originalChat).size(), 1U);
+    EXPECT_EQ(chats.messages(otherChat).size(), 1U);
+    EXPECT_TRUE(m_client.requests().empty());
+}
+
 }  // namespace
 }  // namespace msa::infra
 

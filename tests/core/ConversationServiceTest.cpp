@@ -538,6 +538,32 @@ TEST_F(ConversationServiceTest, CommitFailureRollsBackAllWritesAndRetryDoesNotDu
     EXPECT_EQ(m_chat.loadMessages()[1].identifier, userIdentifier);
 }
 
+TEST_F(ConversationServiceTest, CheckInCommitFailureRestoresPreviousStateAndAllowsPublicationRetry)
+{
+    auto service = conversation();
+    const auto oldPrompt = service.offerEveningCheckIn();
+    ASSERT_TRUE(oldPrompt);
+    const auto oldDate = m_checkIns.lastDate();
+    const auto oldPending = m_checkIns.pendingCheckIn();
+    ASSERT_TRUE(oldPending);
+    m_clock.advance(std::chrono::days{1});
+    m_transactions.failNextCommit();
+    EXPECT_THROW(static_cast<void>(service.offerEveningCheckIn()), std::runtime_error);
+    EXPECT_EQ(m_checkIns.lastDate(), oldDate);
+    ASSERT_TRUE(m_checkIns.pendingCheckIn());
+    EXPECT_EQ(m_checkIns.pendingCheckIn()->messageIdentifier, oldPrompt);
+    EXPECT_EQ(m_checkIns.pendingCheckIn()->date, oldPending->date);
+    ASSERT_EQ(m_chat.loadMessages().size(), 1U);
+    const auto retried = service.offerEveningCheckIn();
+    ASSERT_TRUE(retried);
+    EXPECT_NE(retried, oldPrompt);
+    EXPECT_EQ(m_chat.loadMessages().size(), 2U);
+    ASSERT_TRUE(m_checkIns.pendingCheckIn());
+    EXPECT_EQ(m_checkIns.pendingCheckIn()->messageIdentifier, retried);
+    EXPECT_FALSE(service.offerEveningCheckIn());
+    EXPECT_TRUE(m_client.requests().empty());
+}
+
 }  // namespace
 }  // namespace msa::core
 

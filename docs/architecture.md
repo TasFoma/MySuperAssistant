@@ -42,7 +42,7 @@ SqliteMoodRepository и внешний ключ профиля на запись
 Пользователь выбрал пустую базу без
 импорта старых данных. Все репозитории core реализованы в SQLite;
 ConversationService атомарно записывает ответ через TransactionRunner.
-Публикация опроса пока не атомарна.
+Публикация опроса также атомарна, в отдельной транзакции.
 
 `msa_server` содержит только `return 0` и базу не создаёт. Оба клиента создают
 `QGuiApplication` и входят в цикл событий без окна, QML-движка и моделей.
@@ -178,7 +178,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 ## Границы реализации
 
-Нет атомарной публикации опроса, сетевого клиента и сервера, сериализации протокола, HTTP-реализации LLM-клиента,
+Нет сетевого клиента и сервера, сериализации протокола, HTTP-реализации LLM-клиента,
 работающего чата с настоящей моделью, аудио, платформенных Android-реализаций и геймификации.
 Файл `docs/protocol.md` пока отсутствует: описывать действующий протокол ещё нечего.
 Направление дальнейшей работы хранится в [плане переноса](migration-plan.md),
@@ -246,8 +246,9 @@ Qt ищется один раз в корневом CMake; поэтому уст
 `EveningCheckInService` использует Clock и EveningCheckInRepository: при первой
 проверке с 20:00 до конца дня сохраняет дату и возвращает текст опроса.
 SqliteEveningCheckInRepository хранит дату и ожидание между открытиями файла;
-снятие ожидания не меняет дату выдачи. Общая транзакция публикации в
-ConversationService пока не подключена; таймер и доставка клиентам не реализованы.
+снятие ожидания не меняет дату выдачи. ConversationService атомарно публикует опрос:
+очистка прежнего ожидания, дата выдачи, сообщение и новое ожидание — одна транзакция.
+Таймер и доставка клиентам не реализованы.
 Подробнее — [SqliteEveningCheckInRepository](modules/SqliteEveningCheckInRepository.md).
 Ожидание и обработка предложения записи реализованы через ConversationService.
 Подробнее — [EveningCheckInService](modules/EveningCheckInService.md).
@@ -306,7 +307,7 @@ flowchart LR
     conversation --> mood[MoodService: явная запись]
     conversation -->|факты и версии| profile
     conversation --> pending[EveningCheckInRepository: ожидание]
-    conversation --> transaction[TransactionRunner: атомарная запись ответа]
+    conversation --> transaction[TransactionRunner: ответ и публикация опроса]
     sqlite[SqliteDatabase] -. реализует .-> transaction
 ```
 

@@ -34,22 +34,25 @@ std::optional<PendingEveningCheckIn> ConversationService::currentPendingCheckIn(
 
 std::optional<std::int64_t> ConversationService::offerEveningCheckIn()
 {
-    static_cast<void>(currentPendingCheckIn());
-    const auto message = m_checkIn.checkInIfNeeded();
-    if (!message) {
-        return std::nullopt;
-    }
-    const auto result = m_chat.addMessage(*message, MessageRole::Assistant);
-    if (const auto* rejection = std::get_if<ChatRejection>(&result)) {
-        throw std::runtime_error{rejection->reason};
-    }
-    const auto identifier = std::get<std::int64_t>(result);
-    const auto date = m_checkIns.lastDate();
-    if (!date) {
-        throw std::runtime_error{"Не сохранена дата вечернего опроса"};
-    }
-    m_checkIns.savePendingCheckIn(PendingEveningCheckIn{
-        .chatIdentifier = m_chat.currentChatId(), .messageIdentifier = identifier, .date = *date});
+    std::optional<std::int64_t> identifier;
+    m_transactions.transaction([this, &identifier]() {
+        static_cast<void>(currentPendingCheckIn());
+        const auto message = m_checkIn.checkInIfNeeded();
+        if (!message) {
+            return;
+        }
+        const auto result = m_chat.addMessage(*message, MessageRole::Assistant);
+        if (const auto* rejection = std::get_if<ChatRejection>(&result)) {
+            throw std::runtime_error{rejection->reason};
+        }
+        identifier = std::get<std::int64_t>(result);
+        const auto date = m_checkIns.lastDate();
+        if (!date) {
+            throw std::runtime_error{"Не сохранена дата вечернего опроса"};
+        }
+        m_checkIns.savePendingCheckIn(PendingEveningCheckIn{
+            .chatIdentifier = m_chat.currentChatId(), .messageIdentifier = *identifier, .date = *date});
+    });
 
     return identifier;
 }

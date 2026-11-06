@@ -51,6 +51,8 @@ public:
         const DailyContextService& daily, LlmClient& client, MoodService& moods,
         EveningCheckInService& checkIn, EveningCheckInRepository& checkIns, TransactionRunner& transactions);
     /// @brief Публикует опрос в текущем чате и сохраняет ожидание; nullopt — опрос не нужен.
+    /// Очистка старого ожидания, дата, сообщение и новое ожидание — одна транзакция.
+    /// ID возвращается только после успешной фиксации; при исключении изменения откатываются.
     /// Истёкшее ожидание очищается при следующей операции. Доставка клиентам — вне сервиса.
     [[nodiscard]] std::optional<std::int64_t> offerEveningCheckIn();
     /// @brief Сохраняет User целиком и делает одну попытку ответа по явному бюджету текста.
