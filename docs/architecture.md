@@ -34,7 +34,8 @@ HTTP и JSON-разбор отсутствуют.
 тегами, источниками и ссылками версий для SqliteUserProfileRepository, затем версию 4
 с датой приветствия для SqliteGreetingRepository и версию 5 с датой вечернего опроса
 и ожиданием для SqliteEveningCheckInRepository; версия 6 добавляет отметки
-предупреждений для SqliteEventWarningRepository. Пользователь выбрал пустую базу без
+предупреждений для SqliteEventWarningRepository. Версия 7 добавляет дневник для
+SqliteMoodRepository и внешний ключ профиля на запись дневника. Пользователь выбрал пустую базу без
 импорта старых данных. Остальные SQLite-репозитории и общие транзакции операций
 чата ещё не подключены.
 
@@ -79,7 +80,7 @@ flowchart TD
 
 - `core` не использует Qt, файлы или сеть. Исключение из правила «только stdlib» —
   приватная зависимость от PCRE2 для Unicode-регулярных выражений (решение 11).
-- `infra` зависит от `core` и Qt6::Sql; есть основа SQLite и репозитории чатов, профиля, даты приветствия, вечернего опроса и отметок предупреждений.
+- `infra` зависит от `core` и Qt6::Sql; есть основа SQLite и репозитории чатов, профиля, дневника, даты приветствия, вечернего опроса и отметок предупреждений.
   Остальных SQLite-репозиториев, часов и внешних сервисов пока нет.
 - `ui/common` зависит от `core` и Qt Quick; платформенные UI-библиотеки — от
   `ui/common` и Qt Quick. UI и `infra` напрямую не связаны.
@@ -135,12 +136,13 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Тестовая инфраструктура | `FakeClock`, десять `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
 | FakeLlmClient | Заданный результат и снимки запросов без сети | `tests/core/FakeLlmClient.h`, `tests/core/FakeLlmClient.cpp` |
 | SqliteDatabase и SqliteMigration | Именованное соединение Qt Sql, принадлежность, версия, миграции и вложенные транзакции | `src/infra/include/msa/infra/SqliteDatabase.h`, `SqliteMigration.h`, `src/infra/src/SqliteDatabase.cpp` |
-| SqliteSchema | Общий список миграций: 2 — чаты, 3 — профиль, 4 — приветствие, 5 — вечерний опрос, 6 — отметки предупреждений | `src/infra/include/msa/infra/SqliteSchema.h`, `src/infra/src/SqliteSchema.cpp` |
+| SqliteSchema | Общий список миграций: 2 — чаты, 3 — профиль, 4 — приветствие, 5 — опрос, 6 — предупреждения, 7 — дневник и его связь с профилем | `src/infra/include/msa/infra/SqliteSchema.h`, `src/infra/src/SqliteSchema.cpp` |
 | SqliteChatRepository | SQLite-реализация ChatRepository с полным текстом и восстановлением выбора | `src/infra/include/msa/infra/SqliteChatRepository.h`, `src/infra/src/SqliteChatRepository.cpp` |
 | SqliteUserProfileRepository | SQLite-реализация UserProfileRepository с атомарным снимком, источниками и версиями | `src/infra/include/msa/infra/SqliteUserProfileRepository.h`, `src/infra/src/SqliteUserProfileRepository.cpp` |
 | SqliteGreetingRepository | Календарная дата последнего приветствия в SQLite | `src/infra/include/msa/infra/SqliteGreetingRepository.h`, `src/infra/src/SqliteGreetingRepository.cpp` |
 | SqliteEveningCheckInRepository | Независимые дата вечернего опроса и ожидание с привязкой к сообщению/чату в SQLite | `src/infra/include/msa/infra/SqliteEveningCheckInRepository.h`, `src/infra/src/SqliteEveningCheckInRepository.cpp` |
 | SqliteEventWarningRepository | Уникальные отметки ID события + дата вхождения + вид в SQLite | `src/infra/include/msa/infra/SqliteEventWarningRepository.h`, `src/infra/src/SqliteEventWarningRepository.cpp` |
+| SqliteMoodRepository | Полные записи настроения с постоянными ID в SQLite, источник фактов профиля | `src/infra/include/msa/infra/SqliteMoodRepository.h`, `src/infra/src/SqliteMoodRepository.cpp` |
 | Тесты инфраструктуры | QCoreApplication и временные файловые базы, откат схемы и операций | `tests/infra/` |
 | Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
@@ -242,8 +244,8 @@ ConversationService пока не подключена; таймер и дост
 `MoodService` зависит от Clock и MoodRepository. По явному вызову сохраняет
 Negative/Neutral/Positive, полную заметку и текущее время. История по умолчанию
 охватывает 14 календарных дней, включая сегодня, до текущего момента. Период
-ограничивает выборку, старые записи сохраняются. Репозиторий пока реализован
-только в памяти для тестов; SQLite — этап 3. Типизированное предложение записи
+ограничивает выборку, старые записи сохраняются. Репозиторий реализован
+в памяти для тестов и в SQLite через SqliteMoodRepository. Типизированное предложение записи
 обрабатывает ConversationService. Предложения важных фактов сохраняются в профиль
 со ссылкой на сообщение и при наличии дневник. Анализ настоящей моделью ещё
 не проверен; переписка автоматически не записывается в дневник. Подробнее —
@@ -307,7 +309,7 @@ flowchart LR
 вложенные SAVEPOINT. SqliteChatRepository и SqliteUserProfileRepository получают владельца через конструктор
 и используют его соединение; записи участвуют во внешней транзакции. Профиль заменяется
 атомарно, включая теги и взаимные ссылки версий. Ссылка на сообщение проверяет
-также принадлежность чату; ID дневника пока без внешнего ключа до появления его таблицы. Остальные
+также принадлежность чату; source_mood с версии 7 ссылается внешним ключом на дневник. Остальные
 репозитории будут использовать то же соединение для общей атомарной операции. Подключение общей
 транзакции к ConversationService ещё впереди; core не знает о Qt Sql.
 Подробнее — [SqliteDatabase](modules/SqliteDatabase.md) и

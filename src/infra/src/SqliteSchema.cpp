@@ -67,7 +67,36 @@ std::vector<SqliteMigration> sqliteMigrations()
                            "month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12), "
                            "day INTEGER NOT NULL CHECK(day BETWEEN 1 AND 31), "
                            "kind TEXT NOT NULL CHECK(kind IN ('BeforeStart', 'DayBefore', 'OnDay')), "
-                           "PRIMARY KEY(event_identifier, year, month, day, kind))")}}};
+                           "PRIMARY KEY(event_identifier, year, month, day, kind))")}},
+        {.version = 7, .statements = {
+            QStringLiteral("CREATE TABLE mood_entries ("
+                           "identifier INTEGER PRIMARY KEY AUTOINCREMENT, "
+                           "recorded_at INTEGER NOT NULL, score INTEGER NOT NULL CHECK(score IN (-1, 0, 1)), "
+                           "note TEXT NOT NULL)"),
+            // Пересоздаём профиль с внешним ключом, не отключая foreign_keys.
+            QStringLiteral("CREATE TABLE profile_facts_new ("
+                           "identifier INTEGER PRIMARY KEY CHECK(identifier > 0), "
+                           "position INTEGER NOT NULL UNIQUE CHECK(position >= 0), "
+                           "text TEXT NOT NULL, always_include INTEGER NOT NULL CHECK(always_include IN (0, 1)), "
+                           "source_chat INTEGER, source_message INTEGER, "
+                           "source_mood INTEGER REFERENCES mood_entries(identifier), "
+                           "replaces_fact INTEGER REFERENCES profile_facts_new(identifier) DEFERRABLE INITIALLY DEFERRED, "
+                           "superseded_by INTEGER REFERENCES profile_facts_new(identifier) DEFERRABLE INITIALLY DEFERRED, "
+                           "CHECK((source_chat IS NULL AND source_message IS NULL AND source_mood IS NULL) OR "
+                           "(source_chat IS NOT NULL AND source_message IS NOT NULL)), "
+                           "CHECK(source_mood IS NULL OR source_mood > 0), "
+                           "FOREIGN KEY(source_message, source_chat) "
+                           "REFERENCES chat_messages(identifier, chat_identifier))"),
+            QStringLiteral("INSERT INTO profile_facts_new SELECT * FROM profile_facts"),
+            QStringLiteral("CREATE TABLE profile_fact_tags_new ("
+                           "fact_identifier INTEGER NOT NULL REFERENCES profile_facts_new(identifier) ON DELETE CASCADE, "
+                           "position INTEGER NOT NULL CHECK(position >= 0), text TEXT NOT NULL, "
+                           "PRIMARY KEY(fact_identifier, position))"),
+            QStringLiteral("INSERT INTO profile_fact_tags_new SELECT * FROM profile_fact_tags"),
+            QStringLiteral("DROP TABLE profile_fact_tags"),
+            QStringLiteral("DROP TABLE profile_facts"),
+            QStringLiteral("ALTER TABLE profile_facts_new RENAME TO profile_facts"),
+            QStringLiteral("ALTER TABLE profile_fact_tags_new RENAME TO profile_fact_tags")}}};
 }
 
 }  // namespace msa::infra

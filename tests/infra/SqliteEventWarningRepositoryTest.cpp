@@ -54,7 +54,7 @@ TEST_F(SqliteEventWarningRepositoryTest, UpgradesVersionFiveAndKeepsNewMarkAcros
     }
     {
         SqliteDatabase database{path(), sqliteMigrations()};
-        EXPECT_EQ(database.schemaVersion(), 6);
+        EXPECT_EQ(database.schemaVersion(), sqliteMigrations().back().version);
         SqliteEveningCheckInRepository checkIns{database};
         EXPECT_EQ(checkIns.lastDate(), kDate);
         SqliteEventWarningRepository repository{database};

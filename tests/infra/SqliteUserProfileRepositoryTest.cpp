@@ -1,6 +1,7 @@
 #include "msa/core/UserProfileFactSelector.h"
 #include "msa/core/UserProfileService.h"
 #include "msa/infra/SqliteChatRepository.h"
+#include "msa/infra/SqliteMoodRepository.h"
 #include "msa/infra/SqliteSchema.h"
 #include "msa/infra/SqliteUserProfileRepository.h"
 
@@ -113,7 +114,8 @@ TEST_F(SqliteUserProfileRepositoryTest, KeepsSourcesNullableMoodAndBidirectional
         SqliteUserProfileRepository repository{database};
         auto source = addSource(database);
         auto moodSource = source;
-        moodSource.moodIdentifier = 123;
+        SqliteMoodRepository moods{database};
+        moodSource.moodIdentifier = moods.add({.note = "Полный исходный текст"});
         profile.facts = {
             {.text = "Ручной факт", .identifier = 1},
             {.text = "Старая версия", .tags = {"тег"}, .alwaysInclude = true,

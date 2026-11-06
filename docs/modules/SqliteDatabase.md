@@ -17,6 +17,8 @@
 [SqliteEveningCheckInRepository](SqliteEveningCheckInRepository.md).
 Версия 6 добавляет отметки предупреждений для
 [SqliteEventWarningRepository](SqliteEventWarningRepository.md).
+Версия 7 добавляет дневник для [SqliteMoodRepository](SqliteMoodRepository.md)
+и внешний ключ source_mood в профиле, сохраняя его факты, теги и версии.
 Модуль не подключён к apps/server. Путь передаёт вызывающая сторона; постоянное
 расположение файла и настройки ещё не выбраны.
 
