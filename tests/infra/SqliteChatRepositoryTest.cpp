@@ -72,7 +72,7 @@ TEST_F(SqliteChatRepositoryTest, MigratesBaselineAndReopensWithoutLosingChats)
     {
         SqliteDatabase database{path(), sqliteMigrations()};
         SqliteChatRepository repository{database};
-        EXPECT_EQ(database.schemaVersion(), 2);
+        EXPECT_EQ(database.schemaVersion(), sqliteMigrations().back().version);
         EXPECT_TRUE(repository.chats().empty());
         EXPECT_FALSE(repository.currentChatId());
         identifier = repository.addChat(sampleChat());

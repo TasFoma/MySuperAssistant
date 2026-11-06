@@ -1,6 +1,7 @@
 add_executable(msa_infra_tests
     SqliteChatRepositoryTest.cpp
     SqliteDatabaseTest.cpp
+    SqliteUserProfileRepositoryTest.cpp
     TestMain.cpp
 )
 
@@ -10,7 +11,8 @@ msa_apply_warnings(msa_infra_tests)
 
 include(GoogleTest)
 gtest_add_tests(TARGET msa_infra_tests
-    SOURCES SqliteDatabaseTest.cpp SqliteChatRepositoryTest.cpp TEST_LIST msaInfraTests)
+    SOURCES SqliteDatabaseTest.cpp SqliteChatRepositoryTest.cpp SqliteUserProfileRepositoryTest.cpp
+    TEST_LIST msaInfraTests)
 if(WIN32)
     set_tests_properties(${msaInfraTests} PROPERTIES
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"

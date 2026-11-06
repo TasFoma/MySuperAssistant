@@ -30,7 +30,8 @@ HTTP и JSON-разбор отсутствуют.
 `infra` содержит основу SqliteDatabase: открытие нового файла, внешние ключи,
 проверку версии и принадлежности, миграции и вложенные транзакции. Базовая версия 1
 без предметных таблиц; sqliteMigrations() добавляет версию 2 с чатами, сообщениями
-и текущим выбором для SqliteChatRepository. Пользователь выбрал пустую базу без
+и текущим выбором для SqliteChatRepository, затем версию 3 с фактами профиля,
+тегами, источниками и ссылками версий для SqliteUserProfileRepository. Пользователь выбрал пустую базу без
 импорта старых данных. Остальные SQLite-репозитории и общие транзакции операций
 чата ещё не подключены.
 
@@ -45,7 +46,7 @@ HTTP и JSON-разбор отсутствуют.
 
 ```mermaid
 flowchart TD
-    server[msa_server] --> infra[msa_infra: SQLite и репозиторий чатов]
+    server[msa_server] --> infra[msa_infra: SQLite, чаты и профиль]
     server --> core[msa_core]
     desktop[msa_desktop] --> desktopUI[msa_ui_desktop: заглушка]
     desktop --> common[msa_ui_common: заглушка]
@@ -75,7 +76,7 @@ flowchart TD
 
 - `core` не использует Qt, файлы или сеть. Исключение из правила «только stdlib» —
   приватная зависимость от PCRE2 для Unicode-регулярных выражений (решение 11).
-- `infra` зависит от `core` и Qt6::Sql; есть основа SQLite и репозиторий чатов.
+- `infra` зависит от `core` и Qt6::Sql; есть основа SQLite и репозитории чатов и профиля.
   Остальных SQLite-репозиториев, часов и внешних сервисов пока нет.
 - `ui/common` зависит от `core` и Qt Quick; платформенные UI-библиотеки — от
   `ui/common` и Qt Quick. UI и `infra` напрямую не связаны.
@@ -131,8 +132,9 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Тестовая инфраструктура | `FakeClock`, десять `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
 | FakeLlmClient | Заданный результат и снимки запросов без сети | `tests/core/FakeLlmClient.h`, `tests/core/FakeLlmClient.cpp` |
 | SqliteDatabase и SqliteMigration | Именованное соединение Qt Sql, принадлежность, версия, миграции и вложенные транзакции | `src/infra/include/msa/infra/SqliteDatabase.h`, `SqliteMigration.h`, `src/infra/src/SqliteDatabase.cpp` |
-| SqliteSchema | Общий список предметных миграций; версия 2 добавляет чаты, сообщения и выбор | `src/infra/include/msa/infra/SqliteSchema.h`, `src/infra/src/SqliteSchema.cpp` |
+| SqliteSchema | Общий список предметных миграций; версия 2 — чаты, сообщения и выбор, версия 3 — профиль и теги | `src/infra/include/msa/infra/SqliteSchema.h`, `src/infra/src/SqliteSchema.cpp` |
 | SqliteChatRepository | SQLite-реализация ChatRepository с полным текстом и восстановлением выбора | `src/infra/include/msa/infra/SqliteChatRepository.h`, `src/infra/src/SqliteChatRepository.cpp` |
+| SqliteUserProfileRepository | SQLite-реализация UserProfileRepository с атомарным снимком, источниками и версиями | `src/infra/include/msa/infra/SqliteUserProfileRepository.h`, `src/infra/src/SqliteUserProfileRepository.cpp` |
 | Тесты инфраструктуры | QCoreApplication и временные файловые базы, откат схемы и операций | `tests/infra/` |
 | Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
@@ -291,9 +293,12 @@ flowchart LR
 
 Основа SQLite находится в infra и пока не вызывается приложениями. SqliteDatabase
 владеет соединением в одном потоке, обновляет schema user_version и поддерживает
-вложенные SAVEPOINT. SqliteChatRepository получает владельца через конструктор
-и использует его соединение; записи участвуют во внешней транзакции. Остальные
+вложенные SAVEPOINT. SqliteChatRepository и SqliteUserProfileRepository получают владельца через конструктор
+и используют его соединение; записи участвуют во внешней транзакции. Профиль заменяется
+атомарно, включая теги и взаимные ссылки версий. Ссылка на сообщение проверяет
+также принадлежность чату; ID дневника пока без внешнего ключа до появления его таблицы. Остальные
 репозитории будут использовать то же соединение для общей атомарной операции. Подключение общей
 транзакции к ConversationService ещё впереди; core не знает о Qt Sql.
 Подробнее — [SqliteDatabase](modules/SqliteDatabase.md) и
-[SqliteChatRepository](modules/SqliteChatRepository.md).
+[SqliteChatRepository](modules/SqliteChatRepository.md) и
+[SqliteUserProfileRepository](modules/SqliteUserProfileRepository.md).

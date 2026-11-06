@@ -9,6 +9,8 @@
 Базовый конструктор без дополнительных миграций не создаёт предметные таблицы.
 `sqliteMigrations()` из SqliteSchema добавляет версию 2 для
 [SqliteChatRepository](SqliteChatRepository.md): чаты, сообщения и выбор.
+Версия 3 добавляет полный профиль и теги для
+[SqliteUserProfileRepository](SqliteUserProfileRepository.md), включая источники и версии.
 Модуль не подключён к apps/server. Путь передаёт вызывающая сторона; постоянное
 расположение файла и настройки ещё не выбраны.
 

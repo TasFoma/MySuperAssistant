@@ -19,7 +19,26 @@ std::vector<SqliteMigration> sqliteMigrations()
                        "ON chat_messages(chat_identifier, identifier)"),
         QStringLiteral("CREATE TABLE chat_selection ("
                        "identifier INTEGER PRIMARY KEY CHECK(identifier = 1), "
-                       "chat_identifier INTEGER NOT NULL REFERENCES chats(identifier))")}}};
+                       "chat_identifier INTEGER NOT NULL REFERENCES chats(identifier))")}},
+        {.version = 3, .statements = {
+            QStringLiteral("CREATE UNIQUE INDEX chat_message_source "
+                           "ON chat_messages(identifier, chat_identifier)"),
+            QStringLiteral("CREATE TABLE profile_facts ("
+                           "identifier INTEGER PRIMARY KEY CHECK(identifier > 0), "
+                           "position INTEGER NOT NULL UNIQUE CHECK(position >= 0), "
+                           "text TEXT NOT NULL, always_include INTEGER NOT NULL CHECK(always_include IN (0, 1)), "
+                           "source_chat INTEGER, source_message INTEGER, source_mood INTEGER, "
+                           "replaces_fact INTEGER REFERENCES profile_facts(identifier) DEFERRABLE INITIALLY DEFERRED, "
+                           "superseded_by INTEGER REFERENCES profile_facts(identifier) DEFERRABLE INITIALLY DEFERRED, "
+                           "CHECK((source_chat IS NULL AND source_message IS NULL AND source_mood IS NULL) OR "
+                           "(source_chat IS NOT NULL AND source_message IS NOT NULL)), "
+                           "CHECK(source_mood IS NULL OR source_mood > 0), "
+                           "FOREIGN KEY(source_message, source_chat) "
+                           "REFERENCES chat_messages(identifier, chat_identifier))"),
+            QStringLiteral("CREATE TABLE profile_fact_tags ("
+                           "fact_identifier INTEGER NOT NULL REFERENCES profile_facts(identifier) ON DELETE CASCADE, "
+                           "position INTEGER NOT NULL CHECK(position >= 0), text TEXT NOT NULL, "
+                           "PRIMARY KEY(fact_identifier, position))")}}};
 }
 
 }  // namespace msa::infra
