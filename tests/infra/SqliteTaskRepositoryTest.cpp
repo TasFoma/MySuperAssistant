@@ -72,7 +72,7 @@ TEST_F(SqliteTaskRepositoryTest, UpgradesVersionSevenAndReopensWithExactFieldsAn
     expected.title.append("\0конец", sizeof("\0конец") - 1);
     {
         SqliteDatabase database{path(), sqliteMigrations()};
-        EXPECT_EQ(database.schemaVersion(), 8);
+        EXPECT_EQ(database.schemaVersion(), sqliteMigrations().back().version);
         SqliteMoodRepository moods{database};
         ASSERT_EQ(moods.all().size(), 1U);
         EXPECT_EQ(moods.all().front().note, "Дневник до обновления");

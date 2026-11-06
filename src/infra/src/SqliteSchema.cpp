@@ -106,7 +106,15 @@ std::vector<SqliteMigration> sqliteMigrations()
                            "CHECK((due_year IS NULL AND due_month IS NULL AND due_day IS NULL) OR "
                            "(due_year IS NOT NULL AND due_month IS NOT NULL AND due_day IS NOT NULL "
                            "AND due_year BETWEEN -32767 AND 32767 AND due_month BETWEEN 1 AND 12 "
-                           "AND due_day BETWEEN 1 AND 31)))")}}};
+                           "AND due_day BETWEEN 1 AND 31)))")}},
+        {.version = 9, .statements = {
+            QStringLiteral("CREATE TABLE events ("
+                           "identifier INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, "
+                           "year INTEGER NOT NULL CHECK(year BETWEEN -32767 AND 32767), "
+                           "month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12), "
+                           "day INTEGER NOT NULL CHECK(day BETWEEN 1 AND 31), "
+                           "time_minutes INTEGER CHECK(time_minutes BETWEEN 0 AND 1439), "
+                           "description TEXT NOT NULL, repeat INTEGER NOT NULL CHECK(repeat IN (0, 1, 2, 3)))")}}};
 }
 
 }  // namespace msa::infra

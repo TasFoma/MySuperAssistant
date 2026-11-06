@@ -3,6 +3,7 @@ add_library(msa_infra STATIC
     include/msa/infra/SqliteDatabase.h
     include/msa/infra/SqliteEveningCheckInRepository.h
     include/msa/infra/SqliteEventWarningRepository.h
+    include/msa/infra/SqliteEventRepository.h
     include/msa/infra/SqliteGreetingRepository.h
     include/msa/infra/SqliteMigration.h
     include/msa/infra/SqliteMoodRepository.h
@@ -13,6 +14,7 @@ add_library(msa_infra STATIC
     src/SqliteDatabase.cpp
     src/SqliteEveningCheckInRepository.cpp
     src/SqliteEventWarningRepository.cpp
+    src/SqliteEventRepository.cpp
     src/SqliteGreetingRepository.cpp
     src/SqliteMoodRepository.cpp
     src/SqliteSchema.cpp
