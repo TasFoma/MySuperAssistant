@@ -114,7 +114,21 @@ std::vector<SqliteMigration> sqliteMigrations()
                            "month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12), "
                            "day INTEGER NOT NULL CHECK(day BETWEEN 1 AND 31), "
                            "time_minutes INTEGER CHECK(time_minutes BETWEEN 0 AND 1439), "
-                           "description TEXT NOT NULL, repeat INTEGER NOT NULL CHECK(repeat IN (0, 1, 2, 3)))")}}};
+                           "description TEXT NOT NULL, repeat INTEGER NOT NULL CHECK(repeat IN (0, 1, 2, 3)))")}},
+        {.version = 10, .statements = {
+            QStringLiteral("CREATE TABLE reminders ("
+                "identifier INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, "
+                "kind TEXT NOT NULL CHECK(kind IN ('Timed', 'Recurring', 'Place')), "
+                "due_at INTEGER, interval_minutes INTEGER, place TEXT, latitude REAL, longitude REAL, status INTEGER, "
+                "CHECK((latitude IS NULL AND longitude IS NULL) OR "
+                "(latitude IS NOT NULL AND longitude IS NOT NULL AND latitude BETWEEN -90 AND 90 "
+                "AND longitude BETWEEN -180 AND 180)), "
+                "CHECK((kind = 'Timed' AND due_at IS NOT NULL AND interval_minutes IS NULL AND place IS NULL "
+                "AND latitude IS NULL AND longitude IS NULL AND status IS NOT NULL AND status IN (0, 1, 2)) OR "
+                "(kind = 'Recurring' AND due_at IS NOT NULL AND interval_minutes IS NOT NULL "
+                "AND interval_minutes > 0 AND place IS NULL AND latitude IS NULL AND longitude IS NULL AND status IS NULL) OR "
+                "(kind = 'Place' AND due_at IS NULL AND interval_minutes IS NULL AND place IS NOT NULL "
+                "AND status IS NOT NULL AND status IN (0, 1, 2))))")}}};
 }
 
 }  // namespace msa::infra

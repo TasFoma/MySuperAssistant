@@ -76,7 +76,7 @@ TEST_F(SqliteEventRepositoryTest, UpgradesVersionEightAndReopensWithFullFieldsAn
     expected.description.append("\0конец", sizeof("\0конец") - 1);
     {
         SqliteDatabase database{path(), sqliteMigrations()};
-        EXPECT_EQ(database.schemaVersion(), 9);
+        EXPECT_EQ(database.schemaVersion(), sqliteMigrations().back().version);
         SqliteTaskRepository tasks{database};
         ASSERT_EQ(tasks.all().size(), 1U);
         EXPECT_EQ(tasks.all().front().title, "Прежняя задача");

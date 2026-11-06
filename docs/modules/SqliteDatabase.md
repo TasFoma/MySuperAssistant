@@ -21,6 +21,8 @@
 и внешний ключ source_mood в профиле, сохраняя его факты, теги и версии.
 Версия 8 добавляет задачи для [SqliteTaskRepository](SqliteTaskRepository.md).
 Версия 9 добавляет серии событий для [SqliteEventRepository](SqliteEventRepository.md).
+Версия 10 добавляет все виды напоминаний для
+[SqliteReminderRepository](SqliteReminderRepository.md).
 Модуль не подключён к apps/server. Путь передаёт вызывающая сторона; постоянное
 расположение файла и настройки ещё не выбраны.
 
