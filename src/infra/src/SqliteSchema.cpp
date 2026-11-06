@@ -44,7 +44,22 @@ std::vector<SqliteMigration> sqliteMigrations()
                            "identifier INTEGER PRIMARY KEY CHECK(identifier = 1), "
                            "year INTEGER NOT NULL CHECK(year BETWEEN -32767 AND 32767), "
                            "month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12), "
-                           "day INTEGER NOT NULL CHECK(day BETWEEN 1 AND 31))")}}};
+                           "day INTEGER NOT NULL CHECK(day BETWEEN 1 AND 31))")}},
+        {.version = 5, .statements = {
+            QStringLiteral("CREATE TABLE evening_check_in_state ("
+                           "identifier INTEGER PRIMARY KEY CHECK(identifier = 1), "
+                           "year INTEGER NOT NULL CHECK(year BETWEEN -32767 AND 32767), "
+                           "month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12), "
+                           "day INTEGER NOT NULL CHECK(day BETWEEN 1 AND 31))"),
+            QStringLiteral("CREATE TABLE pending_evening_check_in ("
+                           "identifier INTEGER PRIMARY KEY CHECK(identifier = 1), "
+                           "year INTEGER NOT NULL CHECK(year BETWEEN -32767 AND 32767), "
+                           "month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12), "
+                           "day INTEGER NOT NULL CHECK(day BETWEEN 1 AND 31), "
+                           "chat_identifier INTEGER NOT NULL CHECK(chat_identifier > 0), "
+                           "message_identifier INTEGER NOT NULL CHECK(message_identifier > 0), "
+                           "FOREIGN KEY(message_identifier, chat_identifier) "
+                           "REFERENCES chat_messages(identifier, chat_identifier))")}}};
 }
 
 }  // namespace msa::infra

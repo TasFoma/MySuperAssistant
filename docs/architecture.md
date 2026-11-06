@@ -32,7 +32,8 @@ HTTP и JSON-разбор отсутствуют.
 без предметных таблиц; sqliteMigrations() добавляет версию 2 с чатами, сообщениями
 и текущим выбором для SqliteChatRepository, затем версию 3 с фактами профиля,
 тегами, источниками и ссылками версий для SqliteUserProfileRepository, затем версию 4
-с датой приветствия для SqliteGreetingRepository. Пользователь выбрал пустую базу без
+с датой приветствия для SqliteGreetingRepository и версию 5 с датой вечернего опроса
+и ожиданием для SqliteEveningCheckInRepository. Пользователь выбрал пустую базу без
 импорта старых данных. Остальные SQLite-репозитории и общие транзакции операций
 чата ещё не подключены.
 
@@ -47,7 +48,7 @@ HTTP и JSON-разбор отсутствуют.
 
 ```mermaid
 flowchart TD
-    server[msa_server] --> infra[msa_infra: SQLite, чаты, профиль, дата приветствия]
+    server[msa_server] --> infra[msa_infra: SQLite, чаты, профиль, приветствие и опрос]
     server --> core[msa_core]
     desktop[msa_desktop] --> desktopUI[msa_ui_desktop: заглушка]
     desktop --> common[msa_ui_common: заглушка]
@@ -77,7 +78,7 @@ flowchart TD
 
 - `core` не использует Qt, файлы или сеть. Исключение из правила «только stdlib» —
   приватная зависимость от PCRE2 для Unicode-регулярных выражений (решение 11).
-- `infra` зависит от `core` и Qt6::Sql; есть основа SQLite и репозитории чатов, профиля и даты приветствия.
+- `infra` зависит от `core` и Qt6::Sql; есть основа SQLite и репозитории чатов, профиля, даты приветствия и вечернего опроса.
   Остальных SQLite-репозиториев, часов и внешних сервисов пока нет.
 - `ui/common` зависит от `core` и Qt Quick; платформенные UI-библиотеки — от
   `ui/common` и Qt Quick. UI и `infra` напрямую не связаны.
@@ -133,10 +134,11 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Тестовая инфраструктура | `FakeClock`, десять `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
 | FakeLlmClient | Заданный результат и снимки запросов без сети | `tests/core/FakeLlmClient.h`, `tests/core/FakeLlmClient.cpp` |
 | SqliteDatabase и SqliteMigration | Именованное соединение Qt Sql, принадлежность, версия, миграции и вложенные транзакции | `src/infra/include/msa/infra/SqliteDatabase.h`, `SqliteMigration.h`, `src/infra/src/SqliteDatabase.cpp` |
-| SqliteSchema | Общий список миграций: 2 — чаты, 3 — профиль, 4 — дата приветствия | `src/infra/include/msa/infra/SqliteSchema.h`, `src/infra/src/SqliteSchema.cpp` |
+| SqliteSchema | Общий список миграций: 2 — чаты, 3 — профиль, 4 — приветствие, 5 — вечерний опрос | `src/infra/include/msa/infra/SqliteSchema.h`, `src/infra/src/SqliteSchema.cpp` |
 | SqliteChatRepository | SQLite-реализация ChatRepository с полным текстом и восстановлением выбора | `src/infra/include/msa/infra/SqliteChatRepository.h`, `src/infra/src/SqliteChatRepository.cpp` |
 | SqliteUserProfileRepository | SQLite-реализация UserProfileRepository с атомарным снимком, источниками и версиями | `src/infra/include/msa/infra/SqliteUserProfileRepository.h`, `src/infra/src/SqliteUserProfileRepository.cpp` |
 | SqliteGreetingRepository | Календарная дата последнего приветствия в SQLite | `src/infra/include/msa/infra/SqliteGreetingRepository.h`, `src/infra/src/SqliteGreetingRepository.cpp` |
+| SqliteEveningCheckInRepository | Независимые дата вечернего опроса и ожидание с привязкой к сообщению/чату в SQLite | `src/infra/include/msa/infra/SqliteEveningCheckInRepository.h`, `src/infra/src/SqliteEveningCheckInRepository.cpp` |
 | Тесты инфраструктуры | QCoreApplication и временные файловые базы, откат схемы и операций | `tests/infra/` |
 | Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
@@ -226,8 +228,11 @@ Qt ищется один раз в корневом CMake; поэтому уст
 [DailyContextService](modules/DailyContextService.md).
 
 `EveningCheckInService` использует Clock и EveningCheckInRepository: при первой
-проверке с 20:00 до конца дня сохраняет дату и возвращает текст опроса. SQLite
-относится к этапу 3; таймер и доставка клиентам пока не реализованы.
+проверке с 20:00 до конца дня сохраняет дату и возвращает текст опроса.
+SqliteEveningCheckInRepository хранит дату и ожидание между открытиями файла;
+снятие ожидания не меняет дату выдачи. Общая транзакция публикации в
+ConversationService пока не подключена; таймер и доставка клиентам не реализованы.
+Подробнее — [SqliteEveningCheckInRepository](modules/SqliteEveningCheckInRepository.md).
 Ожидание и обработка предложения записи реализованы через ConversationService.
 Подробнее — [EveningCheckInService](modules/EveningCheckInService.md).
 

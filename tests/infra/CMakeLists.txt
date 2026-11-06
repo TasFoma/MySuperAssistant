@@ -1,6 +1,7 @@
 add_executable(msa_infra_tests
     SqliteChatRepositoryTest.cpp
     SqliteDatabaseTest.cpp
+    SqliteEveningCheckInRepositoryTest.cpp
     SqliteGreetingRepositoryTest.cpp
     SqliteUserProfileRepositoryTest.cpp
     TestMain.cpp
@@ -16,7 +17,7 @@ msa_apply_warnings(msa_infra_tests)
 include(GoogleTest)
 gtest_add_tests(TARGET msa_infra_tests
     SOURCES SqliteDatabaseTest.cpp SqliteChatRepositoryTest.cpp SqliteUserProfileRepositoryTest.cpp
-    SqliteGreetingRepositoryTest.cpp
+    SqliteGreetingRepositoryTest.cpp SqliteEveningCheckInRepositoryTest.cpp
     TEST_LIST msaInfraTests)
 if(WIN32)
     set_tests_properties(${msaInfraTests} PROPERTIES

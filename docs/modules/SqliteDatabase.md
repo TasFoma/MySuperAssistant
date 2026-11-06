@@ -13,6 +13,8 @@
 [SqliteUserProfileRepository](SqliteUserProfileRepository.md), включая источники и версии.
 Версия 4 добавляет дату приветствия для
 [SqliteGreetingRepository](SqliteGreetingRepository.md).
+Версия 5 добавляет дату вечернего опроса и ожидание ответа для
+[SqliteEveningCheckInRepository](SqliteEveningCheckInRepository.md).
 Модуль не подключён к apps/server. Путь передаёт вызывающая сторона; постоянное
 расположение файла и настройки ещё не выбраны.
 

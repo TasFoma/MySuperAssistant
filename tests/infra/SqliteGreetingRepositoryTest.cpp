@@ -60,7 +60,7 @@ TEST_F(SqliteGreetingRepositoryTest, UpgradesVersionThreeKeepingChatsAndProfileA
     }
     SqliteDatabase database{path(), sqliteMigrations()};
     SqliteGreetingRepository greetings{database};
-    EXPECT_EQ(database.schemaVersion(), 4);
+    EXPECT_EQ(database.schemaVersion(), sqliteMigrations().back().version);
     EXPECT_FALSE(greetings.lastDate());
     SqliteChatRepository chats{database};
     EXPECT_EQ(chats.currentChatId(), chatIdentifier);
