@@ -13,6 +13,8 @@ public:
     explicit FakeLlmClient(LlmResult result);
     /// @brief Возвращает снимки запросов; неверный ввод в них не попадает.
     [[nodiscard]] const std::vector<LlmRequest>& requests() const;
+    /// @brief Задаёт результат последующей явной попытки, не очищая историю запросов.
+    void setResult(LlmResult result);
 
 protected:
     /// @brief Сохраняет копию запроса и возвращает настроенный результат без повторов.

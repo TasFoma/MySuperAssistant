@@ -30,8 +30,8 @@ TEST(EveningCheckInServiceTest, PreparesAtFirstCheckFromTwentyUntilEndOfDay)
         EveningCheckInService service{clock, repository};
         const auto message = service.checkInIfNeeded();
         ASSERT_TRUE(message);
-        EXPECT_EQ(*message, "Как прошёл день? 🌙 Расскажи, какое настроение "
-            "и что удалось сделать — я запишу прогресс.");
+        EXPECT_EQ(*message, "Как прошёл день? 🌙 Если хочешь, расскажи о настроении "
+            "и важных событиях — сохраню твой ответ в дневник настроения.");
         EXPECT_EQ(repository.lastDate(), date);
         EXPECT_FALSE(service.checkInIfNeeded());
     }
@@ -92,6 +92,8 @@ public:
     explicit FailingEveningCheckInRepository(bool failOnLoad);
     [[nodiscard]] std::optional<std::chrono::year_month_day> lastDate() const override;
     void saveDate(std::chrono::year_month_day date) override;
+    [[nodiscard]] std::optional<PendingEveningCheckIn> pendingCheckIn() const override;
+    void savePendingCheckIn(std::optional<PendingEveningCheckIn> pending) override;
 
 private:
     bool m_failOnLoad{true};
@@ -114,6 +116,17 @@ std::optional<std::chrono::year_month_day> FailingEveningCheckInRepository::last
 void FailingEveningCheckInRepository::saveDate([[maybe_unused]] std::chrono::year_month_day date)
 {
     throw std::runtime_error{"Ошибка сохранения"};
+}
+
+std::optional<PendingEveningCheckIn> FailingEveningCheckInRepository::pendingCheckIn() const
+{
+    throw std::runtime_error{"Ошибка чтения ожидания"};
+}
+
+void FailingEveningCheckInRepository::savePendingCheckIn(
+    [[maybe_unused]] std::optional<PendingEveningCheckIn> pending)
+{
+    throw std::runtime_error{"Ошибка сохранения ожидания"};
 }
 
 TEST(EveningCheckInServiceTest, DoesNotAccessStorageBeforeTwentyAndPropagatesErrorsInWindow)

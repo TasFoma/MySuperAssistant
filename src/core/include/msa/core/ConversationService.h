@@ -1,0 +1,73 @@
+#pragma once
+
+#include "msa/core/ChatService.h"
+#include "msa/core/Clock.h"
+#include "msa/core/DailyContextService.h"
+#include "msa/core/EveningCheckInRepository.h"
+#include "msa/core/EveningCheckInService.h"
+#include "msa/core/LlmClient.h"
+#include "msa/core/MoodService.h"
+#include "msa/core/UserProfileService.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <variant>
+
+namespace msa::core {
+
+/// @brief Успешно сохранённый ответ и необязательная запись дневника.
+struct ConversationReply {
+    /// @brief ID сохранённого сообщения Assistant.
+    std::int64_t messageIdentifier{0};
+    /// @brief Полный текст с подтверждением только после успешной записи настроения.
+    std::string text{};
+    /// @brief Тон для текущей реакции, сам не является записью дневника.
+    std::optional<MoodScore> tone{};
+    /// @brief ID созданной записи дневника, если была явная запись.
+    std::optional<std::int64_t> moodIdentifier{};
+};
+
+/// @brief Отказ из-за ввода, бюджета или отсутствия сообщения для повтора.
+struct ConversationRejection {
+    /// @brief Понятная причина для вызывающего кода.
+    std::string reason{};
+};
+
+/// @brief Сохранённый ответ, предметный отказ либо ошибка LLM без записи ответа.
+using ConversationResult = std::variant<ConversationReply, ConversationRejection, LlmFailure>;
+
+/// @brief Связывает контекст, чат, ментора и явный дневник без HTTP и Qt.
+class ConversationService {
+public:
+    /// @brief Все зависимости невладеющие, часы и репозиторий опроса общие с его сервисом.
+    ConversationService(const Clock& clock, ChatService& chat, const UserProfileService& profile,
+        const DailyContextService& daily, LlmClient& client, MoodService& moods,
+        EveningCheckInService& checkIn, EveningCheckInRepository& checkIns);
+    /// @brief Публикует опрос в текущем чате и сохраняет ожидание; nullopt — опрос не нужен.
+    /// Истёкшее ожидание очищается при следующей операции. Доставка клиентам — вне сервиса.
+    [[nodiscard]] std::optional<std::int64_t> offerEveningCheckIn();
+    /// @brief Сохраняет User целиком и делает одну попытку ответа по явному бюджету текста.
+    /// При отказе контекста или LLM сообщение User остаётся в истории для явного повтора.
+    [[nodiscard]] ConversationResult sendMessage(const std::string& message, std::size_t maxChars);
+    /// @brief Повторяет обработку последнего User без повторной записи его текста.
+    /// Только после отказа бюджета/LLM; после технического сбоя записи повтор небезопасен.
+    /// При последнем Assistant отказывает. Успешная обработка закрывает опрос в этом чате.
+    [[nodiscard]] ConversationResult retryLastMessage(std::size_t maxChars);
+
+private:
+    [[nodiscard]] std::optional<PendingEveningCheckIn> currentPendingCheckIn();
+
+    const Clock& m_clock;
+    ChatService& m_chat;
+    const UserProfileService& m_profile;
+    const DailyContextService& m_daily;
+    LlmClient& m_client;
+    MoodService& m_moods;
+    EveningCheckInService& m_checkIn;
+    EveningCheckInRepository& m_checkIns;
+};
+
+}  // namespace msa::core
+

@@ -12,5 +12,15 @@ void InMemoryEveningCheckInRepository::saveDate(std::chrono::year_month_day date
     m_date = date;
 }
 
+std::optional<PendingEveningCheckIn> InMemoryEveningCheckInRepository::pendingCheckIn() const
+{
+    return m_pending;
+}
+
+void InMemoryEveningCheckInRepository::savePendingCheckIn(std::optional<PendingEveningCheckIn> pending)
+{
+    m_pending = pending;
+}
+
 }  // namespace msa::core
 

@@ -21,8 +21,8 @@ std::optional<std::string> EveningCheckInService::checkInIfNeeded()
     if (m_repository.lastDate() == today) {
         return std::nullopt;
     }
-    const std::string message = "Как прошёл день? 🌙 Расскажи, какое настроение "
-        "и что удалось сделать — я запишу прогресс.";
+    const std::string message = "Как прошёл день? 🌙 Если хочешь, расскажи о настроении "
+        "и важных событиях — сохраню твой ответ в дневник настроения.";
     m_repository.saveDate(today);
 
     return message;

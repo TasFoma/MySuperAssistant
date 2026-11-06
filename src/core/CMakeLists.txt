@@ -9,6 +9,7 @@ add_library(msa_core STATIC
     include/msa/core/Clock.h
     include/msa/core/Command.h
     include/msa/core/CommandParser.h
+    include/msa/core/ConversationService.h
     include/msa/core/DailyContextService.h
     include/msa/core/Event.h
     include/msa/core/EventRepository.h
@@ -27,6 +28,7 @@ add_library(msa_core STATIC
     include/msa/core/LlmClient.h
     include/msa/core/LlmContextBuilder.h
     include/msa/core/LlmMessage.h
+    include/msa/core/MentorPrompt.h
     include/msa/core/MoodEntry.h
     include/msa/core/MoodRepository.h
     include/msa/core/MoodService.h
@@ -45,6 +47,7 @@ add_library(msa_core STATIC
     src/ChatService.cpp
     src/Clock.cpp
     src/CommandParser.cpp
+    src/ConversationService.cpp
     src/DailyContextService.cpp
     src/EventRepository.cpp
     src/EventService.cpp
@@ -58,6 +61,7 @@ add_library(msa_core STATIC
     src/HabitService.cpp
     src/LlmClient.cpp
     src/LlmContextBuilder.cpp
+    src/MentorPrompt.cpp
     src/MoodRepository.cpp
     src/MoodService.cpp
     src/Pcre2Regex.cpp
