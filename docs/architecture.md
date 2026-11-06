@@ -37,10 +37,11 @@ HTTP и JSON-разбор отсутствуют.
 предупреждений для SqliteEventWarningRepository. Версия 7 добавляет дневник для
 SqliteMoodRepository и внешний ключ профиля на запись дневника; версия 8 — задачи
 для SqliteTaskRepository, версия 9 — серии событий для SqliteEventRepository,
-версия 10 — три вида напоминаний для SqliteReminderRepository.
+версия 10 — три вида напоминаний для SqliteReminderRepository,
+версия 11 — привычки и журнал прогресса для SqliteHabitRepository.
 Пользователь выбрал пустую базу без
-импорта старых данных. Остальные SQLite-репозитории и общие транзакции операций
-чата ещё не подключены.
+импорта старых данных. Все репозитории core реализованы в SQLite;
+общие транзакции операций чата ещё не подключены к ConversationService.
 
 `msa_server` содержит только `return 0` и базу не создаёт. Оба клиента создают
 `QGuiApplication` и входят в цикл событий без окна, QML-движка и моделей.
@@ -83,8 +84,9 @@ flowchart TD
 
 - `core` не использует Qt, файлы или сеть. Исключение из правила «только stdlib» —
   приватная зависимость от PCRE2 для Unicode-регулярных выражений (решение 11).
-- `infra` зависит от `core` и Qt6::Sql; есть основа SQLite и репозитории задач, событий, напоминаний, чатов, профиля, дневника, даты приветствия, вечернего опроса и отметок предупреждений.
-  Остальных SQLite-репозиториев, часов и внешних сервисов пока нет.
+- `infra` зависит от `core` и Qt6::Sql; есть основа SQLite и все репозитории core:
+  задачи, события, напоминания, привычки с журналом, чаты, профиль, дневник,
+  дата приветствия, вечерний опрос и отметки предупреждений. Часов и внешних сервисов пока нет.
 - `ui/common` зависит от `core` и Qt Quick; платформенные UI-библиотеки — от
   `ui/common` и Qt Quick. UI и `infra` напрямую не связаны.
 - Приложения линкуют нужные слои, но пока не создают и не связывают предметные объекты.
@@ -139,7 +141,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Тестовая инфраструктура | `FakeClock`, десять `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
 | FakeLlmClient | Заданный результат и снимки запросов без сети | `tests/core/FakeLlmClient.h`, `tests/core/FakeLlmClient.cpp` |
 | SqliteDatabase и SqliteMigration | Именованное соединение Qt Sql, принадлежность, версия, миграции и вложенные транзакции | `src/infra/include/msa/infra/SqliteDatabase.h`, `SqliteMigration.h`, `src/infra/src/SqliteDatabase.cpp` |
-| SqliteSchema | Общий список миграций: 2 — чаты, 3 — профиль, 4 — приветствие, 5 — опрос, 6 — предупреждения, 7 — дневник, 8 — задачи, 9 — события, 10 — напоминания | `src/infra/include/msa/infra/SqliteSchema.h`, `src/infra/src/SqliteSchema.cpp` |
+| SqliteSchema | Общий список миграций: 2 — чаты, 3 — профиль, 4 — приветствие, 5 — опрос, 6 — предупреждения, 7 — дневник, 8 — задачи, 9 — события, 10 — напоминания, 11 — привычки и журнал | `src/infra/include/msa/infra/SqliteSchema.h`, `src/infra/src/SqliteSchema.cpp` |
 | SqliteChatRepository | SQLite-реализация ChatRepository с полным текстом и восстановлением выбора | `src/infra/include/msa/infra/SqliteChatRepository.h`, `src/infra/src/SqliteChatRepository.cpp` |
 | SqliteUserProfileRepository | SQLite-реализация UserProfileRepository с атомарным снимком, источниками и версиями | `src/infra/include/msa/infra/SqliteUserProfileRepository.h`, `src/infra/src/SqliteUserProfileRepository.cpp` |
 | SqliteGreetingRepository | Календарная дата последнего приветствия в SQLite | `src/infra/include/msa/infra/SqliteGreetingRepository.h`, `src/infra/src/SqliteGreetingRepository.cpp` |
@@ -149,6 +151,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | SqliteTaskRepository | SQLite-операции создания, чтения, замены и удаления задач со всеми полями | `src/infra/include/msa/infra/SqliteTaskRepository.h`, `src/infra/src/SqliteTaskRepository.cpp` |
 | SqliteEventRepository | SQLite-хранилище исходных серий событий со всеми полями | `src/infra/include/msa/infra/SqliteEventRepository.h`, `src/infra/src/SqliteEventRepository.cpp` |
 | SqliteReminderRepository | SQLite-хранилище временных, повторяющихся и геонапоминаний с общими ID | `src/infra/include/msa/infra/SqliteReminderRepository.h`, `src/infra/src/SqliteReminderRepository.cpp` |
+| SqliteHabitRepository | SQLite-хранилище привычек и журнала с каскадным удалением | `src/infra/include/msa/infra/SqliteHabitRepository.h`, `src/infra/src/SqliteHabitRepository.cpp` |
 | Тесты инфраструктуры | QCoreApplication и временные файловые базы, откат схемы и операций | `tests/infra/` |
 | Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
@@ -173,7 +176,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 ## Границы реализации
 
-Нет остальных SQLite-репозиториев предметных данных, сетевого клиента и сервера, сериализации протокола, HTTP-реализации LLM-клиента,
+Нет общей транзакции операций ConversationService, сетевого клиента и сервера, сериализации протокола, HTTP-реализации LLM-клиента,
 работающего чата с настоящей моделью, аудио, платформенных Android-реализаций и геймификации.
 Файл `docs/protocol.md` пока отсутствует: описывать действующий протокол ещё нечего.
 Направление дальнейшей работы хранится в [плане переноса](migration-plan.md),
@@ -315,8 +318,8 @@ flowchart LR
 вложенные SAVEPOINT. SqliteChatRepository и SqliteUserProfileRepository получают владельца через конструктор
 и используют его соединение; записи участвуют во внешней транзакции. Профиль заменяется
 атомарно, включая теги и взаимные ссылки версий. Ссылка на сообщение проверяет
-также принадлежность чату; source_mood с версии 7 ссылается внешним ключом на дневник. Остальные
-репозитории будут использовать то же соединение для общей атомарной операции. Подключение общей
+также принадлежность чату; source_mood с версии 7 ссылается внешним ключом на дневник.
+Все репозитории могут использовать одного владельца для общей атомарной операции. Подключение общей
 транзакции к ConversationService ещё впереди; core не знает о Qt Sql.
 Подробнее — [SqliteDatabase](modules/SqliteDatabase.md) и
 [SqliteChatRepository](modules/SqliteChatRepository.md) и

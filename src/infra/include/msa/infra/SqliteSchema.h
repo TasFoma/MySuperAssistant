@@ -7,7 +7,7 @@
 namespace msa::infra {
 
 /// @brief Полный список предметных миграций для открытия базы приложения.
-/// Передаётся SqliteDatabase при каждом открытии; текущая версия — 10 (напоминания).
+/// Передаётся SqliteDatabase при каждом открытии; текущая версия — 11 (привычки и журнал).
 [[nodiscard]] std::vector<SqliteMigration> sqliteMigrations();
 
 }  // namespace msa::infra

@@ -5,6 +5,7 @@ add_library(msa_infra STATIC
     include/msa/infra/SqliteEventWarningRepository.h
     include/msa/infra/SqliteEventRepository.h
     include/msa/infra/SqliteGreetingRepository.h
+    include/msa/infra/SqliteHabitRepository.h
     include/msa/infra/SqliteMigration.h
     include/msa/infra/SqliteMoodRepository.h
     include/msa/infra/SqliteReminderRepository.h
@@ -17,6 +18,7 @@ add_library(msa_infra STATIC
     src/SqliteEventWarningRepository.cpp
     src/SqliteEventRepository.cpp
     src/SqliteGreetingRepository.cpp
+    src/SqliteHabitRepository.cpp
     src/SqliteMoodRepository.cpp
     src/SqliteReminderRepository.cpp
     src/SqliteSchema.cpp

@@ -107,7 +107,7 @@ TEST_F(SqliteReminderRepositoryTest, UpgradesVersionNineWithoutChangingEventsAnd
         ASSERT_GT(events.add({.title = "Событие", .date = std::chrono::year{2026} / 11 / 6}), 0);
     }
     SqliteDatabase database{path(), sqliteMigrations()};
-    EXPECT_EQ(database.schemaVersion(), 10);
+    EXPECT_EQ(database.schemaVersion(), sqliteMigrations().back().version);
     SqliteEventRepository events{database};
     ASSERT_EQ(events.all().size(), 1U);
     EXPECT_EQ(events.all().front().title, "Событие");

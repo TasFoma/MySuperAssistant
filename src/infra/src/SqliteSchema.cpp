@@ -128,7 +128,20 @@ std::vector<SqliteMigration> sqliteMigrations()
                 "(kind = 'Recurring' AND due_at IS NOT NULL AND interval_minutes IS NOT NULL "
                 "AND interval_minutes > 0 AND place IS NULL AND latitude IS NULL AND longitude IS NULL AND status IS NULL) OR "
                 "(kind = 'Place' AND due_at IS NULL AND interval_minutes IS NULL AND place IS NOT NULL "
-                "AND status IS NOT NULL AND status IN (0, 1, 2))))")}}};
+                "AND status IS NOT NULL AND status IN (0, 1, 2))))")}},
+        {.version = 11, .statements = {
+            QStringLiteral("CREATE TABLE habits ("
+                "identifier INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, "
+                "target REAL NOT NULL CHECK(target > 0 AND target <= 1.7976931348623157e308), "
+                "unit TEXT NOT NULL, period INTEGER NOT NULL CHECK(period IN (0, 1)))"),
+            QStringLiteral("CREATE TABLE habit_logs ("
+                "identifier INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "habit_identifier INTEGER NOT NULL REFERENCES habits(identifier) ON DELETE CASCADE, "
+                "year INTEGER NOT NULL CHECK(year BETWEEN -32767 AND 32767), "
+                "month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12), "
+                "day INTEGER NOT NULL CHECK(day BETWEEN 1 AND 31), "
+                "value REAL NOT NULL CHECK(value > 0 AND value <= 1.7976931348623157e308))"),
+            QStringLiteral("CREATE INDEX habit_logs_by_habit ON habit_logs(habit_identifier, identifier)")}}};
 }
 
 }  // namespace msa::infra
