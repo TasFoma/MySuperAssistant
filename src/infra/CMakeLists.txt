@@ -1,7 +1,10 @@
 add_library(msa_infra STATIC
-    src/placeholder.cpp
+    include/msa/infra/SqliteDatabase.h
+    include/msa/infra/SqliteMigration.h
+    src/SqliteDatabase.cpp
 )
 
 target_compile_features(msa_infra PUBLIC cxx_std_20)
-target_link_libraries(msa_infra PUBLIC msa_core)
+target_include_directories(msa_infra PUBLIC include)
+target_link_libraries(msa_infra PUBLIC msa_core Qt6::Sql)
 msa_apply_warnings(msa_infra)
