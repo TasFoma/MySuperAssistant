@@ -78,7 +78,7 @@ TEST_F(SqliteMoodRepositoryTest, UpgradesVersionSixPreservingProfileVersionsTags
     }
     {
         SqliteDatabase database{path(), sqliteMigrations()};
-        EXPECT_EQ(database.schemaVersion(), 7);
+        EXPECT_EQ(database.schemaVersion(), sqliteMigrations().back().version);
         SqliteUserProfileRepository profiles{database};
         EXPECT_EQ(profiles.load().facts, profile.facts);
         // После переименования таблиц должны работать и самоссылки, и ссылки тегов.

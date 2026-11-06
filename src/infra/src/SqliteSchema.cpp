@@ -96,7 +96,17 @@ std::vector<SqliteMigration> sqliteMigrations()
             QStringLiteral("DROP TABLE profile_fact_tags"),
             QStringLiteral("DROP TABLE profile_facts"),
             QStringLiteral("ALTER TABLE profile_facts_new RENAME TO profile_facts"),
-            QStringLiteral("ALTER TABLE profile_fact_tags_new RENAME TO profile_fact_tags")}}};
+            QStringLiteral("ALTER TABLE profile_fact_tags_new RENAME TO profile_fact_tags")}},
+        {.version = 8, .statements = {
+            QStringLiteral("CREATE TABLE tasks ("
+                           "identifier INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, "
+                           "due_year INTEGER, due_month INTEGER, due_day INTEGER, "
+                           "priority INTEGER NOT NULL CHECK(priority IN (0, 1, 2)), "
+                           "done INTEGER NOT NULL CHECK(done IN (0, 1)), created_at INTEGER NOT NULL, "
+                           "CHECK((due_year IS NULL AND due_month IS NULL AND due_day IS NULL) OR "
+                           "(due_year IS NOT NULL AND due_month IS NOT NULL AND due_day IS NOT NULL "
+                           "AND due_year BETWEEN -32767 AND 32767 AND due_month BETWEEN 1 AND 12 "
+                           "AND due_day BETWEEN 1 AND 31)))")}}};
 }
 
 }  // namespace msa::infra

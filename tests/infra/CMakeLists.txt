@@ -5,6 +5,7 @@ add_executable(msa_infra_tests
     SqliteEventWarningRepositoryTest.cpp
     SqliteGreetingRepositoryTest.cpp
     SqliteMoodRepositoryTest.cpp
+    SqliteTaskRepositoryTest.cpp
     SqliteUserProfileRepositoryTest.cpp
     TestMain.cpp
     ../core/FakeClock.cpp
@@ -20,7 +21,7 @@ include(GoogleTest)
 gtest_add_tests(TARGET msa_infra_tests
     SOURCES SqliteDatabaseTest.cpp SqliteChatRepositoryTest.cpp SqliteUserProfileRepositoryTest.cpp
     SqliteGreetingRepositoryTest.cpp SqliteEveningCheckInRepositoryTest.cpp
-    SqliteEventWarningRepositoryTest.cpp SqliteMoodRepositoryTest.cpp
+    SqliteEventWarningRepositoryTest.cpp SqliteMoodRepositoryTest.cpp SqliteTaskRepositoryTest.cpp
     TEST_LIST msaInfraTests)
 if(WIN32)
     set_tests_properties(${msaInfraTests} PROPERTIES

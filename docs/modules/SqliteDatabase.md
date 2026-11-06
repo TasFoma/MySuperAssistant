@@ -19,6 +19,7 @@
 [SqliteEventWarningRepository](SqliteEventWarningRepository.md).
 Версия 7 добавляет дневник для [SqliteMoodRepository](SqliteMoodRepository.md)
 и внешний ключ source_mood в профиле, сохраняя его факты, теги и версии.
+Версия 8 добавляет задачи для [SqliteTaskRepository](SqliteTaskRepository.md).
 Модуль не подключён к apps/server. Путь передаёт вызывающая сторона; постоянное
 расположение файла и настройки ещё не выбраны.
 

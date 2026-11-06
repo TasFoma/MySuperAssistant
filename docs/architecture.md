@@ -35,7 +35,8 @@ HTTP и JSON-разбор отсутствуют.
 с датой приветствия для SqliteGreetingRepository и версию 5 с датой вечернего опроса
 и ожиданием для SqliteEveningCheckInRepository; версия 6 добавляет отметки
 предупреждений для SqliteEventWarningRepository. Версия 7 добавляет дневник для
-SqliteMoodRepository и внешний ключ профиля на запись дневника. Пользователь выбрал пустую базу без
+SqliteMoodRepository и внешний ключ профиля на запись дневника; версия 8 — задачи
+для SqliteTaskRepository. Пользователь выбрал пустую базу без
 импорта старых данных. Остальные SQLite-репозитории и общие транзакции операций
 чата ещё не подключены.
 
@@ -80,7 +81,7 @@ flowchart TD
 
 - `core` не использует Qt, файлы или сеть. Исключение из правила «только stdlib» —
   приватная зависимость от PCRE2 для Unicode-регулярных выражений (решение 11).
-- `infra` зависит от `core` и Qt6::Sql; есть основа SQLite и репозитории чатов, профиля, дневника, даты приветствия, вечернего опроса и отметок предупреждений.
+- `infra` зависит от `core` и Qt6::Sql; есть основа SQLite и репозитории задач, чатов, профиля, дневника, даты приветствия, вечернего опроса и отметок предупреждений.
   Остальных SQLite-репозиториев, часов и внешних сервисов пока нет.
 - `ui/common` зависит от `core` и Qt Quick; платформенные UI-библиотеки — от
   `ui/common` и Qt Quick. UI и `infra` напрямую не связаны.
@@ -136,13 +137,14 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Тестовая инфраструктура | `FakeClock`, десять `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
 | FakeLlmClient | Заданный результат и снимки запросов без сети | `tests/core/FakeLlmClient.h`, `tests/core/FakeLlmClient.cpp` |
 | SqliteDatabase и SqliteMigration | Именованное соединение Qt Sql, принадлежность, версия, миграции и вложенные транзакции | `src/infra/include/msa/infra/SqliteDatabase.h`, `SqliteMigration.h`, `src/infra/src/SqliteDatabase.cpp` |
-| SqliteSchema | Общий список миграций: 2 — чаты, 3 — профиль, 4 — приветствие, 5 — опрос, 6 — предупреждения, 7 — дневник и его связь с профилем | `src/infra/include/msa/infra/SqliteSchema.h`, `src/infra/src/SqliteSchema.cpp` |
+| SqliteSchema | Общий список миграций: 2 — чаты, 3 — профиль, 4 — приветствие, 5 — опрос, 6 — предупреждения, 7 — дневник, 8 — задачи | `src/infra/include/msa/infra/SqliteSchema.h`, `src/infra/src/SqliteSchema.cpp` |
 | SqliteChatRepository | SQLite-реализация ChatRepository с полным текстом и восстановлением выбора | `src/infra/include/msa/infra/SqliteChatRepository.h`, `src/infra/src/SqliteChatRepository.cpp` |
 | SqliteUserProfileRepository | SQLite-реализация UserProfileRepository с атомарным снимком, источниками и версиями | `src/infra/include/msa/infra/SqliteUserProfileRepository.h`, `src/infra/src/SqliteUserProfileRepository.cpp` |
 | SqliteGreetingRepository | Календарная дата последнего приветствия в SQLite | `src/infra/include/msa/infra/SqliteGreetingRepository.h`, `src/infra/src/SqliteGreetingRepository.cpp` |
 | SqliteEveningCheckInRepository | Независимые дата вечернего опроса и ожидание с привязкой к сообщению/чату в SQLite | `src/infra/include/msa/infra/SqliteEveningCheckInRepository.h`, `src/infra/src/SqliteEveningCheckInRepository.cpp` |
 | SqliteEventWarningRepository | Уникальные отметки ID события + дата вхождения + вид в SQLite | `src/infra/include/msa/infra/SqliteEventWarningRepository.h`, `src/infra/src/SqliteEventWarningRepository.cpp` |
 | SqliteMoodRepository | Полные записи настроения с постоянными ID в SQLite, источник фактов профиля | `src/infra/include/msa/infra/SqliteMoodRepository.h`, `src/infra/src/SqliteMoodRepository.cpp` |
+| SqliteTaskRepository | SQLite-операции создания, чтения, замены и удаления задач со всеми полями | `src/infra/include/msa/infra/SqliteTaskRepository.h`, `src/infra/src/SqliteTaskRepository.cpp` |
 | Тесты инфраструктуры | QCoreApplication и временные файловые базы, откат схемы и операций | `tests/infra/` |
 | Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
