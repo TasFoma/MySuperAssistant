@@ -12,7 +12,10 @@
 старых записей; анализ через LLM и связь с чатом ещё не реализованы.
 `ChatService` управляет несколькими чатами, восстанавливает текущий выбор, сохраняет
 полную переписку и отбирает последние целые сообщения по явному бюджету символов.
-Соединения с моделью и полной сборки контекста пока нет.
+`LlmContextBuilder` объединяет готовые инструкции, вопрос, выбранные факты, сводку
+и историю по общему бюджету текста; соединения с моделью пока нет.
+`UserProfileFactSelector` отбирает полные факты по словам вопроса в тексте и ручных
+тегах; alwaysInclude получает приоритет независимо от темы.
 Поток «клиент → сервер → хранилище» не реализован.
 
 `msa_server` содержит только `return 0`. Оба клиента создают `QGuiApplication`
@@ -70,6 +73,8 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Модуль | Что есть сейчас | Путь |
 | --- | --- | --- |
 | CommandParser | Разбор UTF-8 текста в `Command`, без выполнения действий | `src/core/include/msa/core/CommandParser.h`, `src/core/src/CommandParser.cpp` |
+| LlmContextBuilder | Сборка готовых данных в запрос по общему бюджету текста без изменения источников | `src/core/include/msa/core/LlmContextBuilder.h`, `src/core/src/LlmContextBuilder.cpp` |
+| LlmMessage | Сообщение запроса с ролью System/User/Assistant без HTTP или JSON | `src/core/include/msa/core/LlmMessage.h` |
 | ChatService | Создание и выбор чатов, полная история и отбор последних сообщений по бюджету текста | `src/core/include/msa/core/ChatService.h`, `src/core/src/ChatService.cpp` |
 | ChatRepository | Интерфейс хранения чатов, сообщений и выбранного ID | `src/core/include/msa/core/ChatRepository.h`, `src/core/src/ChatRepository.cpp` |
 | Chat и ChatMessage | Чат с названием и временем; сообщение с ролью, полным текстом и временем | `src/core/include/msa/core/Chat.h`, `src/core/include/msa/core/ChatMessage.h` |
@@ -84,6 +89,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | EventService | Создание и изменение всей серии событий с проверкой ввода | `src/core/include/msa/core/EventService.h`, `src/core/src/EventService.cpp` |
 | TaskService | Создание, изменение, завершение и сортировка задач | `src/core/include/msa/core/TaskService.h`, `src/core/src/TaskService.cpp` |
 | UserProfileService | Добавление фактов профиля без автоматического удаления старых | `src/core/include/msa/core/UserProfileService.h`, `src/core/src/UserProfileService.cpp` |
+| UserProfileFactSelector | Локальный поиск по словам и ручным тегам, приоритет alwaysInclude перед тематическими фактами | `src/core/include/msa/core/UserProfileFactSelector.h`, `src/core/src/UserProfileFactSelector.cpp` |
 | GreetingService | Приветствие с датой, событиями и пятью задачами | `src/core/include/msa/core/GreetingService.h`, `src/core/src/GreetingService.cpp` |
 | GreetingRepository | Интерфейс хранения даты последнего приветствия | `src/core/include/msa/core/GreetingRepository.h`, `src/core/src/GreetingRepository.cpp` |
 | HabitService | Создание привычек, отметки и текущий прогресс через Clock и HabitRepository | `src/core/include/msa/core/HabitService.h`, `src/core/src/HabitService.cpp` |
@@ -145,7 +151,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 `ReminderService::activeReminders` возвращает копии Pending и всех повторяющихся:
 сначала по сроку, затем геонапоминания (включая записи без координат), при равенстве — ID.
 Чтение не меняет хранилище. Пока отсутствуют
-полная сборка контекста LLM и обработка ответа на вечерний опрос. Контракты репозиториев
+подключение контекста к работающему чату и обработка ответа на вечерний опрос. Контракты репозиториев
 и тесты существующих сервисов не означают, что эти функции уже реализованы.
 
 `TaskService` использует `Clock` и `TaskRepository`: создаёт незавершённые задачи,
@@ -166,14 +172,19 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 `UserProfileService` добавляет факты через `UserProfileRepository`: обрезает
 пробельные символы по краям, отклоняет пустой текст и сохраняет все факты в порядке
-добавления. Повторы и внутренние переносы строк сохраняются. Ограничение контекста
-LLM и возможные теги относятся к этапу 2; сервис пока не вызывается приложениями.
+добавления. Повторы и внутренние переносы строк сохраняются. UserProfileFact хранит
+текст, ручные теги и alwaysInclude, задаваемые при добавлении. Сервис пока не
+вызывается приложениями. UserProfileFactSelector получает снимок профиля и вопрос,
+возвращает копии полных текстов: сначала alwaysInclude в порядке добавления, затем
+совпадения по словам в тексте и тегах по убыванию оценки; при равенстве — по порядку
+добавления. Бюджет применяет LlmContextBuilder. Новых связей между слоями нет.
+Подробнее — [UserProfileFactSelector](modules/UserProfileFactSelector.md).
 Подробнее — [UserProfileService](modules/UserProfileService.md).
 
 `DailyContextService` читает Clock, CalendarService, TaskService и HabitService:
 формирует сводку с датой/временем, событиями сегодня, пятью открытыми задачами
-и всеми привычками без изменения данных. Профиль в неё не входит; объединение
-с отобранной памятью и историей чата относится к этапу 2. Подробнее —
+и всеми привычками без изменения данных. Профиль в неё не входит; готовую сводку
+можно передать в LlmContextBuilder вместе с выбранной памятью и историей. Подробнее —
 [DailyContextService](modules/DailyContextService.md).
 
 `EveningCheckInService` использует Clock и EveningCheckInRepository: при первой
@@ -198,3 +209,11 @@ User/Assistant читаются по возрастанию ID через loadMe
 ещё не учитывает токены модели и остальные части будущего запроса LLM.
 Репозиторий пока реализован только в памяти для тестов. Приложения, сеть и SQLite
 не подключены. Подробнее — [ChatService](modules/ChatService.md).
+
+`LlmContextBuilder` принимает снимки данных, не зависит от сервисов или репозиториев.
+Резервирует полные инструкции и вопрос, затем расходует оставшийся бюджет на
+выбранные факты по приоритету, целую сводку и непрерывную последнюю часть истории.
+Возвращает сообщения System/User/Assistant и сведения о невключённых данных.
+Окончательный промпт пока отсутствует; выбор фактов по теме реализован отдельно
+в UserProfileFactSelector. Приложения отбор и сборщик не вызывают.
+Подробнее — [LlmContextBuilder](modules/LlmContextBuilder.md).

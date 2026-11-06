@@ -4,6 +4,7 @@
 
 #include <string>
 #include <variant>
+#include <vector>
 
 namespace msa::core {
 
@@ -23,7 +24,10 @@ public:
     explicit UserProfileService(UserProfileRepository& repository);
     /// @brief Обрезает пробельные символы Unicode по краям и добавляет непустой факт.
     /// Повторы сохраняются; внутренние переносы строк остаются частью одного факта.
-    [[nodiscard]] UserProfileWriteResult rememberFact(const std::string& fact);
+    /// Теги обрезаются по краям; пустой тег отклоняет всю операцию.
+    /// alwaysInclude даёт приоритет при отборе, но не отменяет бюджет контекста.
+    [[nodiscard]] UserProfileWriteResult rememberFact(const std::string& fact,
+        const std::vector<std::string>& tags = {}, bool alwaysInclude = false);
     /// @brief Возвращает независимую копию всех фактов в порядке добавления.
     [[nodiscard]] UserProfile profile() const;
 

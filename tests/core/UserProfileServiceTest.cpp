@@ -23,28 +23,29 @@ TEST(UserProfileServiceTest, TrimsEdgesAndPreservesMultilineFactsAndDuplicates)
         EXPECT_TRUE(std::holds_alternative<std::monostate>(service.rememberFact(input)));
     }
     EXPECT_EQ(service.profile().facts,
-        (std::vector<std::string>{"Я", "Люблю  чай", "Первая строка\n  Вторая строка", "Я"}));
+        (std::vector<UserProfileFact>{{.text = "Я"}, {.text = "Люблю  чай"},
+            {.text = "Первая строка\n  Вторая строка"}, {.text = "Я"}}));
     auto copy = service.profile();
-    copy.facts.front() = "Изменённая копия";
-    EXPECT_EQ(repository.load().facts.front(), "Я");
+    copy.facts.front().text = "Изменённая копия";
+    EXPECT_EQ(repository.load().facts.front().text, "Я");
 }
 
 TEST(UserProfileServiceTest, KeepsAllFactsBeyondOldLimitAndAcrossServiceInstances)
 {
     InMemoryUserProfileRepository repository;
-    repository.save(UserProfile{{"Важный давний факт"}});
+    repository.save(UserProfile{{{.text = "Важный давний факт"}}});
     UserProfileService service{repository};
     auto expected = repository.load().facts;
     constexpr int kAddedFactCount = 100;
     for (int index = 0; index < kAddedFactCount; ++index) {
         const auto fact = "Факт " + std::to_string(index);
         ASSERT_TRUE(std::holds_alternative<std::monostate>(service.rememberFact(fact)));
-        expected.push_back(fact);
+        expected.push_back(UserProfileFact{.text = fact});
     }
     UserProfileService nextService{repository};
     EXPECT_EQ(nextService.profile().facts, expected);
     ASSERT_TRUE(std::holds_alternative<std::monostate>(nextService.rememberFact("Ещё один")));
-    expected.push_back("Ещё один");
+    expected.push_back(UserProfileFact{.text = "Ещё один"});
     EXPECT_EQ(service.profile().facts, expected);
 }
 
@@ -72,7 +73,7 @@ UserProfile FailingUserProfileRepository::load() const
         throw std::runtime_error{"load failed"};
     }
 
-    return UserProfile{{"Сохранённый факт"}};
+    return UserProfile{{{.text = "Сохранённый факт"}}};
 }
 
 void FailingUserProfileRepository::save([[maybe_unused]] const UserProfile& profile)
@@ -111,6 +112,39 @@ TEST(UserProfileServiceTest, PropagatesStorageErrors)
     UserProfileService saveService{saveRepository};
     EXPECT_THROW(static_cast<void>(saveService.rememberFact("Новый факт")), std::runtime_error);
     EXPECT_EQ(saveRepository.saveCalls(), 1);
+}
+
+TEST(UserProfileServiceTest, PreservesTagsAndPriorityAcrossReadsAndIndependentCopies)
+{
+    InMemoryUserProfileRepository repository;
+    UserProfileService service{repository};
+    ASSERT_TRUE(std::holds_alternative<std::monostate>(service.rememberFact(
+        "  Предпочитаю краткие ответы\nс примерами  ", {"  Общение\xC2\xA0", "Стиль ответа"}, true)));
+    UserProfileService restored{repository};
+    auto copy = restored.profile();
+    ASSERT_EQ(copy.facts.size(), 1U);
+    EXPECT_EQ(copy.facts.front().text, "Предпочитаю краткие ответы\nс примерами");
+    EXPECT_EQ(copy.facts.front().tags, (std::vector<std::string>{"Общение", "Стиль ответа"}));
+    EXPECT_TRUE(copy.facts.front().alwaysInclude);
+    copy.facts.front().tags.clear();
+    copy.facts.front().alwaysInclude = false;
+    EXPECT_EQ(service.profile().facts.front().tags.size(), 2U);
+    EXPECT_TRUE(service.profile().facts.front().alwaysInclude);
+    ASSERT_TRUE(std::holds_alternative<std::monostate>(service.rememberFact("Обычный факт")));
+    EXPECT_TRUE(service.profile().facts.back().tags.empty());
+    EXPECT_FALSE(service.profile().facts.back().alwaysInclude);
+}
+
+TEST(UserProfileServiceTest, RejectsBlankTagBeforeReadingOrSavingProfile)
+{
+    FailingUserProfileRepository repository;
+    UserProfileService service{repository};
+    for (const auto& tag : std::vector<std::string>{"", " \t", "\xE3\x80\x80"}) {
+        const auto result = service.rememberFact("Полный факт", {"Допустимый", tag}, true);
+        ASSERT_TRUE(std::holds_alternative<UserProfileRejection>(result));
+        EXPECT_FALSE(std::get<UserProfileRejection>(result).reason.empty());
+    }
+    EXPECT_EQ(repository.saveCalls(), 0);
 }
 
 }  // namespace

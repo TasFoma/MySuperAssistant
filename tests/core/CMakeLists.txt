@@ -19,6 +19,7 @@ add_executable(msa_core_tests
     InMemoryReminderRepository.cpp
     InMemoryTaskRepository.cpp
     InMemoryUserProfileRepository.cpp
+    LlmContextBuilderTest.cpp
     MoodServiceTest.cpp
     PlannerRepositoriesTest.cpp
     PlannerTypesTest.cpp
@@ -27,6 +28,7 @@ add_executable(msa_core_tests
     ReminderServiceTest.cpp
     TaskServiceTest.cpp
     UserProfileServiceTest.cpp
+    UserProfileFactSelectorTest.cpp
 )
 
 target_compile_features(msa_core_tests PRIVATE cxx_std_20)

@@ -24,6 +24,8 @@ add_library(msa_core STATIC
     include/msa/core/HabitLogEntry.h
     include/msa/core/HabitRepository.h
     include/msa/core/HabitService.h
+    include/msa/core/LlmContextBuilder.h
+    include/msa/core/LlmMessage.h
     include/msa/core/MoodEntry.h
     include/msa/core/MoodRepository.h
     include/msa/core/MoodService.h
@@ -34,6 +36,7 @@ add_library(msa_core STATIC
     include/msa/core/TaskRepository.h
     include/msa/core/TaskService.h
     include/msa/core/UserProfile.h
+    include/msa/core/UserProfileFactSelector.h
     include/msa/core/UserProfileRepository.h
     include/msa/core/UserProfileService.h
     src/CalendarService.cpp
@@ -52,6 +55,7 @@ add_library(msa_core STATIC
     src/GreetingService.cpp
     src/HabitRepository.cpp
     src/HabitService.cpp
+    src/LlmContextBuilder.cpp
     src/MoodRepository.cpp
     src/MoodService.cpp
     src/Pcre2Regex.cpp
@@ -63,6 +67,7 @@ add_library(msa_core STATIC
     src/TaskRepository.cpp
     src/TaskService.cpp
     src/UserProfileRepository.cpp
+    src/UserProfileFactSelector.cpp
     src/UserProfileService.cpp
     src/Utf8Text.cpp
     src/Utf8Text.h

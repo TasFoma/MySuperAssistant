@@ -199,17 +199,17 @@ TEST(PlannerRepositoriesTest, ProfileIsReplacedAndReturnedAsCopy)
     InMemoryUserProfileRepository memory;
     UserProfileRepository& repository = memory;
     EXPECT_TRUE(repository.load().facts.empty());
-    UserProfile profile{.facts = {"Меня зовут Настя", "Люблю читать"}};
+    UserProfile profile{.facts = {{.text = "Меня зовут Настя"}, {.text = "Люблю читать"}}};
     repository.save(profile);
     profile.facts.clear();
     auto loaded = repository.load();
     ASSERT_EQ(loaded.facts.size(), 2U);
-    EXPECT_EQ(loaded.facts.front(), "Меня зовут Настя");
+    EXPECT_EQ(loaded.facts.front().text, "Меня зовут Настя");
     loaded.facts.clear();
     EXPECT_EQ(repository.load().facts.size(), 2U);
-    repository.save(UserProfile{.facts = {"Новый факт"}});
+    repository.save(UserProfile{.facts = {{.text = "Новый факт"}}});
     ASSERT_EQ(repository.load().facts.size(), 1U);
-    EXPECT_EQ(repository.load().facts.front(), "Новый факт");
+    EXPECT_EQ(repository.load().facts.front().text, "Новый факт");
     repository.save(UserProfile{});
     EXPECT_TRUE(repository.load().facts.empty());
 }
