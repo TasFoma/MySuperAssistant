@@ -1,7 +1,11 @@
 add_library(msa_infra STATIC
+    include/msa/infra/SqliteChatRepository.h
     include/msa/infra/SqliteDatabase.h
     include/msa/infra/SqliteMigration.h
+    include/msa/infra/SqliteSchema.h
+    src/SqliteChatRepository.cpp
     src/SqliteDatabase.cpp
+    src/SqliteSchema.cpp
 )
 
 target_compile_features(msa_infra PUBLIC cxx_std_20)
