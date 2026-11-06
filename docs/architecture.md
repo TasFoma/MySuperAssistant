@@ -31,7 +31,8 @@ HTTP и JSON-разбор отсутствуют.
 проверку версии и принадлежности, миграции и вложенные транзакции. Базовая версия 1
 без предметных таблиц; sqliteMigrations() добавляет версию 2 с чатами, сообщениями
 и текущим выбором для SqliteChatRepository, затем версию 3 с фактами профиля,
-тегами, источниками и ссылками версий для SqliteUserProfileRepository. Пользователь выбрал пустую базу без
+тегами, источниками и ссылками версий для SqliteUserProfileRepository, затем версию 4
+с датой приветствия для SqliteGreetingRepository. Пользователь выбрал пустую базу без
 импорта старых данных. Остальные SQLite-репозитории и общие транзакции операций
 чата ещё не подключены.
 
@@ -46,7 +47,7 @@ HTTP и JSON-разбор отсутствуют.
 
 ```mermaid
 flowchart TD
-    server[msa_server] --> infra[msa_infra: SQLite, чаты и профиль]
+    server[msa_server] --> infra[msa_infra: SQLite, чаты, профиль, дата приветствия]
     server --> core[msa_core]
     desktop[msa_desktop] --> desktopUI[msa_ui_desktop: заглушка]
     desktop --> common[msa_ui_common: заглушка]
@@ -76,7 +77,7 @@ flowchart TD
 
 - `core` не использует Qt, файлы или сеть. Исключение из правила «только stdlib» —
   приватная зависимость от PCRE2 для Unicode-регулярных выражений (решение 11).
-- `infra` зависит от `core` и Qt6::Sql; есть основа SQLite и репозитории чатов и профиля.
+- `infra` зависит от `core` и Qt6::Sql; есть основа SQLite и репозитории чатов, профиля и даты приветствия.
   Остальных SQLite-репозиториев, часов и внешних сервисов пока нет.
 - `ui/common` зависит от `core` и Qt Quick; платформенные UI-библиотеки — от
   `ui/common` и Qt Quick. UI и `infra` напрямую не связаны.
@@ -132,9 +133,10 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Тестовая инфраструктура | `FakeClock`, десять `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
 | FakeLlmClient | Заданный результат и снимки запросов без сети | `tests/core/FakeLlmClient.h`, `tests/core/FakeLlmClient.cpp` |
 | SqliteDatabase и SqliteMigration | Именованное соединение Qt Sql, принадлежность, версия, миграции и вложенные транзакции | `src/infra/include/msa/infra/SqliteDatabase.h`, `SqliteMigration.h`, `src/infra/src/SqliteDatabase.cpp` |
-| SqliteSchema | Общий список предметных миграций; версия 2 — чаты, сообщения и выбор, версия 3 — профиль и теги | `src/infra/include/msa/infra/SqliteSchema.h`, `src/infra/src/SqliteSchema.cpp` |
+| SqliteSchema | Общий список миграций: 2 — чаты, 3 — профиль, 4 — дата приветствия | `src/infra/include/msa/infra/SqliteSchema.h`, `src/infra/src/SqliteSchema.cpp` |
 | SqliteChatRepository | SQLite-реализация ChatRepository с полным текстом и восстановлением выбора | `src/infra/include/msa/infra/SqliteChatRepository.h`, `src/infra/src/SqliteChatRepository.cpp` |
 | SqliteUserProfileRepository | SQLite-реализация UserProfileRepository с атомарным снимком, источниками и версиями | `src/infra/include/msa/infra/SqliteUserProfileRepository.h`, `src/infra/src/SqliteUserProfileRepository.cpp` |
+| SqliteGreetingRepository | Календарная дата последнего приветствия в SQLite | `src/infra/include/msa/infra/SqliteGreetingRepository.h`, `src/infra/src/SqliteGreetingRepository.cpp` |
 | Тесты инфраструктуры | QCoreApplication и временные файловые базы, откат схемы и операций | `tests/infra/` |
 | Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
@@ -175,9 +177,10 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 `GreetingService` использует `Clock`, `CalendarService`, `TaskRepository` и
 `GreetingRepository`: формирует текст и сохраняет дату до возврата. Приветствие
-зависит от времени суток и выдаётся раз за местный день. Хранилище даты пока есть
-только в тестах; SQLite и отправка клиентам не реализованы.
-Подробнее — [GreetingService](modules/GreetingService.md).
+зависит от времени суток и выдаётся раз за местный день. Хранилище даты есть в памяти
+для тестов и в SQLite через SqliteGreetingRepository. Отправка клиентам не реализована.
+Подробнее — [GreetingService](modules/GreetingService.md) и
+[SqliteGreetingRepository](modules/SqliteGreetingRepository.md).
 
 Аудит полноты переноса планировщика приведён в [этапе 1 плана](migration-plan.md).
 `ReminderService::activeReminders` возвращает копии Pending и всех повторяющихся:

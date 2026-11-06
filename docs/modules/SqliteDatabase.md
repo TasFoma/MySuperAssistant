@@ -11,6 +11,8 @@
 [SqliteChatRepository](SqliteChatRepository.md): чаты, сообщения и выбор.
 Версия 3 добавляет полный профиль и теги для
 [SqliteUserProfileRepository](SqliteUserProfileRepository.md), включая источники и версии.
+Версия 4 добавляет дату приветствия для
+[SqliteGreetingRepository](SqliteGreetingRepository.md).
 Модуль не подключён к apps/server. Путь передаёт вызывающая сторона; постоянное
 расположение файла и настройки ещё не выбраны.
 

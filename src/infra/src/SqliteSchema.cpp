@@ -38,7 +38,13 @@ std::vector<SqliteMigration> sqliteMigrations()
             QStringLiteral("CREATE TABLE profile_fact_tags ("
                            "fact_identifier INTEGER NOT NULL REFERENCES profile_facts(identifier) ON DELETE CASCADE, "
                            "position INTEGER NOT NULL CHECK(position >= 0), text TEXT NOT NULL, "
-                           "PRIMARY KEY(fact_identifier, position))")}}};
+                           "PRIMARY KEY(fact_identifier, position))")}},
+        {.version = 4, .statements = {
+            QStringLiteral("CREATE TABLE greeting_state ("
+                           "identifier INTEGER PRIMARY KEY CHECK(identifier = 1), "
+                           "year INTEGER NOT NULL CHECK(year BETWEEN -32767 AND 32767), "
+                           "month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12), "
+                           "day INTEGER NOT NULL CHECK(day BETWEEN 1 AND 31))")}}};
 }
 
 }  // namespace msa::infra

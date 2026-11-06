@@ -74,7 +74,7 @@ TEST_F(SqliteUserProfileRepositoryTest, UpgradesVersionTwoWithoutChangingChatsAn
     }
     SqliteDatabase database{path(), sqliteMigrations()};
     SqliteUserProfileRepository repository{database};
-    EXPECT_EQ(database.schemaVersion(), 3);
+    EXPECT_EQ(database.schemaVersion(), sqliteMigrations().back().version);
     EXPECT_TRUE(repository.load().facts.empty());
     SqliteChatRepository chats{database};
     EXPECT_EQ(chats.currentChatId(), identifier);
