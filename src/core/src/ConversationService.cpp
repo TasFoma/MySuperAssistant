@@ -12,9 +12,10 @@ namespace msa::core {
 
 ConversationService::ConversationService(const Clock& clock, ChatService& chat,
     UserProfileService& profile, const DailyContextService& daily, LlmClient& client,
-    MoodService& moods, EveningCheckInService& checkIn, EveningCheckInRepository& checkIns)
+    MoodService& moods, EveningCheckInService& checkIn, EveningCheckInRepository& checkIns,
+    TransactionRunner& transactions)
     : m_clock{clock}, m_chat{chat}, m_profile{profile}, m_daily{daily}, m_client{client},
-      m_moods{moods}, m_checkIn{checkIn}, m_checkIns{checkIns}
+      m_moods{moods}, m_checkIn{checkIn}, m_checkIns{checkIns}, m_transactions{transactions}
 {
 }
 
@@ -117,39 +118,46 @@ ConversationResult ConversationService::retryLastMessage(std::size_t maxChars)
         return ConversationRejection{"Ожидание вечернего ответа завершено. Повторите запрос."};
     }
     ConversationReply reply{.text = response.reply, .tone = response.tone};
-    if (const auto rejection = m_profile.validateExtractedFacts(response.profileFacts)) {
-        return ConversationRejection{rejection->reason};
-    }
-    if (response.moodRecording) {
-        const auto& proposal = *response.moodRecording;
-        const auto saved = m_moods.logMood(proposal.score, proposal.note);
-        if (const auto* rejection = std::get_if<MoodRejection>(&saved)) {
-            return ConversationRejection{rejection->reason};
-        }
-        reply.moodIdentifier = std::get<std::int64_t>(saved);
-        reply.text += "\n\nНастроение сохранено в дневник.";
-    }
-    const auto imported = m_profile.rememberExtractedFacts(response.profileFacts, ProfileFactSource{
-        .chatIdentifier = current.chatIdentifier, .messageIdentifier = current.identifier,
-        .moodIdentifier = reply.moodIdentifier});
-    if (const auto* rejection = std::get_if<UserProfileRejection>(&imported)) {
-        return ConversationRejection{rejection->reason};
-    }
-    const auto& added = std::get<std::vector<UserProfileFact>>(imported);
-    if (!added.empty()) {
-        reply.text += "\n\nСохранено в памяти:";
-        for (const auto& fact : added) {
-            reply.profileFactIdentifiers.push_back(fact.identifier);
-            reply.text += "\n• " + fact.text;
-        }
-    }
-    const auto saved = m_chat.addMessage(reply.text, MessageRole::Assistant);
-    if (const auto* rejection = std::get_if<ChatRejection>(&saved)) {
-        throw std::runtime_error{rejection->reason};
-    }
-    reply.messageIdentifier = std::get<std::int64_t>(saved);
-    if (matchingPending) {
-        m_checkIns.savePendingCheckIn(std::nullopt);
+    try {
+        m_transactions.transaction([this, &reply, &response, &current, matchingPending]() {
+            // Отказ также должен откатить уже сделанные записи, а не выйти из callback успешно.
+            if (const auto rejection = m_profile.validateExtractedFacts(response.profileFacts)) {
+                throw ConversationRejection{rejection->reason};
+            }
+            if (response.moodRecording) {
+                const auto& proposal = *response.moodRecording;
+                const auto saved = m_moods.logMood(proposal.score, proposal.note);
+                if (const auto* rejection = std::get_if<MoodRejection>(&saved)) {
+                    throw ConversationRejection{rejection->reason};
+                }
+                reply.moodIdentifier = std::get<std::int64_t>(saved);
+                reply.text += "\n\nНастроение сохранено в дневник.";
+            }
+            const auto imported = m_profile.rememberExtractedFacts(response.profileFacts, ProfileFactSource{
+                .chatIdentifier = current.chatIdentifier, .messageIdentifier = current.identifier,
+                .moodIdentifier = reply.moodIdentifier});
+            if (const auto* rejection = std::get_if<UserProfileRejection>(&imported)) {
+                throw ConversationRejection{rejection->reason};
+            }
+            const auto& added = std::get<std::vector<UserProfileFact>>(imported);
+            if (!added.empty()) {
+                reply.text += "\n\nСохранено в памяти:";
+                for (const auto& fact : added) {
+                    reply.profileFactIdentifiers.push_back(fact.identifier);
+                    reply.text += "\n• " + fact.text;
+                }
+            }
+            const auto saved = m_chat.addMessage(reply.text, MessageRole::Assistant);
+            if (const auto* rejection = std::get_if<ChatRejection>(&saved)) {
+                throw std::runtime_error{rejection->reason};
+            }
+            reply.messageIdentifier = std::get<std::int64_t>(saved);
+            if (matchingPending) {
+                m_checkIns.savePendingCheckIn(std::nullopt);
+            }
+        });
+    } catch (const ConversationRejection& rejection) {
+        return rejection;
     }
 
     return reply;

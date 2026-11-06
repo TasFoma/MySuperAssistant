@@ -1,5 +1,6 @@
 #pragma once
 
+#include "msa/core/TransactionRunner.h"
 #include "msa/infra/SqliteMigration.h"
 
 #include <QSqlDatabase>
@@ -12,7 +13,7 @@ namespace msa::infra {
 
 /// @brief Владеет именованным SQLite-соединением, версией схемы и транзакциями.
 /// Нужен живой QCoreApplication; объект, запросы и репозитории используются в одном потоке.
-class SqliteDatabase {
+class SqliteDatabase final : public core::TransactionRunner {
 public:
     /// @brief Открывает файл и атомарно применяет недостающие миграции.
     /// Базовая версия 1 помечает принадлежность MySuperAssistant без предметных таблиц.
@@ -22,7 +23,7 @@ public:
     explicit SqliteDatabase(const QString& filePath,
         const std::vector<SqliteMigration>& migrations = {});
     /// @brief Закрывает и удаляет именованное соединение; все внешние запросы уже уничтожены.
-    ~SqliteDatabase();
+    ~SqliteDatabase() override;
 
     SqliteDatabase(const SqliteDatabase&) = delete;
     SqliteDatabase& operator=(const SqliteDatabase&) = delete;
@@ -41,7 +42,7 @@ public:
     /// Вложенные вызовы используют SAVEPOINT. Внутренний успех не фиксирует внешнюю операцию.
     /// Callback сообщает ошибку исключением, возвращаемый статус не анализируется.
     /// При ошибке отката соединение закрывается, дальнейшее использование отклоняется.
-    void transaction(const std::function<void()>& operation);
+    void transaction(const std::function<void()>& operation) override;
 
 private:
     void initialize(const std::vector<SqliteMigration>& migrations);

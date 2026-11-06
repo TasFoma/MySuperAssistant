@@ -41,7 +41,8 @@ SqliteMoodRepository и внешний ключ профиля на запись
 версия 11 — привычки и журнал прогресса для SqliteHabitRepository.
 Пользователь выбрал пустую базу без
 импорта старых данных. Все репозитории core реализованы в SQLite;
-общие транзакции операций чата ещё не подключены к ConversationService.
+ConversationService атомарно записывает ответ через TransactionRunner.
+Публикация опроса пока не атомарна.
 
 `msa_server` содержит только `return 0` и базу не создаёт. Оба клиента создают
 `QGuiApplication` и входят в цикл событий без окна, QML-движка и моделей.
@@ -108,6 +109,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | LlmMessage | Сообщение запроса с ролью System/User/Assistant без HTTP или JSON | `src/core/include/msa/core/LlmMessage.h` |
 | LlmClient | Контракт полного ответа, общие проверки, тон и предложение записи с исходной заметкой | `src/core/include/msa/core/LlmClient.h`, `src/core/src/LlmClient.cpp` |
 | ConversationService | Связка чата, контекста, LLM, явного дневника и ожидания опроса | `src/core/include/msa/core/ConversationService.h`, `src/core/src/ConversationService.cpp` |
+| TransactionRunner | Интерфейс атомарной операции, обязательная зависимость ConversationService; реализован SqliteDatabase и тестовым исполнителем | `src/core/include/msa/core/TransactionRunner.h`, `src/core/src/TransactionRunner.cpp` |
 | MentorPrompt | Согласованные инструкции ментора, JSON и состояние ожидания | `src/core/include/msa/core/MentorPrompt.h`, `src/core/src/MentorPrompt.cpp` |
 | ChatService | Создание и выбор чатов, полная история и отбор последних сообщений по бюджету текста | `src/core/include/msa/core/ChatService.h`, `src/core/src/ChatService.cpp` |
 | ChatRepository | Интерфейс хранения чатов, сообщений и выбранного ID | `src/core/include/msa/core/ChatRepository.h`, `src/core/src/ChatRepository.cpp` |
@@ -176,7 +178,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 ## Границы реализации
 
-Нет общей транзакции операций ConversationService, сетевого клиента и сервера, сериализации протокола, HTTP-реализации LLM-клиента,
+Нет атомарной публикации опроса, сетевого клиента и сервера, сериализации протокола, HTTP-реализации LLM-клиента,
 работающего чата с настоящей моделью, аудио, платформенных Android-реализаций и геймификации.
 Файл `docs/protocol.md` пока отсутствует: описывать действующий протокол ещё нечего.
 Направление дальнейшей работы хранится в [плане переноса](migration-plan.md),
@@ -304,13 +306,16 @@ flowchart LR
     conversation --> mood[MoodService: явная запись]
     conversation -->|факты и версии| profile
     conversation --> pending[EveningCheckInRepository: ожидание]
+    conversation --> transaction[TransactionRunner: атомарная запись ответа]
+    sqlite[SqliteDatabase] -. реализует .-> transaction
 ```
 
 Связка сохраняет User до запроса, проверяет пакет фактов, затем при успехе —
 необязательную запись дневника, факты с источником, Assistant и снятие ожидания.
 Модель может исправлять только ID актуальных фактов, реально вошедших в бюджет;
-метки ID учитываются в тексте контекста. Общей транзакции между операциями пока нет;
-после технического сбоя повтор может дублировать запись. Подробности и ограничения —
+метки ID учитываются в тексте контекста. Дневник, профиль, Assistant и снятие
+действительного ожидания сохраняются атомарно через TransactionRunner. После
+подтверждённого отката явный повтор не дублирует User и результаты записи. Подробности и ограничения —
 в [ConversationService](modules/ConversationService.md).
 
 Основа SQLite находится в infra и пока не вызывается приложениями. SqliteDatabase
@@ -319,8 +324,9 @@ flowchart LR
 и используют его соединение; записи участвуют во внешней транзакции. Профиль заменяется
 атомарно, включая теги и взаимные ссылки версий. Ссылка на сообщение проверяет
 также принадлежность чату; source_mood с версии 7 ссылается внешним ключом на дневник.
-Все репозитории могут использовать одного владельца для общей атомарной операции. Подключение общей
-транзакции к ConversationService ещё впереди; core не знает о Qt Sql.
-Подробнее — [SqliteDatabase](modules/SqliteDatabase.md) и
+Все репозитории связки используют одного владельца для общей атомарной операции.
+SqliteDatabase реализует TransactionRunner, переданный ConversationService; core не знает о Qt Sql.
+Подробнее — [TransactionRunner](modules/TransactionRunner.md),
+[SqliteDatabase](modules/SqliteDatabase.md) и
 [SqliteChatRepository](modules/SqliteChatRepository.md) и
 [SqliteUserProfileRepository](modules/SqliteUserProfileRepository.md).

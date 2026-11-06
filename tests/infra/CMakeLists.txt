@@ -1,5 +1,6 @@
 add_executable(msa_infra_tests
     SqliteChatRepositoryTest.cpp
+    SqliteConversationTest.cpp
     SqliteDatabaseTest.cpp
     SqliteEveningCheckInRepositoryTest.cpp
     SqliteEventRepositoryTest.cpp
@@ -12,6 +13,7 @@ add_executable(msa_infra_tests
     SqliteUserProfileRepositoryTest.cpp
     TestMain.cpp
     ../core/FakeClock.cpp
+    ../core/FakeLlmClient.cpp
     ../core/InMemoryEventRepository.cpp
     ../core/InMemoryTaskRepository.cpp
 )
@@ -26,7 +28,7 @@ gtest_add_tests(TARGET msa_infra_tests
     SqliteGreetingRepositoryTest.cpp SqliteEveningCheckInRepositoryTest.cpp
     SqliteEventWarningRepositoryTest.cpp SqliteMoodRepositoryTest.cpp SqliteTaskRepositoryTest.cpp
     SqliteEventRepositoryTest.cpp SqliteReminderRepositoryTest.cpp
-    SqliteHabitRepositoryTest.cpp
+    SqliteHabitRepositoryTest.cpp SqliteConversationTest.cpp
     TEST_LIST msaInfraTests)
 if(WIN32)
     set_tests_properties(${msaInfraTests} PROPERTIES

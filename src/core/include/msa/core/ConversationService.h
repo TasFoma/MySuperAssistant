@@ -7,6 +7,7 @@
 #include "msa/core/EveningCheckInService.h"
 #include "msa/core/LlmClient.h"
 #include "msa/core/MoodService.h"
+#include "msa/core/TransactionRunner.h"
 #include "msa/core/UserProfileService.h"
 
 #include <cstddef>
@@ -45,9 +46,10 @@ using ConversationResult = std::variant<ConversationReply, ConversationRejection
 class ConversationService {
 public:
     /// @brief Все зависимости невладеющие, часы и репозиторий опроса общие с его сервисом.
+    /// Репозитории чата, дневника, профиля и опроса используют общий TransactionRunner.
     ConversationService(const Clock& clock, ChatService& chat, UserProfileService& profile,
         const DailyContextService& daily, LlmClient& client, MoodService& moods,
-        EveningCheckInService& checkIn, EveningCheckInRepository& checkIns);
+        EveningCheckInService& checkIn, EveningCheckInRepository& checkIns, TransactionRunner& transactions);
     /// @brief Публикует опрос в текущем чате и сохраняет ожидание; nullopt — опрос не нужен.
     /// Истёкшее ожидание очищается при следующей операции. Доставка клиентам — вне сервиса.
     [[nodiscard]] std::optional<std::int64_t> offerEveningCheckIn();
@@ -55,7 +57,8 @@ public:
     /// При отказе контекста или LLM сообщение User остаётся в истории для явного повтора.
     [[nodiscard]] ConversationResult sendMessage(const std::string& message, std::size_t maxChars);
     /// @brief Повторяет обработку последнего User без повторной записи его текста.
-    /// Только после отказа бюджета/LLM; после технического сбоя записи повтор небезопасен.
+    /// После ошибки записи повтор допустим при подтверждённом откате исправным хранилищем.
+    /// При отказе отката сначала требуется восстановить соединение и перечитать историю.
     /// При последнем Assistant отказывает. Успешная обработка закрывает опрос в этом чате.
     [[nodiscard]] ConversationResult retryLastMessage(std::size_t maxChars);
 
@@ -70,6 +73,7 @@ private:
     MoodService& m_moods;
     EveningCheckInService& m_checkIn;
     EveningCheckInRepository& m_checkIns;
+    TransactionRunner& m_transactions;
 };
 
 }  // namespace msa::core

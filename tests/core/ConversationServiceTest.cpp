@@ -6,6 +6,7 @@
 #include "InMemoryHabitRepository.h"
 #include "InMemoryMoodRepository.h"
 #include "InMemoryTaskRepository.h"
+#include "InMemoryTransactionRunner.h"
 #include "InMemoryUserProfileRepository.h"
 
 #include "msa/core/CalendarService.h"
@@ -55,6 +56,7 @@ protected:
     MoodService m_moodService;
     InMemoryEveningCheckInRepository m_checkIns{};
     EveningCheckInService m_checkIn;
+    InMemoryTransactionRunner m_transactions;
 };
 
 ConversationServiceTest::ConversationServiceTest()
@@ -63,14 +65,15 @@ ConversationServiceTest::ConversationServiceTest()
       m_taskService{m_clock, m_tasks}, m_habitService{m_clock, m_habits},
       m_daily{m_clock, m_calendar, m_taskService, m_habitService},
       m_client{LlmResponse{.reply = "Полный ответ", .tone = MoodScore::Neutral}},
-      m_moodService{m_clock, m_moods}, m_checkIn{m_clock, m_checkIns}
+      m_moodService{m_clock, m_moods}, m_checkIn{m_clock, m_checkIns},
+      m_transactions{m_chats, m_moods, m_profiles, m_checkIns}
 {
 }
 
 ConversationService ConversationServiceTest::conversation()
 {
     return ConversationService{m_clock, m_chat, m_profile, m_daily, m_client,
-        m_moodService, m_checkIn, m_checkIns};
+        m_moodService, m_checkIn, m_checkIns, m_transactions};
 }
 
 std::vector<MoodEntry> ConversationServiceTest::diary() const
@@ -145,7 +148,7 @@ TEST_F(ConversationServiceTest, PublishesOneDailyCheckInAndRestoresWaitingFromRe
     EXPECT_FALSE(service.offerEveningCheckIn());
     ChatService restoredChat{m_clock, m_chats};
     ConversationService restarted{m_clock, restoredChat, m_profile, m_daily, m_client,
-        m_moodService, m_checkIn, m_checkIns};
+        m_moodService, m_checkIn, m_checkIns, m_transactions};
     EXPECT_FALSE(restarted.offerEveningCheckIn());
     ASSERT_EQ(m_chat.loadMessages().size(), 1U);
     EXPECT_EQ(m_chat.loadMessages().front().role, MessageRole::Assistant);
@@ -334,7 +337,7 @@ TEST_F(ConversationServiceTest, StorageFailurePropagatesWithoutFalseConfirmation
 {
     FailingMoodRepository repository;
     MoodService moods{m_clock, repository};
-    ConversationService service{m_clock, m_chat, m_profile, m_daily, m_client, moods, m_checkIn, m_checkIns};
+    ConversationService service{m_clock, m_chat, m_profile, m_daily, m_client, moods, m_checkIn, m_checkIns, m_transactions};
     ASSERT_TRUE(service.offerEveningCheckIn());
     m_client.setResult(LlmResponse{.reply = "Ответ", .moodRecording = MoodRecordingProposal{
         .score = MoodScore::Positive, .reason = MoodRecordingReason::EveningCheckInReply}});
@@ -499,7 +502,7 @@ TEST_F(ConversationServiceTest, ExpiryDuringLlmRequestPreventsLateEveningRecordi
 {
     MidnightLlmClient client{m_clock};
     ConversationService service{m_clock, m_chat, m_profile, m_daily, client,
-        m_moodService, m_checkIn, m_checkIns};
+        m_moodService, m_checkIn, m_checkIns, m_transactions};
     ASSERT_TRUE(service.offerEveningCheckIn());
     const auto result = service.sendMessage("Мне хорошо", kContextBudget);
     EXPECT_TRUE(std::holds_alternative<ConversationRejection>(result));
@@ -507,6 +510,32 @@ TEST_F(ConversationServiceTest, ExpiryDuringLlmRequestPreventsLateEveningRecordi
     EXPECT_TRUE(diary().empty());
     EXPECT_EQ(m_chat.loadMessages().size(), 2U);
     EXPECT_EQ(m_chat.loadMessages().back().role, MessageRole::User);
+}
+
+TEST_F(ConversationServiceTest, CommitFailureRollsBackAllWritesAndRetryDoesNotDuplicateUser)
+{
+    auto service = conversation();
+    const auto promptIdentifier = service.offerEveningCheckIn();
+    ASSERT_TRUE(promptIdentifier);
+    m_client.setResult(LlmResponse{.reply = "Ответ", .moodRecording = MoodRecordingProposal{
+        .score = MoodScore::Positive, .reason = MoodRecordingReason::EveningCheckInReply},
+        .profileFacts = {{.text = "Важный факт"}}});
+    m_transactions.failNextCommit();
+    EXPECT_THROW(static_cast<void>(service.sendMessage("Исходное сообщение", kContextBudget)), std::runtime_error);
+    EXPECT_FALSE(m_transactions.isActive());
+    EXPECT_TRUE(diary().empty());
+    EXPECT_TRUE(m_profile.profile().facts.empty());
+    ASSERT_TRUE(m_checkIns.pendingCheckIn());
+    EXPECT_EQ(m_checkIns.pendingCheckIn()->messageIdentifier, promptIdentifier);
+    ASSERT_EQ(m_chat.loadMessages().size(), 2U);
+    const auto userIdentifier = m_chat.loadMessages().back().identifier;
+    const auto result = service.retryLastMessage(kContextBudget);
+    ASSERT_TRUE(std::holds_alternative<ConversationReply>(result));
+    EXPECT_EQ(diary().size(), 1U);
+    EXPECT_EQ(m_profile.profile().facts.size(), 1U);
+    EXPECT_FALSE(m_checkIns.pendingCheckIn());
+    ASSERT_EQ(m_chat.loadMessages().size(), 3U);
+    EXPECT_EQ(m_chat.loadMessages()[1].identifier, userIdentifier);
 }
 
 }  // namespace

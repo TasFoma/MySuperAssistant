@@ -39,6 +39,7 @@ add_library(msa_core STATIC
     include/msa/core/Task.h
     include/msa/core/TaskRepository.h
     include/msa/core/TaskService.h
+    include/msa/core/TransactionRunner.h
     include/msa/core/UserProfile.h
     include/msa/core/UserProfileFactSelector.h
     include/msa/core/UserProfileRepository.h
@@ -73,6 +74,7 @@ add_library(msa_core STATIC
     src/ReminderService.cpp
     src/TaskRepository.cpp
     src/TaskService.cpp
+    src/TransactionRunner.cpp
     src/UserProfileRepository.cpp
     src/UserProfileFactSelector.cpp
     src/UserProfileService.cpp

@@ -20,6 +20,7 @@ add_executable(msa_core_tests
     InMemoryMoodRepository.cpp
     InMemoryReminderRepository.cpp
     InMemoryTaskRepository.cpp
+    InMemoryTransactionRunner.cpp
     InMemoryUserProfileRepository.cpp
     LlmContextBuilderTest.cpp
     LlmClientTest.cpp
