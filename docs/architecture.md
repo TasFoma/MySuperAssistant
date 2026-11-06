@@ -16,6 +16,9 @@
 и историю по общему бюджету текста; соединения с моделью пока нет.
 `UserProfileFactSelector` отбирает полные факты по словам вопроса в тексте и ручных
 тегах; alwaysInclude получает приоритет независимо от темы.
+`LlmClient` задаёт полный типизированный ответ, общие проверки запроса и результата,
+отделяет тон от предложения записи. Реализация пока только тестовая,
+HTTP и JSON-разбор отсутствуют.
 Поток «клиент → сервер → хранилище» не реализован.
 
 `msa_server` содержит только `return 0`. Оба клиента создают `QGuiApplication`
@@ -75,6 +78,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | CommandParser | Разбор UTF-8 текста в `Command`, без выполнения действий | `src/core/include/msa/core/CommandParser.h`, `src/core/src/CommandParser.cpp` |
 | LlmContextBuilder | Сборка готовых данных в запрос по общему бюджету текста без изменения источников | `src/core/include/msa/core/LlmContextBuilder.h`, `src/core/src/LlmContextBuilder.cpp` |
 | LlmMessage | Сообщение запроса с ролью System/User/Assistant без HTTP или JSON | `src/core/include/msa/core/LlmMessage.h` |
+| LlmClient | Контракт полного ответа, общие проверки, тон и предложение записи с исходной заметкой | `src/core/include/msa/core/LlmClient.h`, `src/core/src/LlmClient.cpp` |
 | ChatService | Создание и выбор чатов, полная история и отбор последних сообщений по бюджету текста | `src/core/include/msa/core/ChatService.h`, `src/core/src/ChatService.cpp` |
 | ChatRepository | Интерфейс хранения чатов, сообщений и выбранного ID | `src/core/include/msa/core/ChatRepository.h`, `src/core/src/ChatRepository.cpp` |
 | Chat и ChatMessage | Чат с названием и временем; сообщение с ролью, полным текстом и временем | `src/core/include/msa/core/Chat.h`, `src/core/include/msa/core/ChatMessage.h` |
@@ -103,6 +107,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | Utf8Text | Внутренние операции длины, обрезки пробелов Unicode и регистра латиницы/кириллицы | `src/core/src/Utf8Text.h`, `src/core/src/Utf8Text.cpp` |
 | PlannerText | Общий для приветствия и сводки формат русской даты и времени HH:MM | `src/core/src/PlannerText.h`, `src/core/src/PlannerText.cpp` |
 | Тестовая инфраструктура | `FakeClock`, десять `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
+| FakeLlmClient | Заданный результат и снимки запросов без сети | `tests/core/FakeLlmClient.h`, `tests/core/FakeLlmClient.cpp` |
 | infra | Пустая библиотека | `src/infra/` |
 | Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
@@ -127,7 +132,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 ## Границы реализации
 
-Нет SQLite, сетевого клиента и сервера, сериализации протокола, LLM-клиента,
+Нет SQLite, сетевого клиента и сервера, сериализации протокола, HTTP-реализации LLM-клиента,
 логики чата и ментора, аудио, платформенных Android-реализаций и геймификации.
 Файл `docs/protocol.md` пока отсутствует: описывать действующий протокол ещё нечего.
 Направление дальнейшей работы хранится в [плане переноса](migration-plan.md),
@@ -217,3 +222,11 @@ User/Assistant читаются по возрастанию ID через loadMe
 Окончательный промпт пока отсутствует; выбор фактов по теме реализован отдельно
 в UserProfileFactSelector. Приложения отбор и сборщик не вызывают.
 Подробнее — [LlmContextBuilder](modules/LlmContextBuilder.md).
+
+`LlmClient::complete` получает готовые сообщения и признак ожидания опроса,
+проверяет их, вызывает одну попытку через requestCompletion и проверяет полный
+результат. Для предложения записи подставляет исходный вопрос в заметку.
+Клиент не пишет в репозитории и не обращается к MoodService — это ответственность
+будущей связки. Настоящего распознавания, состояния опроса и вызовов приложений
+пока нет. JSON-разбор будет в infra, зависимости между слоями не изменились.
+Подробнее — [LlmClient](modules/LlmClient.md).

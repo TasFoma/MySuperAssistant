@@ -7,6 +7,7 @@ add_executable(msa_core_tests
     EventWarningServiceTest.cpp
     EveningCheckInServiceTest.cpp
     FakeClock.cpp
+    FakeLlmClient.cpp
     GreetingServiceTest.cpp
     HabitServiceTest.cpp
     InMemoryChatRepository.cpp
@@ -20,6 +21,7 @@ add_executable(msa_core_tests
     InMemoryTaskRepository.cpp
     InMemoryUserProfileRepository.cpp
     LlmContextBuilderTest.cpp
+    LlmClientTest.cpp
     MoodServiceTest.cpp
     PlannerRepositoriesTest.cpp
     PlannerTypesTest.cpp

@@ -24,6 +24,7 @@ add_library(msa_core STATIC
     include/msa/core/HabitLogEntry.h
     include/msa/core/HabitRepository.h
     include/msa/core/HabitService.h
+    include/msa/core/LlmClient.h
     include/msa/core/LlmContextBuilder.h
     include/msa/core/LlmMessage.h
     include/msa/core/MoodEntry.h
@@ -55,6 +56,7 @@ add_library(msa_core STATIC
     src/GreetingService.cpp
     src/HabitRepository.cpp
     src/HabitService.cpp
+    src/LlmClient.cpp
     src/LlmContextBuilder.cpp
     src/MoodRepository.cpp
     src/MoodService.cpp
