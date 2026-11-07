@@ -1,4 +1,9 @@
 add_library(msa_infra STATIC
+    include/msa/infra/ProtocolCodec.h
+    include/msa/infra/ProtocolMessage.h
+    include/msa/infra/ProtocolPayload.h
+    src/ProtocolCodec.cpp
+    src/ProtocolPayload.cpp
     include/msa/infra/SearxngSearchProvider.h
     src/SearxngSearchProvider.cpp
     include/msa/infra/SqliteGeocodingCacheRepository.h

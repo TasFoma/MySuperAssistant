@@ -159,6 +159,6 @@ Git для загрузки зависимостей и Qt 6.10 или нове�
 ## Документация
 
 - [Архитектура и состояние модулей](docs/architecture.md).
-- [Протокол клиента и сервера, версия 1](docs/protocol.md) — контракт принят, кодек и сеть ещё не реализованы.
+- [Протокол клиента и сервера, версия 1](docs/protocol.md) — контракт принят, [JSON-кодек](docs/modules/ProtocolCodec.md) реализован и проверен; сеть ещё не подключена.
 - [CommandParser](docs/modules/CommandParser.md).
 - [Решения](docs/decisions.md), [уроки](docs/lessons.md), [план переноса](docs/migration-plan.md).

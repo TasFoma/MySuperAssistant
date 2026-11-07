@@ -154,6 +154,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | LlmMessage | Сообщение запроса с ролью System/User/Assistant без HTTP или JSON | `src/core/include/msa/core/LlmMessage.h` |
 | LlmClient | Контракт полного ответа, общие проверки, тон и предложение записи с исходной заметкой | `src/core/include/msa/core/LlmClient.h`, `src/core/src/LlmClient.cpp` |
 | LlamaClient | HTTP llama-server, полный JSON, общий тайм-аут и ошибки без повторов | `src/infra/include/msa/infra/LlamaClient.h`, `src/infra/src/LlamaClient.cpp` |
+| ProtocolCodec и ProtocolPayload | Конверты версии 1, схемы параметров, ограниченный накопитель кадров и JSON предметных объектов | `src/infra/include/msa/infra/ProtocolMessage.h`, `ProtocolCodec.h`, `ProtocolPayload.h`, `src/infra/src/ProtocolCodec.cpp`, `ProtocolPayload.cpp` |
 | ConversationService | Связка чата, контекста, LLM, явного дневника и ожидания опроса | `src/core/include/msa/core/ConversationService.h`, `src/core/src/ConversationService.cpp` |
 | TransactionRunner | Интерфейс атомарной операции, обязательная зависимость ConversationService; реализован SqliteDatabase и тестовым исполнителем | `src/core/include/msa/core/TransactionRunner.h`, `src/core/src/TransactionRunner.cpp` |
 | MentorPrompt | Согласованные инструкции ментора, JSON и состояние ожидания | `src/core/include/msa/core/MentorPrompt.h`, `src/core/src/MentorPrompt.cpp` |
@@ -261,10 +262,13 @@ flowchart LR
 [контракты core](modules/NavigationService.md),
 [HTTP-адаптеры](modules/ExternalServices.md).
 
-Нет сетевого клиента и сервера протокола приложения, его сериализации,
+Нет сетевого клиента и сервера протокола приложения,
 работающего чата с настоящей моделью, аудио, платформенных Android-реализаций и геймификации.
 В [docs/protocol.md](protocol.md) принят контракт версии 1 по решениям 45–47;
-кодека и работающей сети ещё нет. Старые клиенты не поддерживаются. Независимый
+конверты, проверка параметров, предметная сериализация и накопитель кадров
+реализованы в infra ([ProtocolCodec](modules/ProtocolCodec.md)); работающей сети ещё нет.
+Слои не изменились: кодек зависит от Qt Core и типов core, приложения его пока не вызывают.
+Старые клиенты не поддерживаются. Независимый
 выбор открытой беседы принят решением 46; нынешний ChatService ещё хранит один
 общий выбор. По решению 47 приветствия/опрос направляются в постоянный «Основной»,
 записи после обрыва автоматически не повторяются, список задач добавляется атомарно.
