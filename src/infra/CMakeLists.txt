@@ -1,4 +1,8 @@
 add_library(msa_infra STATIC
+    include/msa/infra/SqliteGeocodingCacheRepository.h
+    include/msa/infra/SqliteRouteHistoryRepository.h
+    src/SqliteGeocodingCacheRepository.cpp
+    src/SqliteRouteHistoryRepository.cpp
     include/msa/infra/HttpGetClient.h
     include/msa/infra/NominatimGeocoder.h
     include/msa/infra/OpenMeteoWeatherProvider.h

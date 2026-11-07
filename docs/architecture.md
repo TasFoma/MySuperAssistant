@@ -35,6 +35,12 @@ Qt Network и строгий разбор JSON; тесты используют 
 NominatimGeocoder, OsrmRoutePlanner и OpenMeteoWeatherProvider через HttpGetClient.
 Проверки выполняются без настоящей сети; приложения их пока не создают.
 
+NavigationService сохраняет успешные расчёты через обязательный RouteHistoryService.
+CachedGeocoder хранит кандидатов через GeocodingCacheRepository с TTL семь дней
+для мест и час для пустого результата. PlaceReminderLocationService предлагает
+адреса, затем закрепляет точку только по явному подтверждению и повторной проверке
+напоминания. Предложения живут в памяти сервиса; координаты — в ReminderRepository.
+
 `infra` содержит основу SqliteDatabase: открытие нового файла, внешние ключи,
 проверку версии и принадлежности, миграции и вложенные транзакции. Базовая версия 1
 без предметных таблиц; sqliteMigrations() добавляет версию 2 с чатами, сообщениями
@@ -47,6 +53,8 @@ SqliteMoodRepository и внешний ключ профиля на запись
 для SqliteTaskRepository, версия 9 — серии событий для SqliteEventRepository,
 версия 10 — три вида напоминаний для SqliteReminderRepository,
 версия 11 — привычки и журнал прогресса для SqliteHabitRepository.
+Текущая версия 12 добавляет историю расчётов для SqliteRouteHistoryRepository
+и постоянные снимки кандидатов для SqliteGeocodingCacheRepository.
 Пользователь выбрал пустую базу без
 импорта старых данных. Все репозитории core реализованы в SQLite;
 ConversationService атомарно записывает ответ через TransactionRunner.
@@ -116,13 +124,20 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 | Модуль | Что есть сейчас | Путь |
 | --- | --- | --- |
+| RouteHistoryRepository | Полные расчёты маршрутов с прогнозами и признаком приблизительной оценки | `src/core/include/msa/core/RouteHistoryRepository.h` |
+| RouteHistoryService | Запись, последние пять и отдельная статистика расчётов | `src/core/include/msa/core/RouteHistoryService.h`, `src/core/src/RouteHistoryService.cpp` |
+| GeocodingCacheRepository | Упорядоченные снимки кандидатов по поставщику и запросу | `src/core/include/msa/core/GeocodingCacheRepository.h` |
+| CachedGeocoder | Кэш кандидатов с TTL семь дней / час и явными часами | `src/core/include/msa/core/CachedGeocoder.h`, `src/core/src/CachedGeocoder.cpp` |
+| PlaceReminderLocationService | Предложение адресов и подтверждение фиксированной точки | `src/core/include/msa/core/PlaceReminderLocationService.h`, `src/core/src/PlaceReminderLocationService.cpp` |
+| SqliteRouteHistoryRepository | Постоянная история расчётов, миграция 12 | `src/infra/include/msa/infra/SqliteRouteHistoryRepository.h`, `src/infra/src/SqliteRouteHistoryRepository.cpp` |
+| SqliteGeocodingCacheRepository | Атомарные постоянные снимки кандидатов, миграция 12 | `src/infra/include/msa/infra/SqliteGeocodingCacheRepository.h`, `src/infra/src/SqliteGeocodingCacheRepository.cpp` |
 | ExternalServiceResult | Типизированные результаты внешних сервисов и понятные ошибки | `src/core/include/msa/core/ExternalServiceResult.h` |
 | Geocoder | Проверка названия и кандидатов места | `src/core/include/msa/core/Geocoder.h`, `src/core/src/Geocoder.cpp` |
 | RoutePlanner | Маршрут по координатам и режиму, проверки результата | `src/core/include/msa/core/RoutePlanner.h`, `src/core/src/RoutePlanner.cpp` |
 | WeatherProvider | Текущая погода и необязательные дневные показатели | `src/core/include/msa/core/WeatherProvider.h`, `src/core/src/WeatherProvider.cpp` |
 | NavigationService | Ближайшее место, маршрут, приблизительная оценка и русский текст | `src/core/include/msa/core/NavigationService.h`, `src/core/src/NavigationService.cpp` |
 | HttpGetClient | Общий GET с тайм-аутом, ограничением частоты и ошибками без секретов | `src/infra/include/msa/infra/HttpGetClient.h`, `src/infra/src/HttpGetClient.cpp` |
-| NominatimGeocoder | Поиск мест с кэшем и интервалом не меньше секунды | `src/infra/include/msa/infra/NominatimGeocoder.h`, `src/infra/src/NominatimGeocoder.cpp` |
+| NominatimGeocoder | Поиск мест и общий интервал не меньше секунды, источник для CachedGeocoder | `src/infra/include/msa/infra/NominatimGeocoder.h`, `src/infra/src/NominatimGeocoder.cpp` |
 | OsrmRoutePlanner | Три профиля OSRM и разбор всех манёвров первого маршрута | `src/infra/include/msa/infra/OsrmRoutePlanner.h`, `src/infra/src/OsrmRoutePlanner.cpp` |
 | OpenMeteoWeatherProvider | Запрос погоды и проверка текущих/дневных данных | `src/infra/include/msa/infra/OpenMeteoWeatherProvider.h`, `src/infra/src/OpenMeteoWeatherProvider.cpp` |
 | CommandParser | Разбор UTF-8 текста в `Command`, без выполнения действий | `src/core/include/msa/core/CommandParser.h`, `src/core/src/CommandParser.cpp` |
@@ -200,15 +215,24 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 ## Границы реализации
 
-Навигация и погода доступны как библиотечные операции по решению 42.
-Поток данных не требует UI или SQLite:
+Навигация и погода доступны как библиотечные операции по решениям 42–43.
+Хранилища и часы передаются в сервисы; UI пока не подключён:
 
 ```mermaid
 flowchart LR
     caller[Вызывающий код: явные координаты и названия] --> navigation[NavigationService]
     navigation --> geocoder[Geocoder]
     navigation --> planner[RoutePlanner]
-    nominatim[NominatimGeocoder: кэш и частота] -. реализует .-> geocoder
+    cached[CachedGeocoder] -. реализует .-> geocoder
+    cached --> nominatim[NominatimGeocoder: частота запросов]
+    cached --> cacheRepo[GeocodingCacheRepository]
+    cacheSql[SqliteGeocodingCacheRepository] -. реализует .-> cacheRepo
+    navigation --> history[RouteHistoryService]
+    history --> historyRepo[RouteHistoryRepository]
+    historySql[SqliteRouteHistoryRepository] -. реализует .-> historyRepo
+    caller --> location[PlaceReminderLocationService]
+    location --> geocoder
+    location --> reminderRepo[ReminderRepository: точка после подтверждения]
     osrm[OsrmRoutePlanner: три профиля] -. реализует .-> planner
     caller --> weather[WeatherProvider]
     meteo[OpenMeteoWeatherProvider] -. реализует .-> weather
@@ -221,8 +245,11 @@ flowchart LR
     forecast --> weatherText[weatherText: русская сводка]
 ```
 
-История/статистика маршрутов и заполнение координат геонапоминаний пока не
-реализованы. [Контракты core](modules/NavigationService.md),
+История/статистика расчётов, постоянный кэш и подтверждение точки реализованы
+на уровне библиотек. Приложения и UI выбора адреса пока не подключены.
+[История](modules/RouteHistoryService.md), [кэш](modules/CachedGeocoder.md),
+[подтверждение](modules/PlaceReminderLocationService.md),
+[контракты core](modules/NavigationService.md),
 [HTTP-адаптеры](modules/ExternalServices.md).
 
 Нет сетевого клиента и сервера протокола приложения, его сериализации,

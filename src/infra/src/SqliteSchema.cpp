@@ -141,7 +141,26 @@ std::vector<SqliteMigration> sqliteMigrations()
                 "month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12), "
                 "day INTEGER NOT NULL CHECK(day BETWEEN 1 AND 31), "
                 "value REAL NOT NULL CHECK(value > 0 AND value <= 1.7976931348623157e308))"),
-            QStringLiteral("CREATE INDEX habit_logs_by_habit ON habit_logs(habit_identifier, identifier)")}}};
+            QStringLiteral("CREATE INDEX habit_logs_by_habit ON habit_logs(habit_identifier, identifier)")}},
+        {.version = 12, .statements = {
+            QStringLiteral("CREATE TABLE route_calculations (identifier INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "created_at INTEGER NOT NULL, origin_name TEXT NOT NULL, destination_name TEXT NOT NULL, "
+                "origin_latitude REAL NOT NULL CHECK(origin_latitude BETWEEN -90 AND 90), "
+                "origin_longitude REAL NOT NULL CHECK(origin_longitude BETWEEN -180 AND 180), "
+                "destination_latitude REAL NOT NULL CHECK(destination_latitude BETWEEN -90 AND 90), "
+                "destination_longitude REAL NOT NULL CHECK(destination_longitude BETWEEN -180 AND 180), "
+                "mode INTEGER NOT NULL CHECK(mode IN (0, 1, 2)), "
+                "distance_meters REAL NOT NULL CHECK(distance_meters >= 0 AND distance_meters <= 1.7976931348623157e308), "
+                "duration_seconds REAL NOT NULL CHECK(duration_seconds >= 0 AND duration_seconds <= 1.7976931348623157e308), "
+                "approximate INTEGER NOT NULL CHECK(approximate IN (0, 1)))"),
+            QStringLiteral("CREATE TABLE geocoding_cache (source TEXT NOT NULL, query TEXT NOT NULL, "
+                "stored_at INTEGER NOT NULL, PRIMARY KEY(source, query))"),
+            QStringLiteral("CREATE TABLE geocoding_cache_places (source TEXT NOT NULL, query TEXT NOT NULL, "
+                "position INTEGER NOT NULL CHECK(position >= 0), "
+                "latitude REAL NOT NULL CHECK(latitude BETWEEN -90 AND 90), "
+                "longitude REAL NOT NULL CHECK(longitude BETWEEN -180 AND 180), name TEXT NOT NULL, "
+                "PRIMARY KEY(source, query, position), "
+                "FOREIGN KEY(source, query) REFERENCES geocoding_cache(source, query) ON DELETE CASCADE)")}}};
 }
 
 }  // namespace msa::infra

@@ -35,12 +35,13 @@ NominatimGeocoder::NominatimGeocoder(QNetworkAccessManager& manager, QUrl endpoi
     }
 }
 
+std::string NominatimGeocoder::cacheSourceKey() const
+{
+    return m_endpoint.toString(QUrl::FullyEncoded).toStdString() + "|format=json|limit=10|accept-language=ru";
+}
+
 core::ExternalServiceResult<std::vector<core::GeocodedPlace>> NominatimGeocoder::requestPlaces(const std::string& place)
 {
-    if (const auto cached = m_cache.find(place); cached != m_cache.end())
-    {
-        return cached->second;
-    }
     auto url = m_endpoint;
     QUrlQuery query;
     query.addQueryItem("q", QString::fromStdString(place));
@@ -82,7 +83,6 @@ core::ExternalServiceResult<std::vector<core::GeocodedPlace>> NominatimGeocoder:
         }
         places.push_back({{latitude, longitude}, object["display_name"].toString().toStdString()});
     }
-    m_cache.emplace(place, places);
 
     return places;
 }

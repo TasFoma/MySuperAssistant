@@ -1,3 +1,7 @@
+#include "../core/FakeClock.h"
+#include "../core/InMemoryGeocodingCacheRepository.h"
+
+#include "msa/core/CachedGeocoder.h"
 #include "msa/infra/HttpGetClient.h"
 #include "msa/infra/NominatimGeocoder.h"
 #include "msa/infra/OpenMeteoWeatherProvider.h"
@@ -172,7 +176,10 @@ TEST(ExternalServicesTest, GeocodesRussianQueryAndCachesFullCandidatesIncludingZ
     ServiceNetwork network;
     network.response = R"([{"lat":"0","lon":"0","display_name":"Адрес, район, город"},
                            {"lat":"-10.5","lon":"-180","display_name":"Второй"}])";
-    NominatimGeocoder geocoder{network, QUrl{"https://geo.invalid/search"}, settings()};
+    NominatimGeocoder source{network, QUrl{"https://geo.invalid/search"}, settings()};
+    core::FakeClock clock{std::chrono::local_seconds{}};
+    core::InMemoryGeocodingCacheRepository cache;
+    core::CachedGeocoder geocoder{source, cache, clock, source.cacheSourceKey()};
     auto result = geocoder.search("  Кафе & парк  ");
     ASSERT_TRUE(std::holds_alternative<std::vector<core::GeocodedPlace>>(result));
     auto& places = std::get<std::vector<core::GeocodedPlace>>(result);
@@ -195,7 +202,10 @@ TEST(ExternalServicesTest, GeocoderCachesNoResultsAndLimitsDistinctRequestsToOne
 {
     ServiceNetwork network;
     network.response = "[]";
-    NominatimGeocoder geocoder{network, QUrl{"https://geo.invalid/search"}, settings()};
+    NominatimGeocoder source{network, QUrl{"https://geo.invalid/search"}, settings()};
+    core::FakeClock clock{std::chrono::local_seconds{}};
+    core::InMemoryGeocodingCacheRepository cache;
+    core::CachedGeocoder geocoder{source, cache, clock, source.cacheSourceKey()};
     expectError(geocoder.search("Первое"), core::ExternalServiceErrorKind::NotFound);
     expectError(geocoder.search("Первое"), core::ExternalServiceErrorKind::NotFound);
     expectError(geocoder.search("Второе"), core::ExternalServiceErrorKind::NotFound);

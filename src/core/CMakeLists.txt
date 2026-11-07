@@ -1,6 +1,16 @@
 include(${PROJECT_SOURCE_DIR}/cmake/Pcre2.cmake)
 
 add_library(msa_core STATIC
+    include/msa/core/CachedGeocoder.h
+    include/msa/core/GeocodingCacheRepository.h
+    include/msa/core/PlaceReminderLocationService.h
+    include/msa/core/RouteHistoryRepository.h
+    include/msa/core/RouteHistoryService.h
+    src/CachedGeocoder.cpp
+    src/GeocodingCacheRepository.cpp
+    src/PlaceReminderLocationService.cpp
+    src/RouteHistoryRepository.cpp
+    src/RouteHistoryService.cpp
     include/msa/core/ExternalServiceResult.h
     include/msa/core/Geocoder.h
     include/msa/core/NavigationService.h

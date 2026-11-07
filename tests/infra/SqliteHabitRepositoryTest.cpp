@@ -74,7 +74,7 @@ TEST_F(SqliteHabitRepositoryTest, UpgradesVersionTenAndReopensWithFullHabitAndRe
     std::int64_t lastLogIdentifier = 0;
     {
         SqliteDatabase database{path(), sqliteMigrations()};
-        EXPECT_EQ(database.schemaVersion(), 11);
+        EXPECT_EQ(database.schemaVersion(), sqliteMigrations().back().version);
         SqliteReminderRepository reminders{database};
         ASSERT_EQ(reminders.all().size(), 1U);
         SqliteHabitRepository repository{database};

@@ -1,4 +1,7 @@
 add_executable(msa_core_tests
+    InMemoryGeocodingCacheRepository.cpp
+    InMemoryRouteHistoryRepository.cpp
+    NavigationPersistenceTest.cpp
     NavigationServiceTest.cpp
     CalendarServiceTest.cpp
     ChatServiceTest.cpp

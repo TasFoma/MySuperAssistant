@@ -1,3 +1,6 @@
+#include "FakeClock.h"
+#include "InMemoryRouteHistoryRepository.h"
+
 #include "msa/core/NavigationService.h"
 
 #include <gtest/gtest.h>
@@ -117,7 +120,10 @@ TEST(NavigationServiceTest, ChoosesNearestCandidateAcrossDateLineKeepingInputOri
     geocoder.results["Место"] =
         std::vector<GeocodedPlace>{{{0, 170}, "Дальше"}, {{0, -179.9}, "Ближе"}, {{0, -179.9}, "Равный"}};
     FakeRoutePlanner planner;
-    NavigationService service{geocoder, planner};
+    FakeClock clock{std::chrono::local_seconds{}};
+    InMemoryRouteHistoryRepository repository;
+    RouteHistoryService history{repository, clock};
+    NavigationService service{geocoder, planner, history};
     EXPECT_TRUE(std::holds_alternative<RoutePlan>(service.routeFrom({0, 179.9}, "Место", TravelMode::Bike)));
     EXPECT_EQ(planner.calls, 1);
     EXPECT_DOUBLE_EQ(planner.lastOrigin.longitude, 179.9);
@@ -131,7 +137,10 @@ TEST(NavigationServiceTest, ResolvesBothPlaceNamesAroundExplicitReference)
     geocoder.results["Начало"] = std::vector<GeocodedPlace>{{{0, 0}, "Начало"}};
     geocoder.results["Конец"] = std::vector<GeocodedPlace>{{{0, 1}, "Конец"}};
     FakeRoutePlanner planner;
-    NavigationService service{geocoder, planner};
+    FakeClock clock{std::chrono::local_seconds{}};
+    InMemoryRouteHistoryRepository repository;
+    RouteHistoryService history{repository, clock};
+    NavigationService service{geocoder, planner, history};
     EXPECT_TRUE(std::holds_alternative<RoutePlan>(service.routeBetween("Начало", "Конец", {0, 0}, TravelMode::Foot)));
     EXPECT_EQ(geocoder.queries, (std::vector<std::string>{"Начало", "Конец"}));
     EXPECT_DOUBLE_EQ(planner.lastOrigin.longitude, 0);
@@ -142,7 +151,10 @@ TEST(NavigationServiceTest, StopsOnInvalidLocationModeOrGeocodingFailure)
 {
     FakeGeocoder geocoder;
     FakeRoutePlanner planner;
-    NavigationService service{geocoder, planner};
+    FakeClock clock{std::chrono::local_seconds{}};
+    InMemoryRouteHistoryRepository repository;
+    RouteHistoryService history{repository, clock};
+    NavigationService service{geocoder, planner, history};
     expectError(service.routeFrom({100, 0}, "Место", TravelMode::Foot), ExternalServiceErrorKind::InvalidRequest);
     expectError(service.routeFrom({0, 0}, "Место", static_cast<TravelMode>(99)),
                 ExternalServiceErrorKind::InvalidRequest);
@@ -159,7 +171,10 @@ TEST(NavigationServiceTest, RejectsDistantFootAndBikeButAllowsDriving)
     FakeGeocoder geocoder;
     geocoder.results["Место"] = std::vector<GeocodedPlace>{{{0, 2}, "Далеко"}};
     FakeRoutePlanner planner;
-    NavigationService service{geocoder, planner};
+    FakeClock clock{std::chrono::local_seconds{}};
+    InMemoryRouteHistoryRepository repository;
+    RouteHistoryService history{repository, clock};
+    NavigationService service{geocoder, planner, history};
     expectError(service.routeFrom({0, 0}, "Место", TravelMode::Foot), ExternalServiceErrorKind::NotFound);
     expectError(service.routeFrom({0, 0}, "Место", TravelMode::Bike), ExternalServiceErrorKind::NotFound);
     EXPECT_EQ(planner.calls, 0);
@@ -172,7 +187,10 @@ TEST(NavigationServiceTest, EstimatesOnlyUnavailableRoutesWithModeSpeedAndNoInve
     geocoder.results["Место"] = std::vector<GeocodedPlace>{{{0, 0.01}, "Рядом"}};
     FakeRoutePlanner planner;
     planner.result = ExternalServiceError{ExternalServiceErrorKind::Unavailable, "Недоступен"};
-    NavigationService service{geocoder, planner};
+    FakeClock clock{std::chrono::local_seconds{}};
+    InMemoryRouteHistoryRepository repository;
+    RouteHistoryService history{repository, clock};
+    NavigationService service{geocoder, planner, history};
     const auto distance = geographicDistance({0, 0}, {0, 0.01}) * 1.3;
     const std::vector<std::pair<TravelMode, double>> modes{
         {TravelMode::Foot, 5}, {TravelMode::Bike, 15}, {TravelMode::Driving, 40}};

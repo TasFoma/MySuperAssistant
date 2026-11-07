@@ -1,6 +1,7 @@
 #pragma once
 
 #include "msa/core/Geocoder.h"
+#include "msa/core/RouteHistoryService.h"
 #include "msa/core/RoutePlanner.h"
 #include "msa/core/WeatherProvider.h"
 
@@ -19,12 +20,12 @@ namespace msa::core
 /// @brief Русская сводка проверенного прогноза; неизвестный код не выдаётся за ясную погоду.
 [[nodiscard]] std::string weatherText(const WeatherForecast& forecast);
 
-/// @brief Выбор ближайшего места и построение маршрута без хранения истории.
+/// @brief Выбор ближайшего места, построение и сохранение расчёта маршрута.
 class NavigationService
 {
 public:
     /// @brief Зависимости должны пережить сервис.
-    NavigationService(Geocoder& geocoder, RoutePlanner& planner);
+    NavigationService(Geocoder& geocoder, RoutePlanner& planner, RouteHistoryService& history);
     /// @brief Маршрут от явной точки до ближайшего к ней кандидата места.
     [[nodiscard]] ExternalServiceResult<RoutePlan> routeFrom(GeoCoordinates origin, const std::string& destination,
                                                              TravelMode mode);
@@ -35,10 +36,11 @@ public:
 private:
     [[nodiscard]] ExternalServiceResult<GeoCoordinates> locate(const std::string& place, GeoCoordinates reference);
     [[nodiscard]] ExternalServiceResult<RoutePlan> planRoute(GeoCoordinates origin, GeoCoordinates destination,
-                                                             TravelMode mode);
+        TravelMode mode, const std::string& originName, const std::string& destinationName);
 
     Geocoder& m_geocoder;
     RoutePlanner& m_planner;
+    RouteHistoryService& m_history;
 };
 
 } // namespace msa::core

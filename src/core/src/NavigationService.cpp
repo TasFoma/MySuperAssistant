@@ -265,8 +265,8 @@ std::string weatherText(const WeatherForecast& forecast)
     return text;
 }
 
-NavigationService::NavigationService(Geocoder& geocoder, RoutePlanner& planner) :
-    m_geocoder{geocoder}, m_planner{planner}
+NavigationService::NavigationService(Geocoder& geocoder, RoutePlanner& planner, RouteHistoryService& history) :
+    m_geocoder{geocoder}, m_planner{planner}, m_history{history}
 {
 }
 
@@ -286,7 +286,7 @@ ExternalServiceResult<GeoCoordinates> NavigationService::locate(const std::strin
 }
 
 ExternalServiceResult<RoutePlan> NavigationService::planRoute(GeoCoordinates origin, GeoCoordinates destination,
-                                                              TravelMode mode)
+    TravelMode mode, const std::string& originName, const std::string& destinationName)
 {
     const auto distance = geographicDistance(origin, destination);
     if (mode != TravelMode::Driving && distance > kMaximumNonDrivingDistance)
@@ -302,9 +302,15 @@ ExternalServiceResult<RoutePlan> NavigationService::planRoute(GeoCoordinates ori
                            : mode == TravelMode::Bike  ? kCyclingSpeed
                                                        : kWalkingSpeed;
 
-        return RoutePlan{.distanceMeters = distance * kStreetDistanceFactor,
+        result = RoutePlan{.distanceMeters = distance * kStreetDistanceFactor,
                          .durationSeconds = distance * kStreetDistanceFactor / speed,
                          .approximate = true};
+    }
+    if (const auto* plan = std::get_if<RoutePlan>(&result)) {
+        [[maybe_unused]] const auto identifier = m_history.record({.originName = originName,
+            .destinationName = destinationName, .origin = origin, .destination = destination, .mode = mode,
+            .distanceMeters = plan->distanceMeters, .durationSeconds = plan->durationSeconds,
+            .approximate = plan->approximate});
     }
 
     return result;
@@ -325,7 +331,7 @@ ExternalServiceResult<RoutePlan> NavigationService::routeFrom(GeoCoordinates ori
         return *error;
     }
 
-    return planRoute(origin, std::get<GeoCoordinates>(target), mode);
+    return planRoute(origin, std::get<GeoCoordinates>(target), mode, "Моё местоположение", destination);
 }
 
 ExternalServiceResult<RoutePlan> NavigationService::routeBetween(const std::string& origin,
@@ -349,7 +355,7 @@ ExternalServiceResult<RoutePlan> NavigationService::routeBetween(const std::stri
         return *error;
     }
 
-    return planRoute(std::get<GeoCoordinates>(start), std::get<GeoCoordinates>(target), mode);
+    return planRoute(std::get<GeoCoordinates>(start), std::get<GeoCoordinates>(target), mode, origin, destination);
 }
 
 } // namespace msa::core
