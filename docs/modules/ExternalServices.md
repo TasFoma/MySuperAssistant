@@ -14,6 +14,9 @@
   `/v1/forecast`, текущие показатели и прогноз текущего местного дня.
 - `HttpGetClient` — общий транспорт этих адаптеров с HttpGetSettings.
 
+Тот же транспорт используется SearxngSearchProvider для явного поиска чата;
+его контракт описан отдельно в [WebSearchProvider](WebSearchProvider.md).
+
 Заголовки: `src/infra/include/msa/infra/NominatimGeocoder.h`,
 `OsrmRoutePlanner.h`, `OpenMeteoWeatherProvider.h`, `HttpGetClient.h`.
 Реализации с теми же именами находятся в `src/infra/src/`.

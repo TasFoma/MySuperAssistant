@@ -1,4 +1,5 @@
 add_executable(msa_infra_tests
+    ../core/FakeWebSearchProvider.cpp
     SqliteNavigationRepositoryTest.cpp
     ../core/InMemoryGeocodingCacheRepository.cpp
     ExternalServicesTest.cpp

@@ -28,6 +28,12 @@ Qt Network и строгий разбор JSON; тесты используют 
 Прежние записи остаются, отбор профиля для LLM использует только актуальные версии.
 Поток «клиент → сервер → хранилище» не реализован.
 
+Явный веб-поиск реализован через WebSearchProvider и SearxngSearchProvider:
+ConversationService получает фразу отдельным параметром операции, передаёт
+материалы в контекст модели и сохраняет реальные ссылки в ответе. Обычная
+личная беседа поиск не запускает, профиль и история в поисковик не передаются.
+Проверки без настоящей сети/модели; UI и приложения пока не подключены.
+
 `Geocoder`, `RoutePlanner` и `WeatherProvider` задают контракты внешних данных.
 `NavigationService` выбирает ближайшее место по сфере относительно явной точки,
 строит маршрут и при недоступности сервиса даёт помеченную приблизительную оценку.
@@ -124,6 +130,9 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 | Модуль | Что есть сейчас | Путь |
 | --- | --- | --- |
+| WebSearchProvider | Явная фраза и до трёх типизированных материалов, без доступа к памяти чата | `src/core/include/msa/core/WebSearchProvider.h`, `src/core/src/WebSearchProvider.cpp` |
+| SearxngSearchProvider | Один GET SearXNG, разбор JSON и ошибки без скрытого ответа LLM | `src/infra/include/msa/infra/SearxngSearchProvider.h`, `src/infra/src/SearxngSearchProvider.cpp` |
+| FakeWebSearchProvider | Заданная выдача и снимки только поисковых фраз без сети | `tests/core/FakeWebSearchProvider.h`, `tests/core/FakeWebSearchProvider.cpp` |
 | RouteHistoryRepository | Полные расчёты маршрутов с прогнозами и признаком приблизительной оценки | `src/core/include/msa/core/RouteHistoryRepository.h` |
 | RouteHistoryService | Запись, последние пять и отдельная статистика расчётов | `src/core/include/msa/core/RouteHistoryService.h`, `src/core/src/RouteHistoryService.cpp` |
 | GeocodingCacheRepository | Упорядоченные снимки кандидатов по поставщику и запросу | `src/core/include/msa/core/GeocodingCacheRepository.h` |
@@ -349,7 +358,8 @@ User/Assistant читаются по возрастанию ID через loadMe
 Приложения и сеть не подключены. Подробнее — [ChatService](modules/ChatService.md).
 
 `LlmContextBuilder` принимает снимки данных, не зависит от сервисов или репозиториев.
-Резервирует полные инструкции и вопрос, затем расходует оставшийся бюджет на
+Резервирует полные инструкции, вопрос и необязательный явно подготовленный
+внешний блок поиска, затем расходует оставшийся бюджет на
 выбранные факты по приоритету, целую сводку и непрерывную последнюю часть истории.
 Возвращает сообщения System/User/Assistant и сведения о невключённых данных.
 Согласованный промпт задаёт MentorPrompt; выбор фактов по теме реализован отдельно
@@ -371,6 +381,9 @@ infra::LlamaClient через Qt6::Network. В тестах HTTP заменён 
 ```mermaid
 flowchart LR
     user[User] --> conversation[ConversationService]
+    conversation -->|только явная поисковая фраза| search[WebSearchProvider]
+    searxng[SearxngSearchProvider: HTTP] -. реализует .-> search
+    search -->|внешние материалы отдельно от System| builder[LlmContextBuilder]
     conversation --> chat[ChatService: полная история]
     profile[UserProfileService] --> selector[UserProfileFactSelector]
     selector --> builder[LlmContextBuilder]

@@ -1,4 +1,6 @@
 add_library(msa_infra STATIC
+    include/msa/infra/SearxngSearchProvider.h
+    src/SearxngSearchProvider.cpp
     include/msa/infra/SqliteGeocodingCacheRepository.h
     include/msa/infra/SqliteRouteHistoryRepository.h
     src/SqliteGeocodingCacheRepository.cpp

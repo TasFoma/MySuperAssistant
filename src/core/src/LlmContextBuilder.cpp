@@ -44,6 +44,13 @@ LlmContextResult LlmContextBuilder::build(const LlmContextInput& input, std::siz
         return LlmContextRejection{"Инструкции и текущий вопрос не помещаются в общий бюджет."};
     }
     remaining -= questionCount;
+    if (!input.externalContext.empty()) {
+        const auto count = text::charCount(input.externalContext);
+        if (text::trim(input.externalContext).empty() || count > remaining) {
+            return LlmContextRejection{"Внешние данные поиска пусты или не помещаются в общий бюджет."};
+        }
+        remaining -= count;
+    }
 
     auto history = input.history;
     std::ranges::sort(history, {}, &ChatMessage::identifier);
@@ -103,6 +110,9 @@ LlmContextResult LlmContextBuilder::build(const LlmContextInput& input, std::siz
         context.messages.push_back(LlmMessage{
             .role = message->role == MessageRole::User ? LlmRole::User : LlmRole::Assistant,
             .text = message->text});
+    }
+    if (!input.externalContext.empty()) {
+        context.messages.push_back(LlmMessage{.role = LlmRole::User, .text = input.externalContext});
     }
     context.messages.push_back(LlmMessage{.role = LlmRole::User, .text = input.currentQuestion});
     context.usedChars = maxChars - remaining;

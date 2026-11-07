@@ -1,5 +1,6 @@
 #include "../core/FakeClock.h"
 #include "../core/FakeLlmClient.h"
+#include "../core/FakeWebSearchProvider.h"
 
 #include "msa/core/CalendarService.h"
 #include "msa/core/ConversationService.h"
@@ -62,6 +63,7 @@ protected:
     core::HabitService m_habitService;
     core::DailyContextService m_daily;
     core::FakeLlmClient m_client;
+    core::FakeWebSearchProvider m_search{};
     SqliteMoodRepository m_moods;
     core::MoodService m_moodService;
     SqliteEveningCheckInRepository m_checkIns;
@@ -82,7 +84,7 @@ SqliteConversationTest::SqliteConversationTest()
 core::ConversationService SqliteConversationTest::conversation()
 {
     return core::ConversationService{m_clock, m_chat, m_profile, m_daily, m_client,
-        m_moodService, m_checkIn, m_checkIns, m_database};
+        m_moodService, m_checkIn, m_checkIns, m_database, m_search};
 }
 
 TEST_F(SqliteConversationTest, CommitsDiaryProfileAssistantAndClearingTogetherAndRestoresFromFile)
@@ -256,7 +258,7 @@ TEST_F(SqliteConversationTest, UserIsCommittedAndOtherConnectionCanWriteWhileMod
 {
     ObservingLlmClient client{m_directory.filePath(QStringLiteral("чат.sqlite"))};
     core::ConversationService service{m_clock, m_chat, m_profile, m_daily, client,
-        m_moodService, m_checkIn, m_checkIns, m_database};
+        m_moodService, m_checkIn, m_checkIns, m_database, m_search};
     const auto result = service.sendMessage("Вопрос", kContextBudget);
     EXPECT_TRUE(std::holds_alternative<core::ConversationReply>(result));
     SqliteGreetingRepository greetings{m_database};
@@ -363,7 +365,7 @@ TEST_F(SqliteConversationTest, CheckInPublicationSurvivesReopenWithoutRepeatingO
     core::MoodService moodService{m_clock, moods};
     core::EveningCheckInService restoredCheckIn{m_clock, checkIns};
     core::ConversationService restored{m_clock, restoredChat, profile, daily, m_client,
-        moodService, restoredCheckIn, checkIns, reopened};
+        moodService, restoredCheckIn, checkIns, reopened, m_search};
     EXPECT_FALSE(restored.offerEveningCheckIn());
     m_clock.advance(std::chrono::days{1});
     const auto nextPrompt = restored.offerEveningCheckIn();
@@ -373,6 +375,32 @@ TEST_F(SqliteConversationTest, CheckInPublicationSurvivesReopenWithoutRepeatingO
     EXPECT_EQ(chats.messages(originalChat).size(), 1U);
     EXPECT_EQ(chats.messages(otherChat).size(), 1U);
     EXPECT_TRUE(m_client.requests().empty());
+}
+
+TEST_F(SqliteConversationTest, SearchRunsAfterCommittedUserAndSourcesSurviveReopening)
+{
+    m_client.setResult(core::LlmResponse{.reply = "Ответ по источнику [1]"});
+    m_search.result = std::vector<core::WebSearchResult>{{"Материал", "https://example.org/source", "Описание"}};
+    m_search.onSearch = [this]() {
+        SqliteDatabase observer{m_directory.filePath(QStringLiteral("чат.sqlite")), sqliteMigrations()};
+        SqliteChatRepository chats{observer};
+        core::ChatService chat{m_clock, chats};
+        ASSERT_EQ(chat.loadMessages().size(), 1);
+        EXPECT_EQ(chat.loadMessages().front().text, "  Полный личный вопрос  ");
+        SqliteGreetingRepository greetings{observer};
+        greetings.saveDate(kDate);
+    };
+    auto service = conversation();
+    const auto result = service.sendMessageWithSearch("  Полный личный вопрос  ", "Поисковая фраза", kContextBudget);
+    ASSERT_TRUE(std::holds_alternative<core::ConversationReply>(result));
+    EXPECT_EQ(m_search.queries, (std::vector<std::string>{"Поисковая фраза"}));
+    SqliteDatabase reopened{m_directory.filePath(QStringLiteral("чат.sqlite")), sqliteMigrations()};
+    SqliteChatRepository chats{reopened};
+    core::ChatService restored{m_clock, chats};
+    ASSERT_EQ(restored.loadMessages().size(), 2);
+    EXPECT_NE(restored.loadMessages().back().text.find("https://example.org/source"), std::string::npos);
+    SqliteGreetingRepository greetings{reopened};
+    EXPECT_EQ(greetings.lastDate(), kDate);
 }
 
 }  // namespace

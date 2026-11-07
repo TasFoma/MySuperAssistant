@@ -8,6 +8,8 @@ namespace msa::core::text {
 
 /// @brief Количество символов (кодовых точек) в строке UTF-8.
 [[nodiscard]] std::size_t charCount(std::string_view text);
+/// @brief Первые maxChars кодовых точек UTF-8 без обрыва многобайтового символа.
+[[nodiscard]] std::string prefix(std::string_view text, std::size_t maxChars);
 
 /// @brief Удаляет пробельные символы Unicode по краям строки UTF-8.
 [[nodiscard]] std::string trim(std::string_view text);

@@ -1,4 +1,6 @@
 add_executable(msa_core_tests
+    FakeWebSearchProvider.cpp
+    WebSearchProviderTest.cpp
     InMemoryGeocodingCacheRepository.cpp
     InMemoryRouteHistoryRepository.cpp
     NavigationPersistenceTest.cpp

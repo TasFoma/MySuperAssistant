@@ -1,5 +1,6 @@
 #include "FakeClock.h"
 #include "FakeLlmClient.h"
+#include "FakeWebSearchProvider.h"
 #include "InMemoryChatRepository.h"
 #include "InMemoryEveningCheckInRepository.h"
 #include "InMemoryEventRepository.h"
@@ -52,6 +53,7 @@ protected:
     HabitService m_habitService;
     DailyContextService m_daily;
     FakeLlmClient m_client;
+    FakeWebSearchProvider m_search{};
     InMemoryMoodRepository m_moods{};
     MoodService m_moodService;
     InMemoryEveningCheckInRepository m_checkIns{};
@@ -73,7 +75,7 @@ ConversationServiceTest::ConversationServiceTest()
 ConversationService ConversationServiceTest::conversation()
 {
     return ConversationService{m_clock, m_chat, m_profile, m_daily, m_client,
-        m_moodService, m_checkIn, m_checkIns, m_transactions};
+        m_moodService, m_checkIn, m_checkIns, m_transactions, m_search};
 }
 
 std::vector<MoodEntry> ConversationServiceTest::diary() const
@@ -148,7 +150,7 @@ TEST_F(ConversationServiceTest, PublishesOneDailyCheckInAndRestoresWaitingFromRe
     EXPECT_FALSE(service.offerEveningCheckIn());
     ChatService restoredChat{m_clock, m_chats};
     ConversationService restarted{m_clock, restoredChat, m_profile, m_daily, m_client,
-        m_moodService, m_checkIn, m_checkIns, m_transactions};
+        m_moodService, m_checkIn, m_checkIns, m_transactions, m_search};
     EXPECT_FALSE(restarted.offerEveningCheckIn());
     ASSERT_EQ(m_chat.loadMessages().size(), 1U);
     EXPECT_EQ(m_chat.loadMessages().front().role, MessageRole::Assistant);
@@ -337,7 +339,7 @@ TEST_F(ConversationServiceTest, StorageFailurePropagatesWithoutFalseConfirmation
 {
     FailingMoodRepository repository;
     MoodService moods{m_clock, repository};
-    ConversationService service{m_clock, m_chat, m_profile, m_daily, m_client, moods, m_checkIn, m_checkIns, m_transactions};
+    ConversationService service{m_clock, m_chat, m_profile, m_daily, m_client, moods, m_checkIn, m_checkIns, m_transactions, m_search};
     ASSERT_TRUE(service.offerEveningCheckIn());
     m_client.setResult(LlmResponse{.reply = "Ответ", .moodRecording = MoodRecordingProposal{
         .score = MoodScore::Positive, .reason = MoodRecordingReason::EveningCheckInReply}});
@@ -502,7 +504,7 @@ TEST_F(ConversationServiceTest, ExpiryDuringLlmRequestPreventsLateEveningRecordi
 {
     MidnightLlmClient client{m_clock};
     ConversationService service{m_clock, m_chat, m_profile, m_daily, client,
-        m_moodService, m_checkIn, m_checkIns, m_transactions};
+        m_moodService, m_checkIn, m_checkIns, m_transactions, m_search};
     ASSERT_TRUE(service.offerEveningCheckIn());
     const auto result = service.sendMessage("Мне хорошо", kContextBudget);
     EXPECT_TRUE(std::holds_alternative<ConversationRejection>(result));
@@ -562,6 +564,124 @@ TEST_F(ConversationServiceTest, CheckInCommitFailureRestoresPreviousStateAndAllo
     EXPECT_EQ(m_checkIns.pendingCheckIn()->messageIdentifier, retried);
     EXPECT_FALSE(service.offerEveningCheckIn());
     EXPECT_TRUE(m_client.requests().empty());
+}
+
+TEST_F(ConversationServiceTest, OrdinaryMessagesNeverTriggerWebSearchEvenWithOldTriggerWords)
+{
+    auto service = conversation();
+    EXPECT_TRUE(std::holds_alternative<ConversationReply>(service.sendMessage("Почему мне грустно?", kContextBudget)));
+    EXPECT_TRUE(std::holds_alternative<ConversationReply>(service.sendMessage("Что такое новости?", kContextBudget)));
+    EXPECT_TRUE(m_search.queries.empty());
+}
+
+TEST_F(ConversationServiceTest, ExplicitSearchSendsOnlyPhraseAndSavesRealSourcesWithReply)
+{
+    ASSERT_TRUE(std::holds_alternative<std::monostate>(m_profile.rememberFact("Личное: учусь C++", {}, true)));
+    static_cast<void>(m_chat.addMessage("Личная история", MessageRole::User));
+    static_cast<void>(m_chat.addMessage("Прошлый ответ", MessageRole::Assistant));
+    m_search.result = std::vector<WebSearchResult>{{"Источник", "https://example.org/news", "Свежий материал"}};
+    m_client.setResult(LlmResponse{.reply = "Ответ по материалу [1]"});
+    auto service = conversation();
+    const std::string original = "  Мой вопрос с личными подробностями\n🙂  ";
+    const auto result = service.sendMessageWithSearch(original, "  Новости C++  ", kContextBudget);
+    ASSERT_TRUE(std::holds_alternative<ConversationReply>(result));
+    const auto& reply = std::get<ConversationReply>(result);
+    ASSERT_EQ(m_search.queries.size(), 1);
+    EXPECT_EQ(m_search.queries[0], "Новости C++");
+    ASSERT_EQ(reply.searchSources.size(), 1);
+    EXPECT_EQ(reply.searchSources[0].url, "https://example.org/news");
+    EXPECT_NE(reply.text.find("Материалы поиска:"), std::string::npos);
+    EXPECT_NE(reply.text.find("https://example.org/news"), std::string::npos);
+    ASSERT_EQ(m_client.requests().size(), 1);
+    const auto& messages = m_client.requests()[0].messages;
+    ASSERT_GE(messages.size(), 3);
+    EXPECT_EQ(messages.back().text, original);
+    EXPECT_NE(messages[messages.size() - 2].text.find("ВНЕШНИЕ ДАННЫЕ ВЕБ-ПОИСКА"), std::string::npos);
+    EXPECT_EQ(messages.front().text.find("Свежий материал"), std::string::npos);
+    EXPECT_NE(messages.front().text.find("не извлекай из них факты профиля"), std::string::npos);
+    const auto history = m_chat.loadMessages();
+    ASSERT_EQ(history.size(), 4);
+    EXPECT_EQ(history[2].text, original);
+    EXPECT_EQ(history.back().text, reply.text);
+    EXPECT_EQ(m_profile.profile().facts.size(), 1);
+    EXPECT_TRUE(diary().empty());
+}
+
+TEST_F(ConversationServiceTest, SearchFailureKeepsUserAndPendingWithoutCallingModelAndAllowsExplicitRetry)
+{
+    auto service = conversation();
+    ASSERT_TRUE(service.offerEveningCheckIn());
+    m_search.result = ExternalServiceError{ExternalServiceErrorKind::Unavailable, "Поиск недоступен"};
+    const auto failed = service.sendMessageWithSearch("Найди сведения", "Сведения", kContextBudget);
+    ASSERT_TRUE(std::holds_alternative<ExternalServiceError>(failed));
+    EXPECT_EQ(std::get<ExternalServiceError>(failed).kind, ExternalServiceErrorKind::Unavailable);
+    ASSERT_EQ(m_chat.loadMessages().size(), 2);
+    const auto userIdentifier = m_chat.loadMessages().back().identifier;
+    EXPECT_TRUE(m_client.requests().empty());
+    EXPECT_TRUE(m_checkIns.pendingCheckIn());
+    EXPECT_TRUE(diary().empty());
+    m_search.result = std::vector<WebSearchResult>{{"Источник", "https://example.org/", "Материал"}};
+    const auto retried = service.retryLastMessageWithSearch("Сведения", kContextBudget);
+    ASSERT_TRUE(std::holds_alternative<ConversationReply>(retried));
+    ASSERT_EQ(m_chat.loadMessages().size(), 3);
+    EXPECT_EQ(m_chat.loadMessages()[1].identifier, userIdentifier);
+    EXPECT_EQ(m_search.queries.size(), 2);
+    EXPECT_EQ(m_client.requests().size(), 1);
+}
+
+TEST_F(ConversationServiceTest, RejectsEmptySearchAndMissingMaterialsWithoutSilentModelFallback)
+{
+    auto service = conversation();
+    EXPECT_TRUE(std::holds_alternative<ExternalServiceError>(service.sendMessageWithSearch("Вопрос", " \n ", kContextBudget)));
+    EXPECT_TRUE(m_chat.loadMessages().empty());
+    const auto result = service.sendMessageWithSearch("Вопрос", "Фраза", kContextBudget);
+    ASSERT_TRUE(std::holds_alternative<ExternalServiceError>(result));
+    EXPECT_EQ(std::get<ExternalServiceError>(result).kind, ExternalServiceErrorKind::NotFound);
+    EXPECT_EQ(m_chat.loadMessages().size(), 1);
+    EXPECT_TRUE(m_client.requests().empty());
+    EXPECT_TRUE(diary().empty());
+}
+
+TEST_F(ConversationServiceTest, ChecksBudgetBeforeSearchAndRefusesOversizedSearchContextBeforeModel)
+{
+    auto service = conversation();
+    EXPECT_TRUE(std::holds_alternative<ConversationRejection>(service.sendMessageWithSearch("Вопрос", "Фраза", 1)));
+    EXPECT_TRUE(m_search.queries.empty());
+    m_search.result = std::vector<WebSearchResult>{{std::string(kContextBudget, 'x'), "https://example.org/", "Описание"}};
+    EXPECT_TRUE(std::holds_alternative<ConversationRejection>(service.retryLastMessageWithSearch("Фраза", kContextBudget)));
+    EXPECT_EQ(m_search.queries.size(), 1);
+    EXPECT_TRUE(m_client.requests().empty());
+    EXPECT_EQ(m_chat.loadMessages().size(), 1);
+}
+
+TEST_F(ConversationServiceTest, ExplicitSearchRetryAfterModelFailureDoesNotDuplicateUser)
+{
+    auto service = conversation();
+    m_search.result = std::vector<WebSearchResult>{{"Источник", "https://example.org/", "Материал"}};
+    m_client.setResult(LlmFailure{.reason = "Модель недоступна"});
+    EXPECT_TRUE(std::holds_alternative<LlmFailure>(service.sendMessageWithSearch("Вопрос", "Фраза", kContextBudget)));
+    const auto identifier = m_chat.loadMessages().back().identifier;
+    m_client.setResult(LlmResponse{.reply = "Ответ"});
+    EXPECT_TRUE(std::holds_alternative<ConversationReply>(service.retryLastMessageWithSearch("Фраза", kContextBudget)));
+    ASSERT_EQ(m_chat.loadMessages().size(), 2);
+    EXPECT_EQ(m_chat.loadMessages().front().identifier, identifier);
+    EXPECT_EQ(m_search.queries.size(), 2);
+    EXPECT_EQ(m_client.requests().size(), 2);
+}
+
+TEST_F(ConversationServiceTest, MidnightDuringSearchCannotRecordAnExpiredEveningReply)
+{
+    auto service = conversation();
+    ASSERT_TRUE(service.offerEveningCheckIn());
+    m_search.result = std::vector<WebSearchResult>{{"Источник", "https://example.org/", "Описание"}};
+    m_search.onSearch = [this]() { m_clock.advance(std::chrono::hours{5}); };
+    m_client.setResult(LlmResponse{.reply = "Ответ", .moodRecording = MoodRecordingProposal{
+        .score = MoodScore::Positive, .reason = MoodRecordingReason::EveningCheckInReply}});
+    EXPECT_TRUE(std::holds_alternative<ConversationRejection>(service.sendMessageWithSearch("Вопрос", "Фраза", kContextBudget)));
+    EXPECT_FALSE(m_checkIns.pendingCheckIn());
+    EXPECT_TRUE(diary().empty());
+    EXPECT_TRUE(m_profile.profile().facts.empty());
+    EXPECT_EQ(m_chat.loadMessages().size(), 2);
 }
 
 }  // namespace

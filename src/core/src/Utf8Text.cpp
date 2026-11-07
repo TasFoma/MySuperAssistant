@@ -151,6 +151,15 @@ std::size_t charCount(std::string_view text)
     return count;
 }
 
+std::string prefix(std::string_view text, std::size_t maxChars)
+{
+    auto points = decode(text);
+    if (points.size() <= maxChars) { return std::string{text}; }
+    points.resize(maxChars);
+
+    return encode(points);
+}
+
 std::string trim(std::string_view text)
 {
     constexpr std::u32string_view kWhitespace = U"\t\n\v\f\r \u0085\u00A0\u1680"

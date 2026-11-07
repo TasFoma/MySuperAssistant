@@ -6,6 +6,7 @@
 #include "msa/infra/NominatimGeocoder.h"
 #include "msa/infra/OpenMeteoWeatherProvider.h"
 #include "msa/infra/OsrmRoutePlanner.h"
+#include "msa/infra/SearxngSearchProvider.h"
 
 #include <gtest/gtest.h>
 
@@ -467,6 +468,69 @@ TEST(ExternalServicesTest, RejectsInvalidSettingsAndEndpoints)
     invalidSettings.userAgent = "test\r\nSECRET";
     EXPECT_THROW((HttpGetClient{network, invalidSettings}), std::invalid_argument);
     EXPECT_TRUE(network.requests.empty());
+}
+
+TEST(ExternalServicesTest, SearxngSendsOnlyExplicitPhraseAndParsesThreeUsableSources)
+{
+    ServiceNetwork network;
+    network.response = QJsonDocument{QJsonObject{{"results", QJsonArray{
+        QJsonObject{{"title", "Карточка без ссылки"}, {"url", QJsonValue::Null}},
+        QJsonObject{{"title", ""}, {"url", "https://example.org/skip"}},
+        QJsonObject{{"title", "Неверный адрес"}, {"url", "javascript:alert(1)"}},
+        QJsonObject{{"title", "Первый"}, {"url", "https://example.org/1"}, {"content", "Описание"}},
+        QJsonObject{{"title", "Второй"}, {"url", "https://example.org/2"}},
+        QJsonObject{{"title", "Третий"}, {"url", "https://example.org/3"}},
+        QJsonObject{{"title", "Четвёртый"}, {"url", "https://example.org/4"}}}}}}.toJson();
+    SearxngSearchProvider provider{network, QUrl{"https://search.invalid/search"}, settings()};
+    const auto result = provider.search("  новости C++ & Qt %2B  ");
+    ASSERT_TRUE(std::holds_alternative<std::vector<core::WebSearchResult>>(result));
+    const auto& sources = std::get<std::vector<core::WebSearchResult>>(result);
+    ASSERT_EQ(sources.size(), 3);
+    EXPECT_EQ(sources[0].title, "Первый");
+    EXPECT_EQ(sources[0].snippet, "Описание");
+    EXPECT_TRUE(sources[1].snippet.empty());
+    EXPECT_EQ(sources[2].url, "https://example.org/3");
+    ASSERT_EQ(network.requests.size(), 1);
+    const QUrlQuery query{network.requests.front().url()};
+    EXPECT_EQ(query.queryItemValue("q", QUrl::FullyDecoded), "новости C++ & Qt %2B");
+    EXPECT_TRUE(network.requests.front().url().toEncoded().contains("C%2B%2B"));
+    EXPECT_TRUE(network.requests.front().url().toEncoded().contains("%252B"));
+    auto formEncoded = query.queryItemValue("q", QUrl::FullyEncoded).toUtf8();
+    formEncoded.replace('+', ' ');
+    EXPECT_EQ(QUrl::fromPercentEncoding(formEncoded), "новости C++ & Qt %2B");
+    EXPECT_EQ(query.queryItemValue("format"), "json");
+    EXPECT_EQ(query.queryItems().size(), 2);
+    EXPECT_EQ(network.requests.front().url().path(), "/search");
+}
+
+TEST(ExternalServicesTest, SearxngRejectsMalformedResultsAndReportsNoUsableSources)
+{
+    ServiceNetwork network;
+    SearxngSearchProvider provider{network, QUrl{"https://search.invalid/search"}, settings()};
+    for (const auto& body : std::vector<QByteArray>{"{", "[]", "{}", R"({"results":null})",
+             R"({"results":[null]})", R"({"results":[{"title":42}]})",
+             R"({"results":[{"title":"Title","url":"https://example.org/","content":42}]})"}) {
+        network.response = body;
+        expectError(provider.search("Фраза"), core::ExternalServiceErrorKind::InvalidResponse);
+    }
+    for (const auto& body : std::vector<QByteArray>{R"({"results":[]})",
+             R"({"results":[{"title":"Title","url":"https://user:SECRET@example.org/"}]})"}) {
+        network.response = body;
+        expectError(provider.search("Фраза"), core::ExternalServiceErrorKind::NotFound);
+    }
+}
+
+TEST(ExternalServicesTest, SearxngDoesNotRetryHttpFailuresAndRejectsInvalidInputBeforeNetwork)
+{
+    ServiceNetwork network;
+    SearxngSearchProvider provider{network, QUrl{"https://search.invalid/search"}, settings()};
+    expectError(provider.search(" \n "), core::ExternalServiceErrorKind::InvalidRequest);
+    EXPECT_TRUE(network.requests.empty());
+    network.status = 403;
+    network.response = "SECRET technical error";
+    expectError(provider.search("Фраза"), core::ExternalServiceErrorKind::Unavailable);
+    EXPECT_EQ(network.requests.size(), 1);
+    EXPECT_THROW((SearxngSearchProvider{network, QUrl{"file:///search"}, settings()}), std::invalid_argument);
 }
 
 } // namespace
