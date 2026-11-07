@@ -1,0 +1,44 @@
+#pragma once
+
+#include "msa/core/Geocoder.h"
+#include "msa/core/RoutePlanner.h"
+#include "msa/core/WeatherProvider.h"
+
+#include <string>
+
+namespace msa::core
+{
+
+/// @brief Проверяет диапазоны и конечность координат, включая допустимые нули.
+[[nodiscard]] bool validCoordinates(GeoCoordinates coordinates);
+/// @brief Расстояние по сфере в метрах; аргументы должны быть корректными.
+[[nodiscard]] double geographicDistance(GeoCoordinates origin, GeoCoordinates destination);
+/// @brief Русский текст маршрута с предупреждением для приблизительной оценки.
+[[nodiscard]] std::string routeText(const RoutePlan& plan, TravelMode mode, const std::string& origin,
+                                    const std::string& destination);
+/// @brief Русская сводка проверенного прогноза; неизвестный код не выдаётся за ясную погоду.
+[[nodiscard]] std::string weatherText(const WeatherForecast& forecast);
+
+/// @brief Выбор ближайшего места и построение маршрута без хранения истории.
+class NavigationService
+{
+public:
+    /// @brief Зависимости должны пережить сервис.
+    NavigationService(Geocoder& geocoder, RoutePlanner& planner);
+    /// @brief Маршрут от явной точки до ближайшего к ней кандидата места.
+    [[nodiscard]] ExternalServiceResult<RoutePlan> routeFrom(GeoCoordinates origin, const std::string& destination,
+                                                             TravelMode mode);
+    /// @brief Оба названия ищутся относительно явной опорной точки пользователя.
+    [[nodiscard]] ExternalServiceResult<RoutePlan>
+    routeBetween(const std::string& origin, const std::string& destination, GeoCoordinates reference, TravelMode mode);
+
+private:
+    [[nodiscard]] ExternalServiceResult<GeoCoordinates> locate(const std::string& place, GeoCoordinates reference);
+    [[nodiscard]] ExternalServiceResult<RoutePlan> planRoute(GeoCoordinates origin, GeoCoordinates destination,
+                                                             TravelMode mode);
+
+    Geocoder& m_geocoder;
+    RoutePlanner& m_planner;
+};
+
+} // namespace msa::core

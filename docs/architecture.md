@@ -28,6 +28,13 @@ Qt Network и строгий разбор JSON; тесты используют 
 Прежние записи остаются, отбор профиля для LLM использует только актуальные версии.
 Поток «клиент → сервер → хранилище» не реализован.
 
+`Geocoder`, `RoutePlanner` и `WeatherProvider` задают контракты внешних данных.
+`NavigationService` выбирает ближайшее место по сфере относительно явной точки,
+строит маршрут и при недоступности сервиса даёт помеченную приблизительную оценку.
+Русские инструкции и сводка погоды формируются в core. В infra реализованы
+NominatimGeocoder, OsrmRoutePlanner и OpenMeteoWeatherProvider через HttpGetClient.
+Проверки выполняются без настоящей сети; приложения их пока не создают.
+
 `infra` содержит основу SqliteDatabase: открытие нового файла, внешние ключи,
 проверку версии и принадлежности, миграции и вложенные транзакции. Базовая версия 1
 без предметных таблиц; sqliteMigrations() добавляет версию 2 с чатами, сообщениями
@@ -56,7 +63,7 @@ ConversationService атомарно записывает ответ через 
 
 ```mermaid
 flowchart TD
-    server[msa_server] --> infra[msa_infra: SQLite и HTTP LLM]
+    server[msa_server] --> infra[msa_infra: SQLite и HTTP сервисы]
     server --> core[msa_core]
     desktop[msa_desktop] --> desktopUI[msa_ui_desktop: заглушка]
     desktop --> common[msa_ui_common: заглушка]
@@ -88,10 +95,11 @@ flowchart TD
 - `core` не использует Qt, файлы или сеть. Исключение из правила «только stdlib» —
   приватная зависимость от PCRE2 для Unicode-регулярных выражений (решение 11).
 - `infra` зависит от `core`, Qt6::Sql и Qt6::Network; есть HTTP LlamaClient,
+  NominatimGeocoder, OsrmRoutePlanner, OpenMeteoWeatherProvider,
   основа SQLite и все репозитории core:
   задачи, события, напоминания, привычки с журналом, чаты, профиль, дневник,
-  дата приветствия, вечерний опрос и отметки предупреждений. Реальных часов,
-  геокодинга, маршрутов и погоды пока нет.
+  дата приветствия, вечерний опрос и отметки предупреждений. Реальных часов
+  и подключения внешних сервисов к приложениям пока нет.
 - `ui/common` зависит от `core` и Qt Quick; платформенные UI-библиотеки — от
   `ui/common` и Qt Quick. UI и `infra` напрямую не связаны.
 - Приложения линкуют нужные слои, но пока не создают и не связывают предметные объекты.
@@ -108,6 +116,15 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 | Модуль | Что есть сейчас | Путь |
 | --- | --- | --- |
+| ExternalServiceResult | Типизированные результаты внешних сервисов и понятные ошибки | `src/core/include/msa/core/ExternalServiceResult.h` |
+| Geocoder | Проверка названия и кандидатов места | `src/core/include/msa/core/Geocoder.h`, `src/core/src/Geocoder.cpp` |
+| RoutePlanner | Маршрут по координатам и режиму, проверки результата | `src/core/include/msa/core/RoutePlanner.h`, `src/core/src/RoutePlanner.cpp` |
+| WeatherProvider | Текущая погода и необязательные дневные показатели | `src/core/include/msa/core/WeatherProvider.h`, `src/core/src/WeatherProvider.cpp` |
+| NavigationService | Ближайшее место, маршрут, приблизительная оценка и русский текст | `src/core/include/msa/core/NavigationService.h`, `src/core/src/NavigationService.cpp` |
+| HttpGetClient | Общий GET с тайм-аутом, ограничением частоты и ошибками без секретов | `src/infra/include/msa/infra/HttpGetClient.h`, `src/infra/src/HttpGetClient.cpp` |
+| NominatimGeocoder | Поиск мест с кэшем и интервалом не меньше секунды | `src/infra/include/msa/infra/NominatimGeocoder.h`, `src/infra/src/NominatimGeocoder.cpp` |
+| OsrmRoutePlanner | Три профиля OSRM и разбор всех манёвров первого маршрута | `src/infra/include/msa/infra/OsrmRoutePlanner.h`, `src/infra/src/OsrmRoutePlanner.cpp` |
+| OpenMeteoWeatherProvider | Запрос погоды и проверка текущих/дневных данных | `src/infra/include/msa/infra/OpenMeteoWeatherProvider.h`, `src/infra/src/OpenMeteoWeatherProvider.cpp` |
 | CommandParser | Разбор UTF-8 текста в `Command`, без выполнения действий | `src/core/include/msa/core/CommandParser.h`, `src/core/src/CommandParser.cpp` |
 | LlmContextBuilder | Сборка готовых данных в запрос по общему бюджету текста без изменения источников | `src/core/include/msa/core/LlmContextBuilder.h`, `src/core/src/LlmContextBuilder.cpp` |
 | LlmMessage | Сообщение запроса с ролью System/User/Assistant без HTTP или JSON | `src/core/include/msa/core/LlmMessage.h` |
@@ -182,6 +199,31 @@ Qt ищется один раз в корневом CMake; поэтому уст
 Подробности — в [ReminderService](modules/ReminderService.md).
 
 ## Границы реализации
+
+Навигация и погода доступны как библиотечные операции по решению 42.
+Поток данных не требует UI или SQLite:
+
+```mermaid
+flowchart LR
+    caller[Вызывающий код: явные координаты и названия] --> navigation[NavigationService]
+    navigation --> geocoder[Geocoder]
+    navigation --> planner[RoutePlanner]
+    nominatim[NominatimGeocoder: кэш и частота] -. реализует .-> geocoder
+    osrm[OsrmRoutePlanner: три профиля] -. реализует .-> planner
+    caller --> weather[WeatherProvider]
+    meteo[OpenMeteoWeatherProvider] -. реализует .-> weather
+    nominatim --> http[HttpGetClient: Qt Network]
+    osrm --> http
+    meteo --> http
+    navigation --> route[RoutePlan: проверенный или приблизительный]
+    weather --> forecast[WeatherForecast: проверенные показатели]
+    route --> routeText[routeText: русский текст]
+    forecast --> weatherText[weatherText: русская сводка]
+```
+
+История/статистика маршрутов и заполнение координат геонапоминаний пока не
+реализованы. [Контракты core](modules/NavigationService.md),
+[HTTP-адаптеры](modules/ExternalServices.md).
 
 Нет сетевого клиента и сервера протокола приложения, его сериализации,
 работающего чата с настоящей моделью, аудио, платформенных Android-реализаций и геймификации.

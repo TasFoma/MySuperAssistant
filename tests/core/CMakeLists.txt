@@ -1,4 +1,5 @@
 add_executable(msa_core_tests
+    NavigationServiceTest.cpp
     CalendarServiceTest.cpp
     ChatServiceTest.cpp
     CommandParserTest.cpp

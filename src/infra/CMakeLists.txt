@@ -1,4 +1,12 @@
 add_library(msa_infra STATIC
+    include/msa/infra/HttpGetClient.h
+    include/msa/infra/NominatimGeocoder.h
+    include/msa/infra/OpenMeteoWeatherProvider.h
+    include/msa/infra/OsrmRoutePlanner.h
+    src/HttpGetClient.cpp
+    src/NominatimGeocoder.cpp
+    src/OpenMeteoWeatherProvider.cpp
+    src/OsrmRoutePlanner.cpp
     include/msa/infra/LlamaClient.h
     include/msa/infra/SqliteChatRepository.h
     include/msa/infra/SqliteDatabase.h

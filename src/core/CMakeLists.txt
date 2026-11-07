@@ -1,6 +1,15 @@
 include(${PROJECT_SOURCE_DIR}/cmake/Pcre2.cmake)
 
 add_library(msa_core STATIC
+    include/msa/core/ExternalServiceResult.h
+    include/msa/core/Geocoder.h
+    include/msa/core/NavigationService.h
+    include/msa/core/RoutePlanner.h
+    include/msa/core/WeatherProvider.h
+    src/Geocoder.cpp
+    src/NavigationService.cpp
+    src/RoutePlanner.cpp
+    src/WeatherProvider.cpp
     include/msa/core/CalendarService.h
     include/msa/core/Chat.h
     include/msa/core/ChatMessage.h
