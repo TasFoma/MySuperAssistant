@@ -26,7 +26,10 @@ Qt Network и строгий разбор JSON; тесты используют 
 Предложения фактов сохраняются через UserProfileService автоматически: с ID
 источника и дневника, точные повторы пропускаются, исправления создают версии.
 Прежние записи остаются, отбор профиля для LLM использует только актуальные версии.
-Поток «клиент → сервер → хранилище» не реализован.
+Поток «клиент → сервер → хранилище» не реализован. TcpServer в infra обслуживает
+TCP-сессии, авторизацию и обмен конвертами; предметные запросы передаёт сигналом
+и принимает завершения отдельным методом. Он проверяется локальными сокетами
+с тестовым обработчиком, к приложениям не подключён.
 
 Явный веб-поиск реализован через WebSearchProvider и SearxngSearchProvider:
 ConversationService получает фразу отдельным параметром операции, передаёт
@@ -77,7 +80,7 @@ ConversationService атомарно записывает ответ через 
 
 ```mermaid
 flowchart TD
-    server[msa_server] --> infra[msa_infra: SQLite и HTTP сервисы]
+    server[msa_server] --> infra[msa_infra: SQLite, HTTP и TCP транспорт]
     server --> core[msa_core]
     desktop[msa_desktop] --> desktopUI[msa_ui_desktop: заглушка]
     desktop --> common[msa_ui_common: заглушка]
@@ -155,6 +158,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | LlmClient | Контракт полного ответа, общие проверки, тон и предложение записи с исходной заметкой | `src/core/include/msa/core/LlmClient.h`, `src/core/src/LlmClient.cpp` |
 | LlamaClient | HTTP llama-server, полный JSON, общий тайм-аут и ошибки без повторов | `src/infra/include/msa/infra/LlamaClient.h`, `src/infra/src/LlamaClient.cpp` |
 | ProtocolCodec и ProtocolPayload | Конверты версии 1, схемы параметров, ограниченный накопитель кадров и JSON предметных объектов | `src/infra/include/msa/infra/ProtocolMessage.h`, `ProtocolCodec.h`, `ProtocolPayload.h`, `src/infra/src/ProtocolCodec.cpp`, `ProtocolPayload.cpp` |
+| TcpServer | TCP-сессии, auth, учёт ID, сигнал запроса, ответы и события | `src/infra/include/msa/infra/TcpServer.h`, `src/infra/src/TcpServer.cpp` |
 | ConversationService | Связка чата, контекста, LLM, явного дневника и ожидания опроса | `src/core/include/msa/core/ConversationService.h`, `src/core/src/ConversationService.cpp` |
 | TransactionRunner | Интерфейс атомарной операции, обязательная зависимость ConversationService; реализован SqliteDatabase и тестовым исполнителем | `src/core/include/msa/core/TransactionRunner.h`, `src/core/src/TransactionRunner.cpp` |
 | MentorPrompt | Согласованные инструкции ментора, JSON и состояние ожидания | `src/core/include/msa/core/MentorPrompt.h`, `src/core/src/MentorPrompt.cpp` |
@@ -262,12 +266,18 @@ flowchart LR
 [контракты core](modules/NavigationService.md),
 [HTTP-адаптеры](modules/ExternalServices.md).
 
-Нет сетевого клиента и сервера протокола приложения,
+Нет сетевого клиента и предметных обработчиков сервера протокола приложения,
 работающего чата с настоящей моделью, аудио, платформенных Android-реализаций и геймификации.
 В [docs/protocol.md](protocol.md) принят контракт версии 1 по решениям 45–47;
 конверты, проверка параметров, предметная сериализация и накопитель кадров
-реализованы в infra ([ProtocolCodec](modules/ProtocolCodec.md)); работающей сети ещё нет.
-Слои не изменились: кодек зависит от Qt Core и типов core, приложения его пока не вызывают.
+реализованы в infra ([ProtocolCodec](modules/ProtocolCodec.md)).
+[TcpServer](modules/TcpServer.md) использует Qt Network и Clock из core:
+проверенный запрос передаёт через requestReceived(connectionId, request),
+sendResponse завершает ожидающий запрос той же сессии. publishEvent рассылает
+события только авторизованным соединениям. После обрыва старый connectionId недействителен.
+Сигнал не создаёт рабочего потока: предметный исполнитель согласуется при сборке
+приложения. Локальные TCP-тесты используют тестовый обработчик.
+Слои не изменились; приложения транспорт пока не вызывают.
 Старые клиенты не поддерживаются. Независимый
 выбор открытой беседы принят решением 46; нынешний ChatService ещё хранит один
 общий выбор. По решению 47 приветствия/опрос направляются в постоянный «Основной»,

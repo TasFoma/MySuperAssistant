@@ -1,4 +1,6 @@
 add_library(msa_infra STATIC
+    include/msa/infra/TcpServer.h
+    src/TcpServer.cpp
     include/msa/infra/ProtocolCodec.h
     include/msa/infra/ProtocolMessage.h
     include/msa/infra/ProtocolPayload.h
