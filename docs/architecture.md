@@ -14,12 +14,13 @@ LLM-клиентом, анализ настоящей моделью ещё не
 `ChatService` управляет несколькими чатами, восстанавливает текущий выбор, сохраняет
 полную переписку и отбирает последние целые сообщения по явному бюджету символов.
 `LlmContextBuilder` объединяет готовые инструкции, вопрос, выбранные факты, сводку
-и историю по общему бюджету текста; соединения с моделью пока нет.
+и историю по общему бюджету текста; приложения к модели пока не подключены.
 `UserProfileFactSelector` отбирает полные факты по словам вопроса в тексте и ручных
 тегах; alwaysInclude получает приоритет независимо от темы.
 `LlmClient` задаёт полный типизированный ответ, общие проверки запроса и результата,
-отделяет тон от предложения записи. Реализация пока только тестовая,
-HTTP и JSON-разбор отсутствуют.
+отделяет тон от предложения записи. `infra::LlamaClient` реализует HTTP через
+Qt Network и строгий разбор JSON; тесты используют подменённый сетевой менеджер.
+Настоящая модель пока не проверена.
 `ConversationService` связывает эти части, MentorPrompt задаёт согласованные
 инструкции. Ожидание вечернего ответа хранится в EveningCheckInRepository.
 Предложения фактов сохраняются через UserProfileService автоматически: с ID
@@ -55,7 +56,7 @@ ConversationService атомарно записывает ответ через 
 
 ```mermaid
 flowchart TD
-    server[msa_server] --> infra[msa_infra: SQLite и предметные репозитории]
+    server[msa_server] --> infra[msa_infra: SQLite и HTTP LLM]
     server --> core[msa_core]
     desktop[msa_desktop] --> desktopUI[msa_ui_desktop: заглушка]
     desktop --> common[msa_ui_common: заглушка]
@@ -75,6 +76,7 @@ flowchart TD
     common --> quick
     infra --> core
     infra --> sql[Qt6::Sql]
+    infra --> network[Qt6::Network]
     core --> pcre[PCRE2: pcre2-8-static]
     tests[msa_core_tests] --> core
     tests --> gtest[GTest::gtest_main]
@@ -85,9 +87,11 @@ flowchart TD
 
 - `core` не использует Qt, файлы или сеть. Исключение из правила «только stdlib» —
   приватная зависимость от PCRE2 для Unicode-регулярных выражений (решение 11).
-- `infra` зависит от `core` и Qt6::Sql; есть основа SQLite и все репозитории core:
+- `infra` зависит от `core`, Qt6::Sql и Qt6::Network; есть HTTP LlamaClient,
+  основа SQLite и все репозитории core:
   задачи, события, напоминания, привычки с журналом, чаты, профиль, дневник,
-  дата приветствия, вечерний опрос и отметки предупреждений. Часов и внешних сервисов пока нет.
+  дата приветствия, вечерний опрос и отметки предупреждений. Реальных часов,
+  геокодинга, маршрутов и погоды пока нет.
 - `ui/common` зависит от `core` и Qt Quick; платформенные UI-библиотеки — от
   `ui/common` и Qt Quick. UI и `infra` напрямую не связаны.
 - Приложения линкуют нужные слои, но пока не создают и не связывают предметные объекты.
@@ -108,6 +112,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 | LlmContextBuilder | Сборка готовых данных в запрос по общему бюджету текста без изменения источников | `src/core/include/msa/core/LlmContextBuilder.h`, `src/core/src/LlmContextBuilder.cpp` |
 | LlmMessage | Сообщение запроса с ролью System/User/Assistant без HTTP или JSON | `src/core/include/msa/core/LlmMessage.h` |
 | LlmClient | Контракт полного ответа, общие проверки, тон и предложение записи с исходной заметкой | `src/core/include/msa/core/LlmClient.h`, `src/core/src/LlmClient.cpp` |
+| LlamaClient | HTTP llama-server, полный JSON, общий тайм-аут и ошибки без повторов | `src/infra/include/msa/infra/LlamaClient.h`, `src/infra/src/LlamaClient.cpp` |
 | ConversationService | Связка чата, контекста, LLM, явного дневника и ожидания опроса | `src/core/include/msa/core/ConversationService.h`, `src/core/src/ConversationService.cpp` |
 | TransactionRunner | Интерфейс атомарной операции, обязательная зависимость ConversationService; реализован SqliteDatabase и тестовым исполнителем | `src/core/include/msa/core/TransactionRunner.h`, `src/core/src/TransactionRunner.cpp` |
 | MentorPrompt | Согласованные инструкции ментора, JSON и состояние ожидания | `src/core/include/msa/core/MentorPrompt.h`, `src/core/src/MentorPrompt.cpp` |
@@ -178,7 +183,7 @@ Qt ищется один раз в корневом CMake; поэтому уст
 
 ## Границы реализации
 
-Нет сетевого клиента и сервера, сериализации протокола, HTTP-реализации LLM-клиента,
+Нет сетевого клиента и сервера протокола приложения, его сериализации,
 работающего чата с настоящей моделью, аудио, платформенных Android-реализаций и геймификации.
 Файл `docs/protocol.md` пока отсутствует: описывать действующий протокол ещё нечего.
 Направление дальнейшей работы хранится в [плане переноса](migration-plan.md),
@@ -287,9 +292,10 @@ User/Assistant читаются по возрастанию ID через loadMe
 результат. Для предложения записи подставляет исходный вопрос в заметку.
 Клиент не пишет в репозитории и не обращается к MoodService — это ответственность
 ConversationService. Настоящего распознавания и вызовов приложений пока нет;
-состояние опроса хранится в его репозитории. JSON-разбор будет в infra,
-зависимости между слоями не изменились.
-Подробнее — [LlmClient](modules/LlmClient.md).
+состояние опроса хранится в его репозитории. HTTP и JSON-разбор реализует
+infra::LlamaClient через Qt6::Network. В тестах HTTP заменён сетевым менеджером
+без сокетов; приложения адаптер пока не создают.
+Подробнее — [LlmClient](modules/LlmClient.md), [LlamaClient](modules/LlamaClient.md).
 
 ### Данные внутри связки чата
 
@@ -302,7 +308,9 @@ flowchart LR
     daily[DailyContextService] --> builder
     prompt[MentorPrompt] --> builder
     chat --> builder
-    builder --> llm[LlmClient: пока FakeLlmClient]
+    builder --> llm[LlmClient]
+    http[LlamaClient: HTTP адаптер] -. реализует .-> llm
+    fake[FakeLlmClient: тесты связки] -. реализует .-> llm
     llm --> conversation
     conversation --> mood[MoodService: явная запись]
     conversation -->|факты и версии| profile

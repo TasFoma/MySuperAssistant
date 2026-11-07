@@ -1,4 +1,5 @@
 add_library(msa_infra STATIC
+    include/msa/infra/LlamaClient.h
     include/msa/infra/SqliteChatRepository.h
     include/msa/infra/SqliteDatabase.h
     include/msa/infra/SqliteEveningCheckInRepository.h
@@ -12,6 +13,7 @@ add_library(msa_infra STATIC
     include/msa/infra/SqliteSchema.h
     include/msa/infra/SqliteTaskRepository.h
     include/msa/infra/SqliteUserProfileRepository.h
+    src/LlamaClient.cpp
     src/SqliteChatRepository.cpp
     src/SqliteDatabase.cpp
     src/SqliteEveningCheckInRepository.cpp
@@ -28,5 +30,5 @@ add_library(msa_infra STATIC
 
 target_compile_features(msa_infra PUBLIC cxx_std_20)
 target_include_directories(msa_infra PUBLIC include)
-target_link_libraries(msa_infra PUBLIC msa_core Qt6::Sql)
+target_link_libraries(msa_infra PUBLIC msa_core Qt6::Sql Qt6::Network)
 msa_apply_warnings(msa_infra)

@@ -1,4 +1,5 @@
 add_executable(msa_infra_tests
+    LlamaClientTest.cpp
     SqliteChatRepositoryTest.cpp
     SqliteConversationTest.cpp
     SqliteDatabaseTest.cpp
@@ -28,7 +29,7 @@ gtest_add_tests(TARGET msa_infra_tests
     SqliteGreetingRepositoryTest.cpp SqliteEveningCheckInRepositoryTest.cpp
     SqliteEventWarningRepositoryTest.cpp SqliteMoodRepositoryTest.cpp SqliteTaskRepositoryTest.cpp
     SqliteEventRepositoryTest.cpp SqliteReminderRepositoryTest.cpp
-    SqliteHabitRepositoryTest.cpp SqliteConversationTest.cpp
+    SqliteHabitRepositoryTest.cpp SqliteConversationTest.cpp LlamaClientTest.cpp
     TEST_LIST msaInfraTests)
 if(WIN32)
     set_tests_properties(${msaInfraTests} PROPERTIES
