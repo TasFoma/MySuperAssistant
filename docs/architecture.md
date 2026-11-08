@@ -67,6 +67,7 @@ flowchart TD
     coreTests[msa_core_tests] --> core
     infraTests[msa_infra_tests] --> support
     infraTests --> infra
+    infraTests -. QProcess .-> server
 ```
 
 UI зависит только от core и Qt Quick; прямой связи с infra нет. Qt ищется один
@@ -99,6 +100,7 @@ sequenceDiagram
 
 | Модуль | Что есть сейчас | Путь |
 | --- | --- | --- |
+| ProtocolTestClient и ServerProcessTest | Независимый TCP/JSON-клиент, запуск настоящего сервера и восстановление после обрывов | `tests/infra/ProtocolTestClient.h`, `ProtocolTestClient.cpp`, `ServerProcessTest.cpp` |
 | ServerRuntime | Обработчики протокола, репозитории, транзакции команд и проверки сроков | `src/apps/server/src/ServerRuntime.h`, `ServerRuntime.cpp` |
 | NetworkServices | Постоянный HTTP-поток без SQLite и защищённое ожидание результата | `src/apps/server/src/NetworkServices.h`, `NetworkServices.cpp` |
 | ServerSettings | Строгий JSON и относительный путь БД от настроек | `src/apps/server/src/ServerSettings.h`, `ServerSettings.cpp` |
@@ -200,6 +202,10 @@ sequenceDiagram
 
 Реализована связка сервера с протоколом версии 1, SQLite и внешними адаптерами.
 Интеграционные тесты проверяют реальные локальные TCP/HTTP-сокеты и файловые базы.
+ServerProcessTest дополнительно запускает собранный msa_server отдельным процессом
+и обращается к нему через независимый ProtocolTestClient без серверного кодека.
+Управляемый локальный HTTP-ответ проверяет завершение после обрыва; временные
+настройки и база изолируют эти проверки от личного сервера.
 Тесты внешних данных также используют подменённый QNetworkAccessManager.
 Сведения о конкретных правилах и точках входа находятся в docs/modules;
 протокол описан в docs/protocol.md, запуск — в README.md.
