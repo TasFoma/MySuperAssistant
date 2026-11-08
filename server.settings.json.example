@@ -1,0 +1,27 @@
+{
+  "listen_address": "<IP-интерфейса сервера>",
+  "port": 8765,
+  "token": "<длинный случайный токен>",
+  "time_zone": "<IANA-зона сервера>",
+  "database_path": "assistant.sqlite",
+  "context_max_chars": "<общий бюджет кодовых точек Unicode>",
+  "check_interval_ms": 1000,
+  "llama": {
+    "completion_url": "<http(s)://адрес/v1/chat/completions>",
+    "model": "<имя модели или пустая строка>",
+    "api_key": "",
+    "timeout_ms": 120000,
+    "max_response_tokens": "<лимит генерации в токенах>"
+  },
+  "services": {
+    "timeout_ms": 15000,
+    "user_agent": "<имя приложения и контакт для Nominatim>",
+    "nominatim": "<http(s)://адрес/search>",
+    "osrm_foot": "<http(s)://адрес/route/v1/foot>",
+    "osrm_bike": "<http(s)://адрес/route/v1/bike>",
+    "osrm_driving": "<http(s)://адрес/route/v1/driving>",
+    "weather": "<http(s)://адрес/v1/forecast>",
+    "search": "<http(s)://адрес/search>"
+  }
+}
+

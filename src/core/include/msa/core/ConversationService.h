@@ -37,9 +37,18 @@ struct ConversationReply {
 };
 
 /// @brief Отказ из-за ввода, бюджета или отсутствия сообщения для повтора.
+enum class ConversationRejectionKind : std::uint8_t {
+    Validation,
+    Conflict,
+    ContextBudgetExceeded,
+};
+
+/// @brief Типизированный отказ без разбора текста вызывающей стороной.
 struct ConversationRejection {
     /// @brief Понятная причина для вызывающего кода.
     std::string reason{};
+    /// @brief Категория для адаптера протокола; текст причины остаётся пользовательским.
+    ConversationRejectionKind kind{ConversationRejectionKind::Validation};
 };
 
 /// @brief Сохранённый ответ, предметный отказ либо ошибка LLM/поиска без записи ответа.

@@ -1,4 +1,5 @@
 add_executable(msa_infra_tests
+    ServerRuntimeTest.cpp
     TcpServerTest.cpp
     ProtocolCodecTest.cpp
     ../core/FakeWebSearchProvider.cpp
@@ -26,7 +27,7 @@ add_executable(msa_infra_tests
 )
 
 target_compile_features(msa_infra_tests PRIVATE cxx_std_20)
-target_link_libraries(msa_infra_tests PRIVATE msa_infra GTest::gtest)
+target_link_libraries(msa_infra_tests PRIVATE msa_infra msa_server_support GTest::gtest)
 msa_apply_warnings(msa_infra_tests)
 
 include(GoogleTest)
@@ -36,7 +37,7 @@ gtest_add_tests(TARGET msa_infra_tests
     SqliteEventWarningRepositoryTest.cpp SqliteMoodRepositoryTest.cpp SqliteTaskRepositoryTest.cpp
     SqliteEventRepositoryTest.cpp SqliteReminderRepositoryTest.cpp
     SqliteHabitRepositoryTest.cpp SqliteConversationTest.cpp LlamaClientTest.cpp ExternalServicesTest.cpp
-    SqliteNavigationRepositoryTest.cpp ProtocolCodecTest.cpp TcpServerTest.cpp
+    SqliteNavigationRepositoryTest.cpp ProtocolCodecTest.cpp TcpServerTest.cpp ServerRuntimeTest.cpp
     TEST_LIST msaInfraTests)
 if(WIN32)
     set_tests_properties(${msaInfraTests} PROPERTIES

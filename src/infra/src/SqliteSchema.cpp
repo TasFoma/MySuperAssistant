@@ -160,7 +160,10 @@ std::vector<SqliteMigration> sqliteMigrations()
                 "latitude REAL NOT NULL CHECK(latitude BETWEEN -90 AND 90), "
                 "longitude REAL NOT NULL CHECK(longitude BETWEEN -180 AND 180), name TEXT NOT NULL, "
                 "PRIMARY KEY(source, query, position), "
-                "FOREIGN KEY(source, query) REFERENCES geocoding_cache(source, query) ON DELETE CASCADE)")}}};
+                "FOREIGN KEY(source, query) REFERENCES geocoding_cache(source, query) ON DELETE CASCADE)")}},
+        {.version = 13, .statements = {
+            QStringLiteral("CREATE TABLE server_state (singleton INTEGER PRIMARY KEY CHECK(singleton = 1), "
+                "main_chat_identifier INTEGER NOT NULL REFERENCES chats(identifier))")}}};
 }
 
 }  // namespace msa::infra

@@ -102,7 +102,7 @@ ConversationResult ConversationService::processLastMessage(
     const auto pending = currentPendingCheckIn();
     const auto history = m_chat.loadMessages();
     if (history.empty() || history.back().role != MessageRole::User) {
-        return ConversationRejection{"Нет сообщения пользователя для повторной обработки."};
+        return ConversationRejection{"Нет сообщения пользователя для повторной обработки.", ConversationRejectionKind::Conflict};
     }
     const auto& current = history.back();
     const bool sameChat = pending && pending->chatIdentifier == m_chat.currentChatId();
@@ -136,7 +136,7 @@ ConversationResult ConversationService::processLastMessage(
     // Проверка обязательных текстов до обращения к внешнему поиску.
     auto context = builder.build(input, maxChars);
     if (const auto* rejection = std::get_if<LlmContextRejection>(&context)) {
-        return ConversationRejection{rejection->reason};
+        return ConversationRejection{rejection->reason, ConversationRejectionKind::ContextBudgetExceeded};
     }
     std::vector<WebSearchResult> searchSources;
     if (searchQuery) {
@@ -149,7 +149,7 @@ ConversationResult ConversationService::processLastMessage(
         input.externalContext = webSearchContext(searchSources);
         context = builder.build(input, maxChars);
         if (const auto* rejection = std::get_if<LlmContextRejection>(&context)) {
-            return ConversationRejection{rejection->reason};
+            return ConversationRejection{rejection->reason, ConversationRejectionKind::ContextBudgetExceeded};
         }
     }
     const auto& built = std::get<LlmContext>(context);
@@ -172,7 +172,7 @@ ConversationResult ConversationService::processLastMessage(
     if (response.moodRecording
         && response.moodRecording->reason == MoodRecordingReason::EveningCheckInReply
         && !matchingPending) {
-        return ConversationRejection{"Ожидание вечернего ответа завершено. Повторите запрос."};
+        return ConversationRejection{"Ожидание вечернего ответа завершено. Повторите запрос.", ConversationRejectionKind::Conflict};
     }
     ConversationReply reply{.text = response.reply + webSearchSourcesText(searchSources), .tone = response.tone,
         .searchSources = searchSources};

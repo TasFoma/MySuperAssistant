@@ -31,6 +31,9 @@ public:
     /// Новый выбор сохраняется до завершения конструктора; ошибки хранилища пробрасываются.
     /// Зависимости невладеющие и должны жить дольше сервиса.
     ChatService(const Clock& clock, ChatRepository& repository);
+    /// @brief Привязывает операцию к существующему чату без чтения/изменения общего выбора.
+    /// Отсутствующий чат вызывает invalid_argument; новый/выбранный чат остаётся локальным сервису.
+    ChatService(const Clock& clock, ChatRepository& repository, std::int64_t chatIdentifier);
     /// @brief Возвращает ID текущего чата сервиса.
     [[nodiscard]] std::int64_t currentChatId() const;
     /// @brief Создаёт и выбирает новый чат с названием «Чат от ДД.ММ.ГГГГ ЧЧ:ММ».
@@ -57,6 +60,7 @@ private:
     const Clock& m_clock;
     ChatRepository& m_repository;
     std::int64_t m_currentChatId{0};
+    bool m_persistSelection{true};
 };
 
 }  // namespace msa::core

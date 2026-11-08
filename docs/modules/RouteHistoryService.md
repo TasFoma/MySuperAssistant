@@ -44,5 +44,5 @@ NavigationService получает обязательный RouteHistoryService 
 `tests/infra/SqliteNavigationRepositoryTest.cpp`: обновление версии 11, повторное
 открытие, все поля, внешняя транзакция и SQL-отказы. Тестовый репозиторий —
 `tests/core/InMemoryRouteHistoryRepository.h/.cpp`.
-Приложения, UI истории и протокол пока не подключены.
+ServerRuntime подключает route.build/route.history и атомарную запись маршрута текстовой команды; UI истории пока отсутствует.
 

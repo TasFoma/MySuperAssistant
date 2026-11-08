@@ -36,6 +36,14 @@ std::int64_t ChatService::currentChatId() const
     return m_currentChatId;
 }
 
+ChatService::ChatService(const Clock& clock, ChatRepository& repository, std::int64_t chatIdentifier)
+    : m_clock{clock}, m_repository{repository}, m_currentChatId{chatIdentifier}, m_persistSelection{false}
+{
+    if (!m_repository.findChat(chatIdentifier)) {
+        throw std::invalid_argument{"Чат не найден."};
+    }
+}
+
 std::int64_t ChatService::newChat()
 {
     const auto now = m_clock.now();
@@ -46,7 +54,7 @@ std::int64_t ChatService::newChat()
         static_cast<int>(date.year()),
         text::timeText(std::chrono::duration_cast<std::chrono::minutes>(now - dayStart)));
     const auto identifier = m_repository.addChat(Chat{.title = title, .createdAt = now});
-    if (!m_repository.saveCurrentChatId(identifier)) {
+    if (m_persistSelection && !m_repository.saveCurrentChatId(identifier)) {
         throw std::runtime_error{"Новый чат исчез при сохранении выбора"};
     }
     m_currentChatId = identifier;
@@ -66,7 +74,7 @@ std::vector<Chat> ChatService::chatList() const
 
 ChatChangeResult ChatService::switchChat(std::int64_t identifier)
 {
-    if (!m_repository.saveCurrentChatId(identifier)) {
+    if (!m_repository.findChat(identifier) || (m_persistSelection && !m_repository.saveCurrentChatId(identifier))) {
         return ChatRejection{"Чат не найден."};
     }
     m_currentChatId = identifier;

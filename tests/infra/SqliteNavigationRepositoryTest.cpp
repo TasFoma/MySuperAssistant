@@ -12,6 +12,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <chrono>
 #include <limits>
 #include <stdexcept>
@@ -53,14 +54,14 @@ TEST(SqliteNavigationRepositoryTest, UpgradesVersionElevenAndPreservesExistingRe
     std::int64_t identifier{};
     {
         auto migrations = sqliteMigrations();
-        migrations.pop_back();
+        std::erase_if(migrations, [](const auto& migration) { return migration.version > 11; });
         SqliteDatabase database{path, migrations};
         ASSERT_EQ(database.schemaVersion(), 11);
         SqliteReminderRepository reminders{database};
         identifier = reminders.add(core::PlaceReminder{.title = "Хлеб", .place = "Магазин"});
     }
     SqliteDatabase database{path, sqliteMigrations()};
-    EXPECT_EQ(database.schemaVersion(), 12);
+    EXPECT_EQ(database.schemaVersion(), 13);
     SqliteReminderRepository reminders{database};
     ASSERT_TRUE(reminders.find(identifier));
     EXPECT_EQ(std::get<core::PlaceReminder>(*reminders.find(identifier)).title, "Хлеб");

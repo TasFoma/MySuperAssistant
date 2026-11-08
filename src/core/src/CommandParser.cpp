@@ -272,7 +272,7 @@ struct When {
 }
 
 /// @brief Список задач: «вот задачи, которые надо сделать: 1. … 2. … 3. …».
-[[nodiscard]] std::optional<TaskListCommand> parseTaskList(const std::string& t)
+[[nodiscard]] std::optional<Command> parseTaskList(const std::string& t)
 {
     static const Pcre2Regex kListHint{R"((задач|надо\s+сделать|нужно\s+сделать|список\s+дел))"};
     static const Pcre2Regex kNumItem{R"((?:^|\s)([0-9]{1,2})[.)]\s*)"};
@@ -281,19 +281,24 @@ struct When {
         return std::nullopt;
     }
     const auto markers = kNumItem.matchAll(t);
+    if (markers.size() < kMinListItems) {
+        return std::nullopt;
+    }
     TaskListCommand list;
     for (std::size_t index = 0; index < markers.size(); ++index) {
         const std::size_t begin = markers[index].end;
         const std::size_t end = index + 1 < markers.size() ? markers[index + 1].start : t.size();
         const std::string item = tidy(t.substr(begin, end - begin));
-        if (utf8::charCount(item) >= kMinListItemLength) {
-            list.items.push_back(item);
+        if (utf8::charCount(item) < kMinListItemLength) {
+            // Узнанный список не должен превратиться в одну задачу в следующем обработчике.
+            return Command{NoCommand{}};
         }
+        list.items.push_back(item);
     }
     if (list.items.size() < kMinListItems) {
         return std::nullopt;
     }
-    return list;
+    return Command{std::move(list)};
 }
 
 /// @brief Маршрут: «как добраться до библиотеки на машине».

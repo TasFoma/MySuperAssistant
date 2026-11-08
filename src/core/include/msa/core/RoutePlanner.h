@@ -4,6 +4,7 @@
 #include "msa/core/ExternalServiceResult.h"
 #include "msa/core/GeoCoordinates.h"
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -37,6 +38,8 @@ struct RoutePlan
     std::vector<RouteStep> steps{};
     /// @brief true только для локальной оценки при недоступности сервиса.
     bool approximate{false};
+    /// @brief ID записи NavigationService; отсутствует до сохранения расчёта.
+    std::optional<std::int64_t> calculationIdentifier{};
 };
 
 /// @brief Получение маршрута по явным координатам.

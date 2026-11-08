@@ -10,6 +10,12 @@
 namespace msa::core
 {
 
+/// @brief Расчёт без записи истории: позволяет атомарно сохранить его вместе с командой чата.
+struct PreparedRoute {
+    RoutePlan plan;
+    RouteCalculation calculation;
+};
+
 /// @brief Проверяет диапазоны и конечность координат, включая допустимые нули.
 [[nodiscard]] bool validCoordinates(GeoCoordinates coordinates);
 /// @brief Расстояние по сфере в метрах; аргументы должны быть корректными.
@@ -32,10 +38,15 @@ public:
     /// @brief Оба названия ищутся относительно явной опорной точки пользователя.
     [[nodiscard]] ExternalServiceResult<RoutePlan>
     routeBetween(const std::string& origin, const std::string& destination, GeoCoordinates reference, TravelMode mode);
+    /// @brief Выполняет внешний поиск/маршрутизацию без записи истории и без транзакции.
+    [[nodiscard]] ExternalServiceResult<PreparedRoute> prepareFrom(
+        GeoCoordinates origin, const std::string& destination, TravelMode mode);
 
 private:
     [[nodiscard]] ExternalServiceResult<GeoCoordinates> locate(const std::string& place, GeoCoordinates reference);
     [[nodiscard]] ExternalServiceResult<RoutePlan> planRoute(GeoCoordinates origin, GeoCoordinates destination,
+        TravelMode mode, const std::string& originName, const std::string& destinationName);
+    [[nodiscard]] ExternalServiceResult<PreparedRoute> prepareRoute(GeoCoordinates origin, GeoCoordinates destination,
         TravelMode mode, const std::string& originName, const std::string& destinationName);
 
     Geocoder& m_geocoder;

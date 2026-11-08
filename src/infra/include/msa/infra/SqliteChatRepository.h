@@ -12,6 +12,9 @@ class SqliteChatRepository final : public core::ChatRepository {
 public:
     /// @brief Сохраняет невладеющую ссылку на базу с предметной схемой.
     explicit SqliteChatRepository(SqliteDatabase& database);
+    /// @brief Атомарно создаёт постоянный чат «Основной» либо возвращает сохранённый ID.
+    /// Не зависит от названия и прежнего выбора; now используется только при создании.
+    [[nodiscard]] std::int64_t ensureMainChat(std::chrono::local_seconds now);
 
     /// @brief Сохраняет новый чат с нулевым ID, назначает положительный ID.
     [[nodiscard]] std::int64_t addChat(const core::Chat& chat) override;

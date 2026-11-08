@@ -2,3 +2,8 @@ build/
 out/
 .vs/
 CMakeUserPresets.json
+server.local.json
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal

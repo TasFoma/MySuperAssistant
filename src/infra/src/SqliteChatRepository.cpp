@@ -88,6 +88,27 @@ std::int64_t SqliteChatRepository::addChat(const core::Chat& chat)
     return query.lastInsertId().toLongLong();
 }
 
+std::int64_t SqliteChatRepository::ensureMainChat(std::chrono::local_seconds now)
+{
+    std::int64_t identifier{};
+    m_database.transaction([this, now, &identifier]() {
+        QSqlQuery query{m_database.connection()};
+        prepare(query, QStringLiteral("SELECT main_chat_identifier FROM server_state WHERE singleton = 1"));
+        execute(query);
+        if (next(query)) {
+            identifier = query.value(0).toLongLong();
+            return;
+        }
+        query.finish();
+        identifier = addChat(core::Chat{.title = "Основной", .createdAt = now});
+        prepare(query, QStringLiteral("INSERT INTO server_state(singleton, main_chat_identifier) VALUES (1, ?)"));
+        query.addBindValue(QVariant::fromValue<qlonglong>(identifier));
+        execute(query);
+    });
+
+    return identifier;
+}
+
 std::optional<core::Chat> SqliteChatRepository::findChat(std::int64_t identifier) const
 {
     QSqlQuery query{m_database.connection()};

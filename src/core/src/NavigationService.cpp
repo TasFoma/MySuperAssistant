@@ -9,6 +9,7 @@
 #include <locale>
 #include <numbers>
 #include <sstream>
+#include <utility>
 
 namespace msa::core
 {
@@ -288,6 +289,17 @@ ExternalServiceResult<GeoCoordinates> NavigationService::locate(const std::strin
 ExternalServiceResult<RoutePlan> NavigationService::planRoute(GeoCoordinates origin, GeoCoordinates destination,
     TravelMode mode, const std::string& originName, const std::string& destinationName)
 {
+    auto prepared = prepareRoute(origin, destination, mode, originName, destinationName);
+    if (const auto* error = std::get_if<ExternalServiceError>(&prepared)) { return *error; }
+    auto route = std::get<PreparedRoute>(std::move(prepared));
+    route.plan.calculationIdentifier = m_history.record(route.calculation);
+
+    return route.plan;
+}
+
+ExternalServiceResult<PreparedRoute> NavigationService::prepareRoute(GeoCoordinates origin, GeoCoordinates destination,
+    TravelMode mode, const std::string& originName, const std::string& destinationName)
+{
     const auto distance = geographicDistance(origin, destination);
     if (mode != TravelMode::Driving && distance > kMaximumNonDrivingDistance)
     {
@@ -307,13 +319,26 @@ ExternalServiceResult<RoutePlan> NavigationService::planRoute(GeoCoordinates ori
                          .approximate = true};
     }
     if (const auto* plan = std::get_if<RoutePlan>(&result)) {
-        [[maybe_unused]] const auto identifier = m_history.record({.originName = originName,
+        return PreparedRoute{*plan, {.originName = originName,
             .destinationName = destinationName, .origin = origin, .destination = destination, .mode = mode,
             .distanceMeters = plan->distanceMeters, .durationSeconds = plan->durationSeconds,
-            .approximate = plan->approximate});
+            .approximate = plan->approximate}};
     }
 
-    return result;
+    return std::get<ExternalServiceError>(result);
+}
+
+ExternalServiceResult<PreparedRoute> NavigationService::prepareFrom(GeoCoordinates origin,
+    const std::string& destination, TravelMode mode)
+{
+    if (!validCoordinates(origin) ||
+        (mode != TravelMode::Foot && mode != TravelMode::Bike && mode != TravelMode::Driving)) {
+        return ExternalServiceError{ExternalServiceErrorKind::InvalidRequest, "Укажите местоположение и способ передвижения."};
+    }
+    const auto target = locate(destination, origin);
+    if (const auto* error = std::get_if<ExternalServiceError>(&target)) { return *error; }
+
+    return prepareRoute(origin, std::get<GeoCoordinates>(target), mode, "Моё местоположение", destination);
 }
 
 ExternalServiceResult<RoutePlan> NavigationService::routeFrom(GeoCoordinates origin, const std::string& destination,
