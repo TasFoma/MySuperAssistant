@@ -7,18 +7,31 @@ SurfaceCard {
     property string messageText: ""
     property string timeText: ""
     property bool outgoing: false
+    property bool speechEnabled: false
+    signal speakRequested()
     surfaceColor: outgoing ? Theme.userBubble : Theme.surface
     ColumnLayout {
         width: parent.width
         spacing: Theme.spaceSmall
-        Text {
+        RowLayout {
             Layout.fillWidth: true
-            text: root.author
-            textFormat: Text.PlainText
-            color: Theme.secondaryText
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSmall
-            font.weight: Theme.fontWeightStrong
+            Text {
+                Layout.fillWidth: true
+                text: root.author
+                textFormat: Text.PlainText
+                color: Theme.secondaryText
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSmall
+                font.weight: Theme.fontWeightStrong
+            }
+            AppButton {
+                objectName: "speakMessageButton"
+                text: "Озвучить"
+                tone: "secondary"
+                visible: root.speechEnabled
+                enabled: root.messageText.trim().length > 0
+                onClicked: root.speakRequested()
+            }
         }
         AppTextArea {
             objectName: "messageBody"

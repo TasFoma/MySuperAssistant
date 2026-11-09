@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Basic as Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import Msa.Ui.Common 1.0
 
 Controls.ScrollView {
@@ -8,6 +9,11 @@ Controls.ScrollView {
     required property var desktop
     clip: true
     contentWidth: availableWidth
+    FolderDialog {
+        id: voiceFolderDialog
+        title: "Папка модели Vosk"
+        onAccepted: root.desktop.voice.chooseModel(selectedFolder.toString())
+    }
     ColumnLayout {
         width: root.availableWidth
         spacing: Theme.spaceLarge
@@ -71,6 +77,30 @@ Controls.ScrollView {
                 }
                 SectionHeader { Layout.fillWidth: true; description: "Подключение использует сохранённые параметры. Переключатель выше действует при следующем запуске." }
                 SectionHeader { Layout.fillWidth: true; description: root.desktop.settingsMessage }
+            }
+        }
+        SurfaceCard {
+            Layout.fillWidth: true
+            ColumnLayout {
+                width: parent.width
+                spacing: Theme.spaceMedium
+                SectionHeader { Layout.fillWidth: true; title: "Голосовой ввод"; description: "Локальная модель Vosk. Запись включается кнопкой в чате." }
+                Text {
+                    Layout.fillWidth: true
+                    text: root.desktop.voice.modelPath
+                    textFormat: Text.PlainText
+                    wrapMode: Text.WrapAnywhere
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSmall
+                    color: Theme.secondaryText
+                }
+                AppButton {
+                    objectName: "voiceModelButton"
+                    text: "Выбрать модель Vosk…"
+                    tone: "secondary"
+                    onClicked: voiceFolderDialog.open()
+                }
+                SectionHeader { Layout.fillWidth: true; description: root.desktop.voice.errorText }
             }
         }
     }

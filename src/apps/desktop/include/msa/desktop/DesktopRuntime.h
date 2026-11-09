@@ -4,7 +4,11 @@
 #include "msa/desktop/DesktopClientController.h"
 #include "msa/desktop/DesktopPreferencesController.h"
 #include "msa/desktop/MusicController.h"
+#include "msa/desktop/SpeechController.h"
+#include "msa/desktop/VoiceController.h"
 #include "msa/infra/LocalMusicPlayer.h"
+#include "msa/infra/ProcessSpeechRecognizer.h"
+#include "msa/infra/QtSpeechSynthesizer.h"
 #include "msa/infra/TcpClient.h"
 #include "msa/ui/ClientModels.h"
 #include "msa/ui/DesktopState.h"
@@ -28,6 +32,8 @@ struct DesktopRuntimeOptions
     std::chrono::milliseconds responseTimeout{std::chrono::seconds{180}};
     std::chrono::milliseconds initialReconnectDelay{std::chrono::seconds{1}};
     std::chrono::milliseconds maximumReconnectDelay{std::chrono::seconds{15}};
+    QString voiceSettingsPath{};
+    QString voiceWorkerPath{};
 };
 /// @brief Владеет моделями и локальной музыкой, создаёт сетевую сессию по сохранённым параметрам.
 class DesktopRuntime final : public QObject
@@ -55,6 +61,10 @@ private:
     DesktopPreferencesController m_preferences;
     infra::LocalMusicPlayer m_player;
     MusicController m_music;
+    infra::ProcessSpeechRecognizer m_recognizer;
+    infra::QtSpeechSynthesizer m_synthesizer;
+    SpeechController m_speech;
+    VoiceController m_voice;
     std::optional<infra::TcpClient> m_client{};
     std::optional<DesktopClientController> m_controller{};
     std::optional<core::ClientPreferences> m_activePreferences{};

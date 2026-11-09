@@ -29,6 +29,17 @@ Qt Multimedia, фоновый сканер и отдельный JSON парам
 DesktopShell показывает панель снизу во всех разделах. При запуске восстанавливается
 папка без воспроизведения, auto_connect управляет только сетью.
 
+Голосовой ввод ПК отделён от сети по решению 57. SpeechRecognizer в core объявляет
+асинхронные действия/события. ProcessSpeechRecognizer из msa_infra_voice управляет
+служебным C++-процессом через QLocalSocket; msa_voice_worker захватывает PCM и
+использует Vosk 0.3.45 через msa_infra_vosk. DLL линкует только worker. VoiceModel
+в ui/common хранит состояние и черновик, VoiceController в apps связывает объекты
+и отдельный JSON папки модели. Первый запуск распознавателя — по кнопке; текст
+добавляется в черновик и отправляется отдельно. SpeechSynthesizer в core и
+QtSpeechSynthesizer в infra обеспечивают локальную озвучку по кнопке сообщения;
+SpeechController соединяет их с VoiceModel и исключает одновременную диктовку.
+Движок Qt TextToSpeech создаётся при первой озвучке, автоматического чтения нет.
+
 «Сохранить» записывает настройки, «Подключиться» и ConnectionBanner запускают
 цикл с последним сохранённым endpoint. Runtime завершает старые запросы до
 уничтожения контроллера; ожидавшая запись получает unknown и не повторяется.
@@ -91,6 +102,15 @@ flowchart TD
     plugin --> common
     desktopSupport --> infra
     desktopSupport --> audio[msa_infra_audio: локальная музыка]
+    desktopSupport --> voice[msa_infra_voice: процессы, речь и настройки]
+    voice --> core
+    voice --> network
+    voice --> speech[Qt6::TextToSpeech]
+    voice -. QLocalSocket .-> voiceWorker[msa_voice_worker]
+    voiceWorker --> voice
+    voiceWorker --> voskAdapter[msa_infra_vosk]
+    voskAdapter --> multimedia
+    voskAdapter --> vosk[Vosk 0.3.45 C API]
     audio --> core
     audio --> multimedia[Qt6::Multimedia]
     desktopSupport --> core
@@ -250,6 +270,12 @@ sequenceDiagram
 | Локальное аудио | Qt Multimedia, отменяемое сканирование и JSON параметров | `src/infra/audio/` |
 | MusicModel / MusicPanel | Общая панель и локальные действия без проверки TCP-сессии | `src/ui/common/Model/include/msa/ui/MusicModel.h`, `src/ui/common/UI/MusicPanel.qml` |
 | MusicController | Соединение аудио и UI, путь к отдельным настройкам | `src/apps/desktop/include/msa/desktop/MusicController.h` |
+| SpeechRecognizer | Контракт локального распознавания и события без Qt | `src/core/include/msa/core/SpeechRecognizer.h` |
+| SpeechSynthesizer / QtSpeechSynthesizer | Контракт озвучки и ленивый адаптер системного голоса | `src/core/include/msa/core/SpeechSynthesizer.h`, `src/infra/voice/include/msa/infra/QtSpeechSynthesizer.h` |
+| SpeechController | Озвучка сообщений и взаимное исключение речи/диктовки | `src/apps/desktop/include/msa/desktop/SpeechController.h` |
+| ProcessSpeechRecognizer / VoskDecoder / VoskAudioSession | Управление процессом, внутренний IPC, захват и нативное декодирование | `src/infra/voice/` |
+| VoiceWorker | Служебный C++-процесс, захват микрофона и модель Vosk | `src/apps/desktop/VoiceWorker/` |
+| VoiceModel / VoiceController | Черновик/действия UI, соединение backend и отдельного файла | `src/ui/common/Model/include/msa/ui/VoiceModel.h`, `src/apps/desktop/include/msa/desktop/VoiceController.h` |
 | ClientPreferences | Параметры подключения и проверка заполненного набора без Qt | `src/core/include/msa/core/ClientPreferences.h` |
 | Mobile UI | Заглушка экранов | `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
@@ -293,7 +319,8 @@ ServerProcessTest дополнительно запускает собранны
 Экраны ПК, формы планировщика, музыка и JSON-настройки подключены в main desktop.
 Окно и работа с настоящим локальным сервером проверяются offscreen. Пока отсутствуют
 окно/клиентская связка mobile, выбор точки в UI геонапоминаний,
-геолокация устройства, голос и Android-уведомления. Прямые координаты
+геолокация устройства, озвучка и Android-уведомления. Голосовой ввод ПК подключён,
+проверен без микрофона; личная модель и качество речи требуют ручной проверки. Прямые координаты
 передаются явными параметрами запросов, выбранная точка геонапоминания закрепляется
 только подтверждением. UI атрибуции публичных сервисов ещё предстоит подключить.
 

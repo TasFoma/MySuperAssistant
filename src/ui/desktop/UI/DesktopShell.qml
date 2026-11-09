@@ -69,7 +69,7 @@ Rectangle {
                 Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    ChatScreen { anchors.fill: parent; visible: root.desktop.page === 0; client: root.client }
+                    ChatScreen { anchors.fill: parent; visible: root.desktop.page === 0; client: root.client; voice: root.desktop.voice }
                     PlansScreen { anchors.fill: parent; visible: root.desktop.page === 1; client: root.client; desktop: root.desktop }
                     RemindersScreen { anchors.fill: parent; visible: root.desktop.page === 2; client: root.client; editor: root.desktop.planner }
                     SettingsScreen { anchors.fill: parent; visible: root.desktop.page === 3; desktop: root.desktop }

@@ -41,6 +41,23 @@ add_dependencies(msa_infra_tests msa_server)
 msa_apply_warnings(msa_infra_tests)
 
 include(GoogleTest)
+if(WIN32)
+    qt_add_executable(msa_fake_voice_worker src/FakeVoiceWorker.cpp)
+    target_link_libraries(msa_fake_voice_worker PRIVATE msa_infra_voice)
+    target_compile_features(msa_fake_voice_worker PRIVATE cxx_std_20)
+    msa_apply_warnings(msa_fake_voice_worker)
+    target_sources(msa_infra_tests PRIVATE src/SpeechRecognizerTest.cpp src/VoiceModelTest.cpp)
+    target_link_libraries(msa_infra_tests PRIVATE msa_infra_voice)
+    target_compile_definitions(msa_infra_tests PRIVATE
+        MSA_FAKE_VOICE_WORKER="$<TARGET_FILE:msa_fake_voice_worker>"
+        MSA_VOICE_WORKER="$<TARGET_FILE:msa_voice_worker>"
+    )
+    add_dependencies(msa_infra_tests msa_fake_voice_worker msa_voice_worker)
+    gtest_add_tests(TARGET msa_infra_tests SOURCES src/SpeechRecognizerTest.cpp src/VoiceModelTest.cpp TEST_LIST msaVoiceTests)
+    set_tests_properties(${msaVoiceTests} PROPERTIES
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+    )
+endif()
 gtest_add_tests(TARGET msa_infra_tests
     SOURCES src/MusicPlayerTest.cpp src/PlannerActionsTest.cpp src/ClientPreferencesTest.cpp src/SqliteDatabaseTest.cpp src/SqliteChatRepositoryTest.cpp src/SqliteUserProfileRepositoryTest.cpp
     src/SqliteGreetingRepositoryTest.cpp src/SqliteEveningCheckInRepositoryTest.cpp

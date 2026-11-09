@@ -1,4 +1,6 @@
 add_library(msa_ui_common STATIC
+    Model/include/msa/ui/VoiceModel.h
+    Model/src/VoiceModel.cpp
     Model/include/msa/ui/MusicModel.h
     Model/src/MusicModel.cpp
     Model/include/msa/ui/ClientListModel.h

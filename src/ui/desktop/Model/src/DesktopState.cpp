@@ -23,6 +23,10 @@ MusicModel* DesktopState::music()
 {
     return &m_music;
 }
+VoiceModel* DesktopState::voice()
+{
+    return &m_voice;
+}
 QStringList DesktopState::pages() const
 {
     return {"Чат", "Планы", "Напоминания", "Настройки"};

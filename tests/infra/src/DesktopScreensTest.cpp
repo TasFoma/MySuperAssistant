@@ -6,11 +6,13 @@
 #include <QGuiApplication>
 #include <QImage>
 #include <QKeyEvent>
+#include <QPointF>
 #include <QQmlEngine>
 #include <QQmlError>
 #include <QQuickItem>
 #include <QQuickView>
 #include <QThread>
+
 #include <optional>
 
 namespace
@@ -382,5 +384,133 @@ TEST_F(DesktopScreensTest, MusicRemainsUsableAcrossAllPagesAndDisconnectedSessio
     EXPECT_FALSE(item("musicPlayButton")->isEnabled());
     EXPECT_FALSE(music->errorText().isEmpty());
     EXPECT_TRUE(m_models.errorText().isEmpty());
+}
+TEST_F(DesktopScreensTest, MessageSpeechIsExplicitWorksOfflineAndCanBeStopped)
+{
+    msa::core::ClientSnapshot snapshot;
+    snapshot.mainChatIdentifier = 1;
+    snapshot.timeZone = "Etc/UTC";
+    m_models.setConnectionState(msa::core::ClientConnectionState::Ready);
+    ASSERT_TRUE(m_models.applyResult(snapshot, m_models.sessionRevision(), m_models.viewRevision()));
+    ASSERT_TRUE(m_models.chats()->replaceRows({msa::core::Chat{1, "Основной"}}));
+    ASSERT_TRUE(m_models.selectChat("1"));
+    ASSERT_TRUE(m_models.messages()->replaceRows(
+        {msa::core::ChatMessage{1, 1, msa::core::MessageRole::Assistant, "Ответ <b>🙂</b>", {}}}));
+    m_models.invalidateSession();
+    m_models.setConnectionState(msa::core::ClientConnectionState::Exhausted, 5);
+    QString spoken;
+    int stops{};
+    int serverActions{};
+    auto* voice = m_state.voice();
+    QObject::connect(voice, &msa::ui::VoiceModel::speechRequested, &m_view,
+                     [&spoken](const QString& text) { spoken = text; });
+    QObject::connect(voice, &msa::ui::VoiceModel::stopSpeechRequested, &m_view, [&stops] { ++stops; });
+    QObject::connect(&m_models, &msa::ui::ClientModels::actionRequested, &m_view,
+                     [&serverActions](const msa::core::ClientAction&) { ++serverActions; });
+    QElapsedTimer timer;
+    timer.start();
+    while (!item("speakMessageButton") && timer.elapsed() < kWaitMilliseconds)
+    {
+        QGuiApplication::processEvents();
+    }
+    ASSERT_NE(item("speakMessageButton"), nullptr);
+    EXPECT_TRUE(spoken.isEmpty());
+    activate(item("speakMessageButton"));
+    EXPECT_EQ(spoken, QString::fromUtf8("Ответ <b>🙂</b>"));
+    voice->applySpeechEvent({msa::core::SpeechState::Speaking, {}});
+    QGuiApplication::processEvents();
+    ASSERT_TRUE(item("stopSpeechButton")->isVisible());
+    activate(item("stopSpeechButton"));
+    EXPECT_EQ(stops, 1);
+    EXPECT_EQ(serverActions, 0);
+    m_view.resize(1000, 720);
+    timer.restart();
+    while (timer.elapsed() < kLayoutSettleMilliseconds)
+    {
+        QGuiApplication::processEvents();
+        QThread::msleep(1);
+    }
+    EXPECT_TRUE(m_view.grabWindow().save("speech-output-preview.png"));
+    constexpr int kMinimumMessageHeight = 88;
+    EXPECT_GE(item("messageList")->height(), kMinimumMessageHeight);
+    const auto* send = item("sendMessageButton");
+    const auto* panel = item("musicPanel");
+    EXPECT_LE(send->mapToScene(QPointF{0, send->height()}).y(), panel->mapToScene(QPointF{}).y());
+    const auto* button = item("stopSpeechButton");
+    EXPECT_LE(button->mapToScene(QPointF{button->width(), button->height()}).x(), m_view.width());
+    voice->applySpeechEvent({msa::core::SpeechState::Idle, {}});
+    EXPECT_FALSE(item("stopSpeechButton")->isVisible());
+}
+TEST_F(DesktopScreensTest, DictationChangesDraftOfflineAndNeverSendsServerAction)
+{
+    auto* voice = m_state.voice();
+    voice->applyModelPath("C:/Models/Russian");
+    std::vector<msa::core::RecognitionCommand> commands;
+    QObject::connect(voice, &msa::ui::VoiceModel::commandRequested, &m_view,
+                     [&commands](msa::core::RecognitionCommand command) { commands.push_back(command); });
+    voice->setDraft("Проверить список");
+    EXPECT_TRUE(item("chatComposer")->isEnabled());
+    QGuiApplication::processEvents();
+    EXPECT_EQ(item("chatComposer")->property("text").toString(), QString::fromUtf8("Проверить список"));
+    activate(item("voiceStartButton"));
+    ASSERT_EQ(commands.size(), 1);
+    EXPECT_EQ(commands.back(), msa::core::RecognitionCommand::Start);
+    voice->applyEvent({msa::core::RecognitionEvent::Kind::State, msa::core::RecognitionState::Recording, {}});
+    activate(item("voiceFinishButton"));
+    EXPECT_EQ(commands.back(), msa::core::RecognitionCommand::Finish);
+    voice->applyEvent(
+        {msa::core::RecognitionEvent::Kind::Text, msa::core::RecognitionState::Finishing, "Добавить встречу 🙂"});
+    voice->applyEvent({msa::core::RecognitionEvent::Kind::State, msa::core::RecognitionState::Ready, {}});
+    QGuiApplication::processEvents();
+    EXPECT_EQ(item("chatComposer")->property("text").toString(),
+              QString::fromUtf8("Проверить список\nДобавить встречу 🙂"));
+    EXPECT_FALSE(item("sendMessageButton")->isEnabled());
+    m_state.navigate(3);
+    m_state.navigate(0);
+    EXPECT_EQ(voice->draft(), QString::fromUtf8("Проверить список\nДобавить встречу 🙂"));
+    voice->applyEvent(
+        {msa::core::RecognitionEvent::Kind::Error, msa::core::RecognitionState::Failed, "Микрофон недоступен"});
+    EXPECT_FALSE(voice->errorText().isEmpty());
+    EXPECT_TRUE(m_models.errorText().isEmpty());
+    QElapsedTimer timer;
+    timer.start();
+    while (timer.elapsed() < kLayoutSettleMilliseconds)
+    {
+        QGuiApplication::processEvents();
+        QThread::msleep(1);
+    }
+    EXPECT_TRUE(m_view.grabWindow().save("voice-input-preview.png"));
+    constexpr int kMinimumWidth = 1000;
+    constexpr int kMinimumHeight = 720;
+    constexpr int kMinimumEditorHeight = 44;
+    m_view.resize(kMinimumWidth, kMinimumHeight);
+    timer.restart();
+    while (timer.elapsed() < kLayoutSettleMilliseconds)
+    {
+        QGuiApplication::processEvents();
+        QThread::msleep(1);
+    }
+    EXPECT_TRUE(m_view.grabWindow().save("voice-input-minimum-preview.png"));
+    const auto* send = item("sendMessageButton");
+    const auto* panel = item("musicPanel");
+    EXPECT_LE(send->mapToScene(QPointF{0, send->height()}).y(), panel->mapToScene(QPointF{}).y());
+    EXPECT_GE(item("chatComposer")->height(), kMinimumEditorHeight);
+    msa::core::ClientSnapshot snapshot;
+    snapshot.mainChatIdentifier = 1;
+    snapshot.timeZone = "Etc/UTC";
+    m_models.setConnectionState(msa::core::ClientConnectionState::Ready);
+    ASSERT_TRUE(m_models.applyResult(snapshot, m_models.sessionRevision(), m_models.viewRevision()));
+    ASSERT_TRUE(m_models.chats()->replaceRows({msa::core::Chat{1, "Основной"}}));
+    ASSERT_TRUE(m_models.selectChat("1"));
+    int serverActions{};
+    QObject::connect(&m_models, &msa::ui::ClientModels::actionRequested, &m_view,
+                     [&serverActions](const msa::core::ClientAction&) { ++serverActions; });
+    voice->applyEvent({msa::core::RecognitionEvent::Kind::State, msa::core::RecognitionState::Ready, {}});
+    voice->start();
+    voice->applyEvent(
+        {msa::core::RecognitionEvent::Kind::Text, msa::core::RecognitionState::Ready, "Текст при работающем сервере"});
+    QGuiApplication::processEvents();
+    EXPECT_TRUE(item("sendMessageButton")->isEnabled());
+    EXPECT_EQ(serverActions, 0);
 }
 } // namespace

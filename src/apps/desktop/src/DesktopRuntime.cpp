@@ -1,5 +1,8 @@
 #include "msa/desktop/DesktopRuntime.h"
 
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
 #include <exception>
 #include <utility>
 
@@ -8,6 +11,18 @@ namespace msa::desktop
 namespace
 {
 constexpr int kSettingsPage = 3;
+QString voiceSettings(const DesktopRuntimeOptions& options)
+{
+    return options.voiceSettingsPath.isEmpty()
+               ? QFileInfo{options.clientSettingsPath}.absoluteDir().filePath("voice.settings.json")
+               : options.voiceSettingsPath;
+}
+QString voiceWorker(const DesktopRuntimeOptions& options)
+{
+    return options.voiceWorkerPath.isEmpty()
+               ? QDir{QCoreApplication::applicationDirPath()}.filePath(QString::fromUtf8(MSA_VOICE_WORKER_FILE_NAME))
+               : options.voiceWorkerPath;
+}
 bool sameEndpoint(const core::ClientPreferences& first, const core::ClientPreferences& second)
 {
     return first.host == second.host && first.port == second.port && first.token == second.token;
@@ -15,7 +30,10 @@ bool sameEndpoint(const core::ClientPreferences& first, const core::ClientPrefer
 } // namespace
 DesktopRuntime::DesktopRuntime(DesktopRuntimeOptions options, QObject* parent) :
     QObject{parent}, m_options{std::move(options)}, m_preferences{m_state, m_options.clientSettingsPath, this},
-    m_player{m_options.musicSettingsPath, m_options.musicSeed, this}, m_music{*m_state.music(), m_player, this}
+    m_player{m_options.musicSettingsPath, m_options.musicSeed, this}, m_music{*m_state.music(), m_player, this},
+    m_recognizer{voiceWorker(m_options), {}, this}, m_synthesizer{{}, this},
+    m_speech{*m_state.voice(), m_synthesizer, m_recognizer, this},
+    m_voice{*m_state.voice(), m_recognizer, voiceSettings(m_options), this}
 {
     connect(&m_state, &ui::DesktopState::connectRequested, this, [this]() { connectSaved(); });
     connect(&m_models, &ui::ClientModels::reconnectRequested, this, [this]() { connectSaved(); });
@@ -41,6 +59,7 @@ void DesktopRuntime::start()
     m_started = true;
     m_preferences.load();
     m_music.restore();
+    m_voice.restore();
     if (m_state.canConnect() && m_state.autoConnect())
     {
         connectSaved();
@@ -67,6 +86,8 @@ void DesktopRuntime::stop()
         return;
     }
     m_stopped = true;
+    m_synthesizer.stop();
+    m_recognizer.shutdown();
     stopSession();
 }
 void DesktopRuntime::connectSaved()

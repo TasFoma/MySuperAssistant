@@ -1,6 +1,10 @@
 include(${PROJECT_SOURCE_DIR}/cmake/Pcre2.cmake)
 
 add_library(msa_core STATIC
+    include/msa/core/SpeechSynthesizer.h
+    src/SpeechSynthesizer.cpp
+    include/msa/core/SpeechRecognizer.h
+    src/SpeechRecognizer.cpp
     include/msa/core/MusicData.h
     include/msa/core/MusicPlaylist.h
     src/MusicPlaylist.cpp

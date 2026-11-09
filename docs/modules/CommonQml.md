@@ -52,6 +52,15 @@ HTML в сообщениях не исполняется: используетс
 и панель локальной музыки.
 Android пока не проверен.
 
+VoiceModel также предоставляет команды озвучки сообщения/остановки и состояние speaking.
+MessageBubble испускает speakRequested, когда экран включил speechEnabled;
+сам компонент backend не вызывает. Подробнее — [SpeechSynthesizer](SpeechSynthesizer.md).
+
+VoiceModel в Model/include и Model/src предоставляет общий C++-черновик чата,
+состояния и действия локального распознавания; данные передаются типами core,
+файлы и процессы подключает apps. Голосовые кнопки пока находятся в ChatScreen
+ПК. Подробности — [SpeechRecognizer](SpeechRecognizer.md).
+
 ## Проверки
 
 `tests/infra/src/CommonComponentsTest.cpp` и `qml/CommonComponentsGallery.qml`
