@@ -48,6 +48,7 @@ QtObject {
     readonly property int formWidth: 600
     readonly property int desktopHeight: 800
     readonly property int navigationWidth: 184
+    readonly property int musicVolumeWidth: 160
     readonly property int conversationWidth: 228
 }
 

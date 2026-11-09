@@ -2,6 +2,7 @@
 
 #include "msa/core/ClientPreferences.h"
 #include "msa/ui/ClientModels.h"
+#include "msa/ui/MusicModel.h"
 #include "msa/ui/PlannerEditor.h"
 
 #include <QObject>
@@ -22,11 +23,14 @@ class DesktopState final : public QObject
     Q_PROPERTY(bool autoConnect READ autoConnect NOTIFY preferencesChanged)
     Q_PROPERTY(QString settingsMessage READ settingsMessage NOTIFY settingsMessageChanged)
     Q_PROPERTY(msa::ui::PlannerEditor* planner READ planner CONSTANT)
+    Q_PROPERTY(msa::ui::MusicModel* music READ music CONSTANT)
 public:
     /// @brief Принимает общие модели, живущие дольше состояния экрана.
     explicit DesktopState(ClientModels& models, QObject* parent = nullptr);
     /// @brief Единая форма действий планировщика.
     [[nodiscard]] PlannerEditor* planner();
+    /// @brief Локальное управление музыкой во всех разделах, включая режим без сервера.
+    [[nodiscard]] MusicModel* music();
     /// @brief Выбранный раздел и подписи меню.
     [[nodiscard]] int page() const;
     [[nodiscard]] QStringList pages() const;
@@ -55,6 +59,7 @@ signals:
 private:
     ClientModels& m_models;
     PlannerEditor m_planner{m_models, this};
+    MusicModel m_music{this};
     int m_page{0};
     core::ClientPreferences m_preferences{};
     QString m_settingsMessage{};

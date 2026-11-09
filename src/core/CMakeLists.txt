@@ -1,6 +1,9 @@
 include(${PROJECT_SOURCE_DIR}/cmake/Pcre2.cmake)
 
 add_library(msa_core STATIC
+    include/msa/core/MusicData.h
+    include/msa/core/MusicPlaylist.h
+    src/MusicPlaylist.cpp
     include/msa/core/ClientPlannerAction.h
     include/msa/core/ClientPreferences.h
     src/ClientPreferences.cpp

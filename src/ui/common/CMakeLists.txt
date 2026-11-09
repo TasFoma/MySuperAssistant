@@ -1,4 +1,6 @@
 add_library(msa_ui_common STATIC
+    Model/include/msa/ui/MusicModel.h
+    Model/src/MusicModel.cpp
     Model/include/msa/ui/ClientListModel.h
     Model/include/msa/ui/ClientModels.h
     Model/src/ClientListModel.cpp
@@ -11,6 +13,7 @@ target_link_libraries(msa_ui_common PUBLIC msa_core Qt6::Quick)
 msa_apply_warnings(msa_ui_common)
 
 set(msaCommonQmlFiles
+    UI/MusicPanel.qml
     UI/Theme.qml
     UI/DetailsCard.qml
     UI/RecordActions.qml

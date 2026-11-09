@@ -19,6 +19,10 @@ PlannerEditor* DesktopState::planner()
 {
     return &m_planner;
 }
+MusicModel* DesktopState::music()
+{
+    return &m_music;
+}
 QStringList DesktopState::pages() const
 {
     return {"Чат", "Планы", "Напоминания", "Настройки"};

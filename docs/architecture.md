@@ -19,6 +19,13 @@ TcpClient предоставляет асинхронные клиентские
 apps/server связывает их в ServerRuntime; msa_server_support — проверяемая
 библиотека той же связки приложения, не новый архитектурный слой.
 
+Локальная музыка отделена от сетевой сессии (решение 55). MusicPlaylist в core
+управляет перемешанной очередью и пределом ошибок. msa_infra_audio содержит
+Qt Multimedia, фоновый сканер и отдельный JSON параметров; сервер эту библиотеку
+не линкует. MusicModel/MusicPanel в ui/common получают снимки core; MusicController
+в apps/desktop соединяет модель и LocalMusicPlayer. DesktopState владеет моделью,
+DesktopShell показывает панель снизу во всех разделах. Создание объектов в main впереди.
+
 Схема SQLite версии 13: чаты/сообщения, профиль с источниками/версиями/тегами,
 задачи, серии событий, напоминания, привычки и журнал, дневник, даты приветствия
 и опроса, ожидание ответа, отметки предупреждений, история маршрутов и кэш мест.
@@ -72,6 +79,9 @@ flowchart TD
     mobile --> plugin
     plugin --> common
     desktopSupport --> infra
+    desktopSupport --> audio[msa_infra_audio: локальная музыка]
+    audio --> core
+    audio --> multimedia[Qt6::Multimedia]
     desktopSupport --> core
     desktopSupport --> desktopUI
     desktop --> gui[Qt6::Gui]
@@ -221,6 +231,10 @@ sequenceDiagram
 | PlannerEditor | Метаданные форм, типизированные действия, подтверждение и сохранение черновика при отказе | `src/ui/desktop/Model/include/msa/ui/PlannerEditor.h`, `src/ui/desktop/UI/PlannerDialog.qml` |
 | ClientPlannerAction и ClientPlannerProtocol | Типы core и преобразование действий форм в существующие методы JSON | `src/core/include/msa/core/ClientPlannerAction.h`, `src/infra/src/ClientPlannerProtocol.cpp` |
 | JsonClientPreferences | Строгий локальный JSON клиента, атомарное сохранение | `src/infra/include/msa/infra/JsonClientPreferences.h` |
+| MusicPlaylist / MusicData | Очередь, ограничение ошибок, снимки и команды без Qt | `src/core/include/msa/core/MusicPlaylist.h`, `src/core/include/msa/core/MusicData.h` |
+| Локальное аудио | Qt Multimedia, отменяемое сканирование и JSON параметров | `src/infra/audio/` |
+| MusicModel / MusicPanel | Общая панель и локальные действия без проверки TCP-сессии | `src/ui/common/Model/include/msa/ui/MusicModel.h`, `src/ui/common/UI/MusicPanel.qml` |
+| MusicController | Соединение аудио и UI, путь к отдельным настройкам | `src/apps/desktop/include/msa/desktop/MusicController.h` |
 | ClientPreferences | Параметры подключения и проверка заполненного набора без Qt | `src/core/include/msa/core/ClientPreferences.h` |
 | Mobile UI | Заглушка экранов | `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
@@ -261,9 +275,9 @@ ServerProcessTest дополнительно запускает собранны
 Декодер сначала строит весь результат и не допускает частичной замены списков.
 Подробнее — [клиентские модели](modules/ClientModels.md).
 
-Экраны ПК, формы планировщика и JSON-настройки готовы библиотечно. Пока отсутствуют
+Экраны ПК, формы планировщика, музыка и JSON-настройки готовы библиотечно. Пока отсутствуют
 создание окна/клиентской связки в main desktop/mobile, выбор точки в UI геонапоминаний,
-геолокация устройства, музыка, голос и Android-уведомления. Прямые координаты
+геолокация устройства, голос и Android-уведомления. Прямые координаты
 передаются явными параметрами запросов, выбранная точка геонапоминания закрепляется
 только подтверждением. UI атрибуции публичных сервисов ещё предстоит подключить.
 

@@ -1,4 +1,5 @@
 add_executable(msa_infra_tests
+    src/MusicPlayerTest.cpp
     src/PlannerActionsTest.cpp
     src/ClientPreferencesTest.cpp
     src/ClientModelsTest.cpp
@@ -41,7 +42,7 @@ msa_apply_warnings(msa_infra_tests)
 
 include(GoogleTest)
 gtest_add_tests(TARGET msa_infra_tests
-    SOURCES src/PlannerActionsTest.cpp src/ClientPreferencesTest.cpp src/SqliteDatabaseTest.cpp src/SqliteChatRepositoryTest.cpp src/SqliteUserProfileRepositoryTest.cpp
+    SOURCES src/MusicPlayerTest.cpp src/PlannerActionsTest.cpp src/ClientPreferencesTest.cpp src/SqliteDatabaseTest.cpp src/SqliteChatRepositoryTest.cpp src/SqliteUserProfileRepositoryTest.cpp
     src/SqliteGreetingRepositoryTest.cpp src/SqliteEveningCheckInRepositoryTest.cpp
     src/SqliteEventWarningRepositoryTest.cpp src/SqliteMoodRepositoryTest.cpp src/SqliteTaskRepositoryTest.cpp
     src/SqliteEventRepositoryTest.cpp src/SqliteReminderRepositoryTest.cpp

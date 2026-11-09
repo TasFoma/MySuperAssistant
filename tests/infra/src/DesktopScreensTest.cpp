@@ -306,4 +306,74 @@ TEST_F(DesktopScreensTest, DispatchesExactChatAndTaskActionsOnlyWhileOnline)
     EXPECT_FALSE(item("sendMessageButton")->isEnabled());
     EXPECT_EQ(actions.size(), 2U);
 }
+TEST_F(DesktopScreensTest, MusicRemainsUsableAcrossAllPagesAndDisconnectedSessions)
+{
+    msa::core::MusicState state;
+    state.folder = "C:/Music";
+    state.title = "Вечерняя музыка <b>🙂</b>";
+    state.position = 2;
+    state.count = 7;
+    state.volume = 0.42;
+    state.playing = true;
+    auto* music = m_state.music();
+    std::vector<msa::core::MusicCommand> commands;
+    QObject::connect(music, &msa::ui::MusicModel::commandRequested, &m_view,
+                     [&commands](const msa::core::MusicCommand& command) { commands.push_back(command); });
+    music->applyState(state);
+    EXPECT_TRUE(commands.empty());
+    m_models.invalidateSession();
+    m_models.setConnectionState(msa::core::ClientConnectionState::Exhausted, 5);
+    for (int page{0}; page < 4; ++page)
+    {
+        m_state.navigate(page);
+        QGuiApplication::processEvents();
+        ASSERT_NE(item("musicPanel"), nullptr);
+        EXPECT_TRUE(item("musicPanel")->isVisible());
+        EXPECT_TRUE(item("musicNextButton")->isEnabled());
+        activate(item("musicNextButton"));
+        EXPECT_EQ(commands.back().kind, msa::core::MusicCommandKind::Next);
+    }
+    activate(item("musicPlayButton"));
+    EXPECT_EQ(commands.back().kind, msa::core::MusicCommandKind::PlayPause);
+    activate(item("musicPreviousButton"));
+    EXPECT_EQ(commands.back().kind, msa::core::MusicCommandKind::Previous);
+    activate(item("musicShuffleButton"));
+    EXPECT_EQ(commands.back().kind, msa::core::MusicCommandKind::Reshuffle);
+    auto* slider = item("musicVolumeSlider");
+    ASSERT_NE(slider, nullptr);
+    EXPECT_EQ(slider->property("value").toDouble(), 42);
+    slider->forceActiveFocus(Qt::TabFocusReason);
+    QKeyEvent press{QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier};
+    QKeyEvent release{QEvent::KeyRelease, Qt::Key_Right, Qt::NoModifier};
+    QGuiApplication::sendEvent(&m_view, &press);
+    QGuiApplication::sendEvent(&m_view, &release);
+    EXPECT_EQ(commands.back().kind, msa::core::MusicCommandKind::SetVolume);
+    EXPECT_DOUBLE_EQ(commands.back().volume, 0.43);
+    EXPECT_TRUE(music->playing());
+    EXPECT_EQ(music->positionText(), "2 / 7");
+    m_state.navigate(0);
+    QElapsedTimer timer;
+    timer.start();
+    while (timer.elapsed() < kLayoutSettleMilliseconds)
+    {
+        QGuiApplication::processEvents();
+        QThread::msleep(1);
+    }
+    const auto image = m_view.grabWindow();
+    ASSERT_FALSE(image.isNull());
+    ASSERT_TRUE(image.save("music-panel-preview.png"));
+    state.scanning = true;
+    music->applyState(state);
+    EXPECT_FALSE(item("musicNextButton")->isEnabled());
+    EXPECT_TRUE(item("musicFolderButton")->isEnabled());
+    state.scanning = false;
+    state.count = 0;
+    state.position = 0;
+    state.playing = false;
+    state.error = "В папке нет поддерживаемых аудиофайлов.";
+    music->applyState(state);
+    EXPECT_FALSE(item("musicPlayButton")->isEnabled());
+    EXPECT_FALSE(music->errorText().isEmpty());
+    EXPECT_TRUE(m_models.errorText().isEmpty());
+}
 } // namespace

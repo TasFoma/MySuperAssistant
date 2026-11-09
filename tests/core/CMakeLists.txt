@@ -1,4 +1,5 @@
 add_executable(msa_core_tests
+    src/MusicPlaylistTest.cpp
     src/FakeWebSearchProvider.cpp
     src/WebSearchProviderTest.cpp
     src/InMemoryGeocodingCacheRepository.cpp
