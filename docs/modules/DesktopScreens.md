@@ -4,6 +4,10 @@
 DesktopState. Он зависит от ui/common, core и Qt Quick, не от infra.
 Расположение и параметры выбраны в решении 53.
 
+QML-экраны находятся в `src/ui/desktop/UI/`; DesktopState — в
+`src/ui/desktop/Model/include/msa/ui/DesktopState.h` и `Model/src/DesktopState.cpp`.
+Разделение UI/Model следует решению 54 и не меняет зависимостей или QML URI.
+
 ## Точки входа и данные
 
 `DesktopShell.qml` принимает обязательные свойства `client` (ClientModels) и
@@ -60,7 +64,7 @@ ClientModels по-прежнему проверяет готовность се�
 
 ## Проверки
 
-`tests/infra/ClientPreferencesTest.cpp` проверяет отсутствие файла, строгую схему,
+`tests/infra/src/ClientPreferencesTest.cpp` проверяет отсутствие файла, строгую схему,
 Unicode/точность токена, auto_connect=false, ошибки ввода/записи и сохранение
 прежнего файла/состояния. Путь — временный, личные настройки не используются.
 `DesktopScreensTest.cpp` проверяет навигацию, скрытый токен, сохранение формы,

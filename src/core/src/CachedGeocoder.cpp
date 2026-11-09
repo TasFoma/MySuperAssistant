@@ -1,6 +1,6 @@
 #include "msa/core/CachedGeocoder.h"
 
-#include "Utf8Text.h"
+#include "msa/core/detail/Utf8Text.h"
 
 #include <chrono>
 #include <cstdint>

@@ -1,5 +1,5 @@
-#include "../core/FakeClock.h"
-#include "DesktopClientController.h"
+#include "FakeClock.h"
+#include "msa/desktop/DesktopClientController.h"
 #include "ProtocolTestClient.h"
 #include "msa/infra/ClientProtocol.h"
 #include "msa/infra/ProtocolPayload.h"

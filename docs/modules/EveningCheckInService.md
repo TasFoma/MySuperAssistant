@@ -46,7 +46,7 @@ ConversationService; сам EveningCheckInService по-прежнему рабо
 
 ## Тесты
 
-`tests/core/EveningCheckInServiceTest.cpp` использует FakeClock и
+`tests/core/src/EveningCheckInServiceTest.cpp` использует FakeClock и
 InMemoryEveningCheckInRepository: пустое состояние, границы 19:59:59/20:00 и
 23:59:59/00:00, первая проверка после 21:00, повторные вызовы и пересоздание
 сервиса, смена года, пропущенные дни, отсутствие обращений к хранилищу до 20:00

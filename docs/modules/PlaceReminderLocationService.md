@@ -43,10 +43,10 @@ Confirm меняет только coordinates полной актуальной 
 
 ## Тесты и ограничения
 
-`tests/core/NavigationPersistenceTest.cpp`: явный выбор, порядок кандидатов,
+`tests/core/src/NavigationPersistenceTest.cpp`: явный выбор, порядок кандидатов,
 подмена копии, изменение во время поиска/перед подтверждением, отмена,
 новая попытка, повтор, неверный индекс и восстановление после исключения.
-`tests/infra/SqliteNavigationRepositoryTest.cpp`: отказ SQL update, явный повтор
+`tests/infra/src/SqliteNavigationRepositoryTest.cpp`: отказ SQL update, явный повтор
 и фиксированная точка после открытия файла заново. Схема reminders не меняется.
 
 ServerRuntime подключает методы протокола и проверяет принадлежность предложения TCP-сессии; UI выбора адреса пока отсутствует. Геонапоминания

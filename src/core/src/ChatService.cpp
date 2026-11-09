@@ -1,7 +1,7 @@
 #include "msa/core/ChatService.h"
 
-#include "PlannerText.h"
-#include "Utf8Text.h"
+#include "msa/core/detail/PlannerText.h"
+#include "msa/core/detail/Utf8Text.h"
 
 #include <algorithm>
 #include <chrono>

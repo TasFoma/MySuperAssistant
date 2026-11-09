@@ -43,6 +43,21 @@ NetworkServices владеет постоянным рабочим потоко�
 ментора/памяти ещё предстоит проверить. Сетевые тесты используют локальный HTTP
 и TCP, файловые тесты — временные базы. Подробности — [ServerRuntime](modules/ServerRuntime.md).
 
+## Организация исходников
+
+По решению 54 заголовки и реализации разделены во всём собственном C++-коде:
+include содержит `.h`, соседний src — `.cpp`. В приложениях заголовки доступны
+через `include/msa/desktop/` или `include/msa/server/`, но не через каталог src.
+Внутренние заголовки core находятся в `include/msa/core/detail/` и не являются
+публичным контрактом. Тестовые помощники имеют свои include и src внутри набора.
+
+В ui/common и ui/desktop C++-модели находятся в `Model/include/msa/ui/` и
+`Model/src/`, QML — в `UI/`. SurfaceCard и SectionHeader находятся в
+`ui/common/UI/Utils/` как общие элементы вёрстки. UI/Model — организационное
+разделение внутри существующих CMake-целей; новый слой или зависимость не добавлены.
+Логические QML URI, имена типов и пути ресурсов сохранены через QT_RESOURCE_ALIAS.
+Полные правила группировки и стиля — в [AGENTS.md](../AGENTS.md).
+
 ## Слои и зависимости
 
 ```mermaid
@@ -121,16 +136,16 @@ sequenceDiagram
 | --- | --- | --- |
 | ClientData | Структуры снимка, коллекций, страниц, чтений и действий без Qt | `src/core/include/msa/core/ClientData.h` |
 | ClientProtocol | Строгий JSON-разбор вложенных результатов чтения и кодирование типизированных действий | `src/infra/include/msa/infra/ClientProtocol.h`, `src/infra/src/ClientProtocol.cpp` |
-| ClientListModel и ClientModels | Общие QML-модели, локальный выбор, страницы и последние данные без связи | `src/ui/common/include/msa/ui/ClientListModel.h`, `ClientModels.h`, `src/ui/common/src/` |
-| DesktopClientController | Соединение транспорта и моделей, обновление данных без повторов записи | `src/apps/desktop/src/DesktopClientController.h`, `DesktopClientController.cpp` |
+| ClientListModel и ClientModels | Общие QML-модели, локальный выбор, страницы и последние данные без связи | `src/ui/common/Model/include/msa/ui/ClientListModel.h`, `ClientModels.h`, `src/ui/common/Model/src/` |
+| DesktopClientController | Соединение транспорта и моделей, обновление данных без повторов записи | `src/apps/desktop/include/msa/desktop/DesktopClientController.h`, `src/apps/desktop/src/DesktopClientController.cpp` |
 | TcpClient | Асинхронные auth/get_all, ответы/события и максимум пять попыток восстановления | `src/infra/include/msa/infra/TcpClient.h`, `src/infra/src/TcpClient.cpp` |
-| ProtocolTestClient и ServerProcessTest | Независимый TCP/JSON-клиент, запуск настоящего сервера и восстановление после обрывов | `tests/infra/ProtocolTestClient.h`, `ProtocolTestClient.cpp`, `ServerProcessTest.cpp` |
-| ServerRuntime | Обработчики протокола, репозитории, транзакции команд и проверки сроков | `src/apps/server/src/ServerRuntime.h`, `ServerRuntime.cpp` |
-| NetworkServices | Постоянный HTTP-поток без SQLite и защищённое ожидание результата | `src/apps/server/src/NetworkServices.h`, `NetworkServices.cpp` |
-| ServerSettings | Строгий JSON и относительный путь БД от настроек | `src/apps/server/src/ServerSettings.h`, `ServerSettings.cpp` |
+| ProtocolTestClient и ServerProcessTest | Независимый TCP/JSON-клиент, запуск настоящего сервера и восстановление после обрывов | `tests/infra/include/ProtocolTestClient.h`, `tests/infra/src/` |
+| ServerRuntime | Обработчики протокола, репозитории, транзакции команд и проверки сроков | `src/apps/server/include/msa/server/ServerRuntime.h`, `src/apps/server/src/ServerRuntime.cpp` |
+| NetworkServices | Постоянный HTTP-поток без SQLite и защищённое ожидание результата | `src/apps/server/include/msa/server/NetworkServices.h`, `src/apps/server/src/NetworkServices.cpp` |
+| ServerSettings | Строгий JSON и относительный путь БД от настроек | `src/apps/server/include/msa/server/ServerSettings.h`, `src/apps/server/src/ServerSettings.cpp` |
 | WebSearchProvider | Явная фраза и до трёх типизированных материалов, без доступа к памяти чата | `src/core/include/msa/core/WebSearchProvider.h`, `src/core/src/WebSearchProvider.cpp` |
 | SearxngSearchProvider | Один GET SearXNG, разбор JSON и ошибки без скрытого ответа LLM | `src/infra/include/msa/infra/SearxngSearchProvider.h`, `src/infra/src/SearxngSearchProvider.cpp` |
-| FakeWebSearchProvider | Заданная выдача и снимки только поисковых фраз без сети | `tests/core/FakeWebSearchProvider.h`, `tests/core/FakeWebSearchProvider.cpp` |
+| FakeWebSearchProvider | Заданная выдача и снимки только поисковых фраз без сети | `tests/core/include/FakeWebSearchProvider.h`, `tests/core/src/FakeWebSearchProvider.cpp` |
 | RouteHistoryRepository | Полные расчёты маршрутов с прогнозами и признаком приблизительной оценки | `src/core/include/msa/core/RouteHistoryRepository.h` |
 | RouteHistoryService | Запись, последние пять и отдельная статистика расчётов | `src/core/include/msa/core/RouteHistoryService.h`, `src/core/src/RouteHistoryService.cpp` |
 | GeocodingCacheRepository | Упорядоченные снимки кандидатов по поставщику и запросу | `src/core/include/msa/core/GeocodingCacheRepository.h` |
@@ -183,11 +198,11 @@ sequenceDiagram
 | Планировщик: данные | Задача, событие, три вида напоминаний, координаты, привычка, запись прогресса, профиль; без предметной валидации и расчётов | `src/core/include/msa/core/{Task,Event,Reminder,GeoCoordinates,Habit,HabitLogEntry,UserProfile}.h` |
 | Репозитории | Абстрактные интерфейсы задач, событий, напоминаний, привычек с журналом и профиля | `src/core/include/msa/core/*Repository.h`, деструкторы в `src/core/src/*Repository.cpp` |
 | Clock | Абстрактный источник местного времени с точностью до секунд | `src/core/include/msa/core/Clock.h`, `src/core/src/Clock.cpp` |
-| Pcre2Regex | Внутренняя обёртка поиска совпадений PCRE2 с UTF, Unicode-свойствами и без учёта регистра | `src/core/src/Pcre2Regex.h`, `src/core/src/Pcre2Regex.cpp` |
-| Utf8Text | Внутренние операции длины, обрезки пробелов Unicode и регистра латиницы/кириллицы | `src/core/src/Utf8Text.h`, `src/core/src/Utf8Text.cpp` |
-| PlannerText | Общий для приветствия и сводки формат русской даты и времени HH:MM | `src/core/src/PlannerText.h`, `src/core/src/PlannerText.cpp` |
+| Pcre2Regex | Внутренняя обёртка поиска совпадений PCRE2 с UTF, Unicode-свойствами и без учёта регистра | `src/core/include/msa/core/detail/Pcre2Regex.h`, `src/core/src/Pcre2Regex.cpp` |
+| Utf8Text | Внутренние операции длины, обрезки пробелов Unicode и регистра латиницы/кириллицы | `src/core/include/msa/core/detail/Utf8Text.h`, `src/core/src/Utf8Text.cpp` |
+| PlannerText | Общий для приветствия и сводки формат русской даты и времени HH:MM | `src/core/include/msa/core/detail/PlannerText.h`, `src/core/src/PlannerText.cpp` |
 | Тестовая инфраструктура | `FakeClock`, десять `InMemory*Repository`, общий `InMemoryStore` | `tests/core/` |
-| FakeLlmClient | Заданный результат и снимки запросов без сети | `tests/core/FakeLlmClient.h`, `tests/core/FakeLlmClient.cpp` |
+| FakeLlmClient | Заданный результат и снимки запросов без сети | `tests/core/include/FakeLlmClient.h`, `tests/core/src/FakeLlmClient.cpp` |
 | SqliteDatabase и SqliteMigration | Именованное соединение Qt Sql, принадлежность, версия, миграции и вложенные транзакции | `src/infra/include/msa/infra/SqliteDatabase.h`, `SqliteMigration.h`, `src/infra/src/SqliteDatabase.cpp` |
 | SqliteSchema | Общий список миграций: 2 — чаты, 3 — профиль, 4 — приветствие, 5 — опрос, 6 — предупреждения, 7 — дневник, 8 — задачи, 9 — события, 10 — напоминания, 11 — привычки и журнал | `src/infra/include/msa/infra/SqliteSchema.h`, `src/infra/src/SqliteSchema.cpp` |
 | SqliteChatRepository | SQLite-реализация ChatRepository с полным текстом и восстановлением выбора | `src/infra/include/msa/infra/SqliteChatRepository.h`, `src/infra/src/SqliteChatRepository.cpp` |
@@ -201,8 +216,8 @@ sequenceDiagram
 | SqliteReminderRepository | SQLite-хранилище временных, повторяющихся и геонапоминаний с общими ID | `src/infra/include/msa/infra/SqliteReminderRepository.h`, `src/infra/src/SqliteReminderRepository.cpp` |
 | SqliteHabitRepository | SQLite-хранилище привычек и журнала с каскадным удалением | `src/infra/include/msa/infra/SqliteHabitRepository.h`, `src/infra/src/SqliteHabitRepository.cpp` |
 | Тесты инфраструктуры | QCoreApplication и временные файловые базы, откат схемы и операций | `tests/infra/` |
-| Общие QML-компоненты | Тёмная тема, элементы управления, карточки и состояния | `src/ui/common/qml/` |
-| Экраны ПК и настройки | Навигация, чат/планы/напоминания, форма JSON-параметров и связка apps | `src/ui/desktop/`, `src/apps/desktop/src/DesktopPreferencesController.h` |
+| Общие QML-компоненты | Тёмная тема, элементы управления, карточки и состояния | `src/ui/common/UI/` |
+| Экраны ПК и настройки | Навигация, чат/планы/напоминания, форма JSON-параметров и связка apps | `src/ui/desktop/`, `src/apps/desktop/include/msa/desktop/DesktopPreferencesController.h` |
 | JsonClientPreferences | Строгий локальный JSON клиента, атомарное сохранение | `src/infra/include/msa/infra/JsonClientPreferences.h` |
 | ClientPreferences | Параметры подключения и проверка заполненного набора без Qt | `src/core/include/msa/core/ClientPreferences.h` |
 | Mobile UI | Заглушка экранов | `src/ui/mobile/` |

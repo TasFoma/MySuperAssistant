@@ -1,7 +1,8 @@
 # Тестовый клиент и проверка процесса сервера
 
-`tests/infra/ProtocolTestClient.h/.cpp` содержит независимый TCP/JSON-клиент
-проверок протокола версии 1. Он формирует конверты через Qt JSON без серверных
+ProtocolTestClient содержит независимый TCP/JSON-клиент проверок протокола версии 1.
+Заголовок находится в `tests/infra/include/ProtocolTestClient.h`, реализация —
+в `tests/infra/src/ProtocolTestClient.cpp`. Он формирует конверты через Qt JSON без серверных
 ProtocolCodec/ProtocolPayload, сохраняет перемежающиеся ответы и события и
 выбирает ответ по request_id. Это тестовый помощник, не сетевой адаптер desktop/mobile.
 
@@ -17,7 +18,7 @@ frames хранит целые кадры новой сессии для пои�
 
 ## Как проверяется сервер
 
-`tests/infra/ServerProcessTest.cpp` запускает собранный msa_server отдельным
+`tests/infra/src/ServerProcessTest.cpp` запускает собранный msa_server отдельным
 QProcess с --config. CMake передаёт путь исполняемого файла через определение
 тестовой цели и гарантирует его сборку до msa_infra_tests. Каждый тест
 создаёт временные JSON-настройки и SQLite-файл, слушатель использует порт 0.

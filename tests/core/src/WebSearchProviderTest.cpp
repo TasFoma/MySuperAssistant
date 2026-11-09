@@ -1,5 +1,5 @@
 #include "FakeWebSearchProvider.h"
-#include "Utf8Text.h"
+#include "msa/core/detail/Utf8Text.h"
 #include "msa/core/LlmContextBuilder.h"
 
 #include <gtest/gtest.h>

@@ -1,7 +1,7 @@
 #include "msa/core/UserProfileFactSelector.h"
 
-#include "Pcre2Regex.h"
-#include "Utf8Text.h"
+#include "msa/core/detail/Pcre2Regex.h"
+#include "msa/core/detail/Utf8Text.h"
 
 #include <algorithm>
 #include <cstddef>

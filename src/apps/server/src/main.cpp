@@ -1,6 +1,6 @@
-#include "NetworkServices.h"
-#include "ServerRuntime.h"
-#include "ServerSettings.h"
+#include "msa/server/NetworkServices.h"
+#include "msa/server/ServerRuntime.h"
+#include "msa/server/ServerSettings.h"
 
 #include "msa/core/Clock.h"
 

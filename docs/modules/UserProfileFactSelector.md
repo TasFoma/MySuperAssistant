@@ -51,7 +51,7 @@ Unicode-букв и чисел с комбинируемыми знаками. �
 
 ## Тесты
 
-`tests/core/UserProfileFactSelectorTest.cpp`: семь предметных сценариев порядка,
+`tests/core/src/UserProfileFactSelectorTest.cpp`: семь предметных сценариев порядка,
 приоритетов, ручных тегов, целых слов и Unicode, отсутствия совпадений, сохранения
 повторов и многострочного текста, независимости копий и интеграции
 UserProfileService → отбор → LlmContextBuilder на точной границе бюджета.

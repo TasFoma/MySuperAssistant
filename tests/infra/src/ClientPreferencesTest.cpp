@@ -1,4 +1,4 @@
-#include "DesktopPreferencesController.h"
+#include "msa/desktop/DesktopPreferencesController.h"
 #include "msa/infra/JsonClientPreferences.h"
 #include "msa/ui/ClientModels.h"
 #include "msa/ui/DesktopState.h"

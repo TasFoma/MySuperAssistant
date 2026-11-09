@@ -1,6 +1,6 @@
 #include "msa/core/GreetingService.h"
 
-#include "PlannerText.h"
+#include "msa/core/detail/PlannerText.h"
 
 #include <algorithm>
 #include <chrono>

@@ -1,4 +1,4 @@
-#include "Pcre2Regex.h"
+#include "msa/core/detail/Pcre2Regex.h"
 
 #include <array>
 #include <cstdint>

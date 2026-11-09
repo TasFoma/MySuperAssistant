@@ -34,7 +34,7 @@ ID назначает SQLite через INTEGER PRIMARY KEY AUTOINCREMENT; ID ч
 ключом на chats. ensureMainChat атомарно читает его либо создаёт чат «Основной»
 и сохраняет ID. Название не используется как ключ; chat_selection не меняется.
 ServerRuntime вызывает это при запуске и использует сохранённый ID для проактивных
-сообщений. Повторное открытие проверяется в tests/infra/ServerRuntimeTest.cpp.
+сообщений. Повторное открытие проверяется в tests/infra/src/ServerRuntimeTest.cpp.
 
 `addChat` и `addMessage` назначают ID, не меняя исходный объект. Ненулевой входной
 ID и неизвестная роль приводят к `std::invalid_argument`. Проверки пользовательского
@@ -57,7 +57,7 @@ TransactionRunner. User сохраняется до LLM, вне этой тра�
 
 ## Тесты
 
-`tests/infra/SqliteChatRepositoryTest.cpp`: 10 тестов на временных файлах.
+`tests/infra/src/SqliteChatRepositoryTest.cpp`: 10 тестов на временных файлах.
 Проверяются миграция с версии 1 и повторное открытие, постоянные ID, выбор,
 отсутствующие чаты, полный длинный Unicode-текст с NUL и SQL-подобными строками,
 роли, отрицательное время и перевод часов, раздельные истории, копии и повторы,

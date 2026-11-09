@@ -1,6 +1,6 @@
-#include "../core/FakeClock.h"
-#include "../core/FakeLlmClient.h"
-#include "../core/FakeWebSearchProvider.h"
+#include "FakeClock.h"
+#include "FakeLlmClient.h"
+#include "FakeWebSearchProvider.h"
 
 #include "msa/core/CalendarService.h"
 #include "msa/core/ConversationService.h"

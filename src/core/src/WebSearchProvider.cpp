@@ -1,6 +1,6 @@
 #include "msa/core/WebSearchProvider.h"
 
-#include "Utf8Text.h"
+#include "msa/core/detail/Utf8Text.h"
 
 #include <algorithm>
 #include <cstddef>

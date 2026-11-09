@@ -39,10 +39,10 @@ NavigationService получает обязательный RouteHistoryService 
 
 ## Тесты и ограничения
 
-`tests/core/NavigationPersistenceTest.cpp`: время, последние пять, независимые
+`tests/core/src/NavigationPersistenceTest.cpp`: время, последние пять, независимые
 копии, раздельная статистика, переполнение, запись из NavigationService и отказ записи.
-`tests/infra/SqliteNavigationRepositoryTest.cpp`: обновление версии 11, повторное
+`tests/infra/src/SqliteNavigationRepositoryTest.cpp`: обновление версии 11, повторное
 открытие, все поля, внешняя транзакция и SQL-отказы. Тестовый репозиторий —
-`tests/core/InMemoryRouteHistoryRepository.h/.cpp`.
+`tests/core/include/InMemoryRouteHistoryRepository.h` и `tests/core/src/InMemoryRouteHistoryRepository.cpp`.
 ServerRuntime подключает route.build/route.history и атомарную запись маршрута текстовой команды; UI истории пока отсутствует.
 

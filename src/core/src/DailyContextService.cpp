@@ -1,6 +1,6 @@
 #include "msa/core/DailyContextService.h"
 
-#include "PlannerText.h"
+#include "msa/core/detail/PlannerText.h"
 
 #include <chrono>
 #include <cstddef>

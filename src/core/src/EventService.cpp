@@ -1,6 +1,6 @@
 #include "msa/core/EventService.h"
 
-#include "Utf8Text.h"
+#include "msa/core/detail/Utf8Text.h"
 
 namespace msa::core {
 namespace {

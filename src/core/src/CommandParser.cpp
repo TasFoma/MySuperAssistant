@@ -1,7 +1,7 @@
 #include "msa/core/CommandParser.h"
 
-#include "Pcre2Regex.h"
-#include "Utf8Text.h"
+#include "msa/core/detail/Pcre2Regex.h"
+#include "msa/core/detail/Utf8Text.h"
 
 #include <array>
 #include <charconv>

@@ -32,7 +32,7 @@ has_more. Весь результат строится до передачи в 
 ## Модели ui/common
 
 `ClientListModel.h/.cpp` и `ClientModels.h/.cpp` находятся в
-`src/ui/common/include/msa/ui/` и `src/ui/common/src/`.
+`src/ui/common/Model/include/msa/ui/` и `src/ui/common/Model/src/`.
 ClientListModel — QAbstractListModel с именованными ролями, count и stale.
 Чтение отмечает соответствующий список устаревшим до принятия свежего результата;
 ошибка обновления не выдаёт прежние данные за новые.
@@ -67,8 +67,9 @@ ClientModels владеет списками и предоставляет св�
 
 ## Связка приложения
 
-`src/apps/desktop/src/DesktopClientController.h/.cpp` соединяет TcpClient и
-ClientModels. Проверяемая библиотека msa_desktop_support принадлежит apps/desktop,
+DesktopClientController соединяет TcpClient и ClientModels. Его заголовок находится в
+`src/apps/desktop/include/msa/desktop/`, реализация — в `src/apps/desktop/src/`.
+Проверяемая библиотека msa_desktop_support принадлежит apps/desktop,
 не добавляет нового слоя. UI линкуется только с core и Qt Quick; QObject моделей
 не знает ни адреса сервера, ни методов протокола, ни QJsonObject.
 
@@ -87,7 +88,7 @@ ClientModels. Проверяемая библиотека msa_desktop_support п
 
 ## Проверки и оставшиеся части
 
-`tests/infra/ClientModelsTest.cpp`: строгий разбор и отклонение неверных вложенных
+`tests/infra/src/ClientModelsTest.cpp`: строгий разбор и отклонение неверных вложенных
 данных, источники профиля, календарь, маршруты, точность ID, nullable/нулевые
 координаты, QAbstractListModel, страницы/ревизии, просмотр без связи, отсутствие
 серверных действий и приоритет ошибки неизвестной записи. Невизуальный QQmlComponent
@@ -95,7 +96,7 @@ ClientModels. Проверяемая библиотека msa_desktop_support п
 проверяет обновление по подтверждению, повреждённые данные, отсутствие бесконечных
 чтений и защиту от старого снимка, пришедшего после нового.
 
-`tests/infra/ServerRuntimeTest.cpp` дополнительно проверяет всю цепочку
+`tests/infra/src/ServerRuntimeTest.cpp` дополнительно проверяет всю цепочку
 ClientModels → DesktopClientController → TcpClient → ServerRuntime → SQLite/LLM:
 получение user_saved, явный retry без второго User, история и её сохранение без связи.
 Сеть внешних поставщиков, настоящая модель и UI-экраны не используются.

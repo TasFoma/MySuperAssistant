@@ -1,6 +1,6 @@
 #include "msa/core/RouteHistoryService.h"
 
-#include "Utf8Text.h"
+#include "msa/core/detail/Utf8Text.h"
 #include "msa/core/NavigationService.h"
 
 #include <algorithm>

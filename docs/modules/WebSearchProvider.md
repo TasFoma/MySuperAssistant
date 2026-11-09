@@ -96,16 +96,16 @@ ServerRuntime подключает явный search_query в chat.send/retry, �
 
 ## Тесты
 
-- `tests/core/WebSearchProviderTest.cpp`: фраза, пустые/неверные результаты,
+- `tests/core/src/WebSearchProviderTest.cpp`: фраза, пустые/неверные результаты,
   лимит источников, Unicode-обрезка и точный бюджет отдельного блока.
-- `tests/core/ConversationServiceTest.cpp`: отсутствие автоматического поиска,
+- `tests/core/src/ConversationServiceTest.cpp`: отсутствие автоматического поиска,
   передача только фразы, источники, ошибки без подстановки модели, повтор без
   второго User, недостаточный бюджет до поиска и после получения материалов.
-- `tests/infra/ExternalServicesTest.cpp`: подменённый QNetworkAccessManager,
+- `tests/infra/src/ExternalServicesTest.cpp`: подменённый QNetworkAccessManager,
   GET/параметры, три пригодных источника, JSON/пустая выдача и HTTP-отказ без повторов.
-- `tests/infra/SqliteConversationTest.cpp`: User виден другому соединению во время
+- `tests/infra/src/SqliteConversationTest.cpp`: User виден другому соединению во время
   поиска, независимая запись в базу и сохранение источников после открытия файла.
 
-Тестовый провайдер — `tests/core/FakeWebSearchProvider.h/.cpp`. Сеть и настоящая
+Тестовый провайдер — `tests/core/include/FakeWebSearchProvider.h` и `tests/core/src/FakeWebSearchProvider.cpp`. Сеть и настоящая
 модель в тестах не используются. Команды проверки — в [README](../../README.md).
 

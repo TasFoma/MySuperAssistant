@@ -1,20 +1,20 @@
 add_library(msa_ui_desktop STATIC
-    src/placeholder.cpp
-    include/msa/ui/DesktopState.h
-    src/DesktopState.cpp
+    Model/src/placeholder.cpp
+    Model/include/msa/ui/DesktopState.h
+    Model/src/DesktopState.cpp
 )
 
 target_compile_features(msa_ui_desktop PUBLIC cxx_std_20)
-target_include_directories(msa_ui_desktop PUBLIC include)
+target_include_directories(msa_ui_desktop PUBLIC Model/include)
 target_link_libraries(msa_ui_desktop PUBLIC msa_ui_common Qt6::Quick)
 msa_apply_warnings(msa_ui_desktop)
 
 set(msaDesktopQmlFiles
-    qml/DesktopShell.qml
-    qml/ChatScreen.qml
-    qml/PlansScreen.qml
-    qml/RemindersScreen.qml
-    qml/SettingsScreen.qml
+    UI/DesktopShell.qml
+    UI/ChatScreen.qml
+    UI/PlansScreen.qml
+    UI/RemindersScreen.qml
+    UI/SettingsScreen.qml
 )
 foreach(qmlFile IN LISTS msaDesktopQmlFiles)
     get_filename_component(qmlName "${qmlFile}" NAME)

@@ -1,6 +1,6 @@
-#include "../core/FakeClock.h"
-#include "../core/InMemoryEventRepository.h"
-#include "../core/InMemoryTaskRepository.h"
+#include "FakeClock.h"
+#include "InMemoryEventRepository.h"
+#include "InMemoryTaskRepository.h"
 
 #include "msa/core/CalendarService.h"
 #include "msa/core/GreetingService.h"

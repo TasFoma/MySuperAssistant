@@ -103,7 +103,7 @@ forecast_days=1, temperature_unit=celsius, wind_speed_unit=kmh.
 
 ## Проверки и границы
 
-`tests/infra/ExternalServicesTest.cpp`: QNetworkAccessManager подменён и возвращает
+`tests/infra/src/ExternalServicesTest.cpp`: QNetworkAccessManager подменён и возвращает
 тестовый QNetworkReply без сокетов. Проверяются параметры и порядок координат,
 профили OSRM, JSON и типы, отсутствие данных, кэш/частота, HTTP и сетевые ошибки,
 тайм-аут, повторный вход и ошибки настроек. Только проверка интервала использует

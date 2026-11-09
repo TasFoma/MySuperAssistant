@@ -1,5 +1,5 @@
-#include "../core/FakeClock.h"
-#include "../core/InMemoryGeocodingCacheRepository.h"
+#include "FakeClock.h"
+#include "InMemoryGeocodingCacheRepository.h"
 
 #include "msa/core/CachedGeocoder.h"
 #include "msa/infra/HttpGetClient.h"

@@ -1,4 +1,4 @@
-#include "PlannerText.h"
+#include "msa/core/detail/PlannerText.h"
 
 #include <array>
 #include <string_view>

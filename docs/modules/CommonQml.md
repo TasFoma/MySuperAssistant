@@ -1,6 +1,6 @@
 # Общие QML-компоненты
 
-Модуль `Msa.Ui.Common 1.0` в `src/ui/common/qml/` содержит общую визуальную
+Модуль `Msa.Ui.Common 1.0` в `src/ui/common/UI/` содержит общую визуальную
 основу desktop/mobile. Qt Quick Controls Basic обеспечивают стандартную обработку
 клавиатуры, фокуса и ввода и допускают общую отрисовку на разных платформах.
 Сторонних библиотек и внешних шрифтов нет.
@@ -10,7 +10,7 @@
 - `Theme.qml` — единственный источник цветов, системного шрифта, размеров,
   отступов, радиусов и длительности короткого перехода цвета кнопки.
 - `AppButton`, `AppTextField`, `AppTextArea` — кнопка с тремя тонами и поля ввода.
-- `SurfaceCard`, `SectionHeader` — контейнер и заголовок раздела.
+- `UI/Utils/SurfaceCard.qml`, `UI/Utils/SectionHeader.qml` — контейнер и заголовок раздела.
 - `DetailsCard` — заголовок, подготовленные сведения и признак устаревших данных.
 - `TaskRow` — задача и сигнал `doneRequested(identifier, done)`.
 - `MessageBubble` — автор, выбираемый обычный текст, время, входящее/исходящее сообщение.
@@ -38,6 +38,9 @@ HTML в сообщениях не исполняется: используетс
 ## Сборка и ограничения
 
 `qt_add_qml_module(msa_ui_common URI Msa.Ui.Common)` помещает QML в ресурсы;
+Физическая папка Utils не является отдельным QML-модулем: QT_RESOURCE_ALIAS
+сохраняет прежние имена типов и ресурсы Msa.Ui.Common. C++-модели лежат отдельно
+в `src/ui/common/Model/include/msa/ui/` и `Model/src/`.
 `msa_ui_commonplugin` линкуется с desktop/mobile и импортируется через
 `Q_IMPORT_QML_PLUGIN(MsaUiCommonPlugin)`. Тема — QML singleton с readonly-токенами,
 без состояния приложения. Основные приложения пока не создают QML-окно.
@@ -47,7 +50,7 @@ Android пока не проверен.
 
 ## Проверки
 
-`tests/infra/CommonComponentsTest.cpp` и `qml/CommonComponentsGallery.qml`
+`tests/infra/src/CommonComponentsTest.cpp` и `qml/CommonComponentsGallery.qml`
 проверяют импорт модуля, отсутствие QML-предупреждений, активацию клавиатурой,
 Unicode-ввод, подтверждение задачи, текст/прогресс, отключённые действия,
 переподключение и ширину 360 px. Отдельный `msa_ui_tests` использует

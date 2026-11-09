@@ -1,4 +1,4 @@
-#include "ServerSettings.h"
+#include "msa/server/ServerSettings.h"
 
 #include <QDir>
 #include <QFile>

@@ -1,5 +1,5 @@
-#include "../core/FakeClock.h"
-#include "../core/InMemoryEventRepository.h"
+#include "FakeClock.h"
+#include "InMemoryEventRepository.h"
 
 #include "msa/core/CalendarService.h"
 #include "msa/core/EventWarningService.h"

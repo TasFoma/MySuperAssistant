@@ -45,11 +45,11 @@ NominatimGeocoder больше не содержит собственного б
 восстанавливаются прежние время, список и порядок. Неверный ввод — invalid_argument,
 SQL/повреждение — runtime_error. Готовая точка геонапоминания с кэшем не связана.
 
-Тесты: `tests/core/NavigationPersistenceTest.cpp` — точные границы TTL, разные
+Тесты: `tests/core/src/NavigationPersistenceTest.cpp` — точные границы TTL, разные
 поставщики, перевод часов, время после запроса и ошибки; тестовый кэш —
-`InMemoryGeocodingCacheRepository.h/.cpp`. `tests/infra/SqliteNavigationRepositoryTest.cpp`
+`InMemoryGeocodingCacheRepository.h/.cpp`. `tests/infra/src/SqliteNavigationRepositoryTest.cpp`
 проверяет файл, пустые ответы, порядок, атомарность и повторное открытие с TTL.
-`tests/infra/ExternalServicesTest.cpp` проверяет CachedGeocoder с подменённым
+`tests/infra/src/ExternalServicesTest.cpp` проверяет CachedGeocoder с подменённым
 HTTP Nominatim и общим ограничением частоты, без сокетов.
 Приложения постоянный кэш пока не создают.
 

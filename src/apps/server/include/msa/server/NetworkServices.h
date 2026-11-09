@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ServerSettings.h"
+#include "msa/server/ServerSettings.h"
 
 #include "msa/infra/LlamaClient.h"
 #include "msa/infra/NominatimGeocoder.h"

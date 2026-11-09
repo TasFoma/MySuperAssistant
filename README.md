@@ -32,6 +32,17 @@ JSON разбирается в infra, UI получает типы core; кон�
 записей ещё впереди. Пользовательское окно и загрузка сессии в main не подключены;
 auto_connect сохраняется в настройках, его использование при запуске добавится там.
 
+## Структура исходников
+
+Заголовки C++ находятся в include, реализации — в соседнем src, включая код
+приложений и тестовых помощников. Например, desktop использует
+`src/apps/desktop/include/msa/desktop/` и `src/apps/desktop/src/`.
+В `src/ui/common/` и `src/ui/desktop/` модели находятся в `Model/include` и
+`Model/src`, QML — в `UI`. Повторно используемая вёрстка — в `UI/Utils`.
+Внутренние помощники core имеют заголовки в `include/msa/core/detail/`;
+тесты используют `tests/<набор>/src` и `tests/<набор>/include`.
+Правила новых файлов и групп модулей закреплены в [AGENTS.md](AGENTS.md).
+
 ## Сборка Windows Debug
 
 Требуются CMake 3.25+, Visual Studio 2022 с MSVC x64, Git, Qt 6.10+ с Gui,

@@ -4,7 +4,7 @@
 #include "msa/core/MentorPrompt.h"
 #include "msa/core/UserProfileFactSelector.h"
 
-#include "Utf8Text.h"
+#include "msa/core/detail/Utf8Text.h"
 
 #include <algorithm>
 #include <chrono>

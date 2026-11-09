@@ -134,7 +134,7 @@ offerEveningCheckIn использует отдельную транзакцию
 
 ConversationRejection содержит категорию Validation/Conflict/ContextBudgetExceeded,
 по которой ServerRuntime выбирает код протокола без разбора русского текста причины.
-Связка приложения проверяется дополнительно в tests/infra/ServerRuntimeTest.cpp.
+Связка приложения проверяется дополнительно в tests/infra/src/ServerRuntimeTest.cpp.
 
 Явный веб-поиск добавлен по решению 44: sendMessageWithSearch и
 retryLastMessageWithSearch получают фразу отдельно от полного User.
@@ -147,7 +147,7 @@ ExternalServiceError в ConversationResult, без LLM и записи отве�
 retryLastMessageWithSearch с фразой заново. Подробности —
 [WebSearchProvider](WebSearchProvider.md).
 
-`tests/core/ConversationServiceTest.cpp`: 20 сценариев с реальными сервисами,
+`tests/core/src/ConversationServiceTest.cpp`: 20 сценариев с реальными сервисами,
 FakeClock, FakeLlmClient и репозиториями в памяти. Проверяются состав контекста,
 отсутствие повторного вопроса, сохранность заметки, подтверждение записи, выдача
 и восстановление опроса, смена чата, отказ/другая тема/неясный ответ, полночь
@@ -158,7 +158,7 @@ FakeClock, FakeLlmClient и репозиториями в памяти. Пров
 факта и дневника на User, смену версии в следующем контексте, запрет замены факта,
 не вошедшего в бюджет, и отказ неоднозначного пакета до записи настроения.
 Новый сценарий проверяет откат ошибки фиксации тестовым TransactionRunner и
-повтор без второго User. `tests/infra/SqliteConversationTest.cpp` проверяет всю
+повтор без второго User. `tests/infra/src/SqliteConversationTest.cpp` проверяет всю
 связку с файловыми репозиториями: успех, сбой каждого из четырёх этапов, ошибку
 commit, версии и теги после отката, повтор и отсутствие транзакции во время LLM.
 Ещё один core-тест и три SQLite-теста проверяют публикацию: ошибки даты,

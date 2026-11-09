@@ -91,9 +91,9 @@ add_library(msa_core STATIC
     src/MoodRepository.cpp
     src/MoodService.cpp
     src/Pcre2Regex.cpp
-    src/Pcre2Regex.h
+    include/msa/core/detail/Pcre2Regex.h
     src/PlannerText.cpp
-    src/PlannerText.h
+    include/msa/core/detail/PlannerText.h
     src/ReminderRepository.cpp
     src/ReminderService.cpp
     src/TaskRepository.cpp
@@ -103,12 +103,11 @@ add_library(msa_core STATIC
     src/UserProfileFactSelector.cpp
     src/UserProfileService.cpp
     src/Utf8Text.cpp
-    src/Utf8Text.h
+    include/msa/core/detail/Utf8Text.h
 )
 
 target_include_directories(msa_core
     PUBLIC include
-    PRIVATE src
 )
 
 target_compile_features(msa_core PUBLIC cxx_std_20)
