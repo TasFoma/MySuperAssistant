@@ -39,6 +39,17 @@ QString scope(const core::ClientReadRequest& value)
     // Новое чтение той же области отменяет применение более старого результата.
     return QString{"%1:%2"}.arg(static_cast<int>(value.kind)).arg(value.chatIdentifier);
 }
+void finishPlanner(ui::ClientModels& models, const std::optional<core::ClientAction>& action, bool success,
+                   const QString& message = {}, const QString& effect = {})
+{
+    if (action)
+    {
+        if (const auto* planner = std::get_if<core::ClientPlannerAction>(&*action))
+        {
+            models.finishPlannerAction(*planner, success, message, effect);
+        }
+    }
+}
 } // namespace
 
 DesktopClientController::DesktopClientController(infra::TcpClient& client, ui::ClientModels& models, QObject* parent) :
@@ -94,9 +105,10 @@ DesktopClientController::DesktopClientController(infra::TcpClient& client, ui::C
                 {
                     return;
                 }
-                const bool action = found->second.action.has_value();
+                const auto action = found->second.action;
                 m_pending.erase(found);
                 m_models.setError(failure.message, failure.effect, failure.userMessageId.value_or(QString{}));
+                finishPlanner(m_models, action, false, failure.message, failure.effect);
                 if (action)
                 {
                     queueRefresh();
@@ -105,11 +117,15 @@ DesktopClientController::DesktopClientController(infra::TcpClient& client, ui::C
     connect(&client, &infra::TcpClient::requestFailed, this,
             [this](const infra::TcpClientRequestFailure& failure)
             {
-                if (m_pending.erase(failure.requestId) == 0)
+                const auto found = m_pending.find(failure.requestId);
+                if (found == m_pending.end())
                 {
                     return;
                 }
+                const auto action = found->second.action;
+                m_pending.erase(found);
                 m_models.setError(failure.message, failure.effect);
+                finishPlanner(m_models, action, false, failure.message, failure.effect);
             });
     connect(&client, &infra::TcpClient::eventReceived, this, [this](const infra::ProtocolEvent&) { queueRefresh(); });
     updateState();
@@ -146,6 +162,7 @@ void DesktopClientController::act(const core::ClientAction& action)
     if (!m_models.online())
     {
         m_models.setError("Нет связи: действие не отправлено.");
+        finishPlanner(m_models, action, false, "Нет связи: действие не отправлено.", "none");
         return;
     }
     try
@@ -158,6 +175,7 @@ void DesktopClientController::act(const core::ClientAction& action)
     catch (const std::exception&)
     {
         m_models.setError("Действие содержит неверные данные.");
+        finishPlanner(m_models, action, false, "Действие содержит неверные данные.", "none");
     }
 }
 
@@ -188,6 +206,7 @@ void DesktopClientController::response(const infra::ProtocolSuccess& response)
         else
         {
             infra::ClientProtocol::validateActionResult(*context.action, response.result);
+            finishPlanner(m_models, context.action, true);
             if (const auto* retry = std::get_if<core::ClientRetryMessage>(&*context.action);
                 retry && m_models.errorEffect() == "user_saved" &&
                 m_models.savedUserIdentifier() == QString::number(retry->userMessageIdentifier))
@@ -201,6 +220,7 @@ void DesktopClientController::response(const infra::ProtocolSuccess& response)
     {
         m_models.setError("Сервер прислал неверный результат. Последние значения сохранены.",
                           context.action ? "unknown" : "none");
+        finishPlanner(m_models, context.action, false, "Сервер прислал неверный результат.", "unknown");
         m_client.disconnectFromServer();
     }
 }

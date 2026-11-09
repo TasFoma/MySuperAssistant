@@ -2,6 +2,7 @@
 
 #include "msa/core/ClientPreferences.h"
 #include "msa/ui/ClientModels.h"
+#include "msa/ui/PlannerEditor.h"
 
 #include <QObject>
 #include <QString>
@@ -20,9 +21,12 @@ class DesktopState final : public QObject
     Q_PROPERTY(QString token READ token NOTIFY preferencesChanged)
     Q_PROPERTY(bool autoConnect READ autoConnect NOTIFY preferencesChanged)
     Q_PROPERTY(QString settingsMessage READ settingsMessage NOTIFY settingsMessageChanged)
+    Q_PROPERTY(msa::ui::PlannerEditor* planner READ planner CONSTANT)
 public:
     /// @brief Принимает общие модели, живущие дольше состояния экрана.
     explicit DesktopState(ClientModels& models, QObject* parent = nullptr);
+    /// @brief Единая форма действий планировщика.
+    [[nodiscard]] PlannerEditor* planner();
     /// @brief Выбранный раздел и подписи меню.
     [[nodiscard]] int page() const;
     [[nodiscard]] QStringList pages() const;
@@ -50,6 +54,7 @@ signals:
     void saveRequested(msa::core::ClientPreferences preferences); ///< @brief Проверенные параметры для записи.
 private:
     ClientModels& m_models;
+    PlannerEditor m_planner{m_models, this};
     int m_page{0};
     core::ClientPreferences m_preferences{};
     QString m_settingsMessage{};

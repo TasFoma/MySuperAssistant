@@ -2,6 +2,7 @@
 
 #include "msa/core/Chat.h"
 #include "msa/core/ChatMessage.h"
+#include "msa/core/ClientPlannerAction.h"
 #include "msa/core/Event.h"
 #include "msa/core/HabitService.h"
 #include "msa/core/MoodEntry.h"
@@ -143,6 +144,7 @@ struct ClientCreateChat
 {
 };
 /// @brief Действия, уже предоставляемые общими моделями; остальные формы добавляются с экранами.
-using ClientAction = std::variant<ClientSetTaskDone, ClientSendMessage, ClientRetryMessage, ClientCreateChat>;
+using ClientAction = std::variant<ClientSetTaskDone, ClientSendMessage, ClientRetryMessage, ClientCreateChat,
+                                  ClientPlannerAction>;
 
 } // namespace msa::core

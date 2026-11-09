@@ -1,12 +1,12 @@
-#include "msa/server/NetworkServices.h"
-#include "msa/desktop/DesktopClientController.h"
-#include "msa/server/ServerRuntime.h"
-#include "msa/server/ServerSettings.h"
-
 #include "FakeClock.h"
+#include "msa/desktop/DesktopClientController.h"
 #include "msa/infra/ProtocolPayload.h"
 #include "msa/infra/SqliteSchema.h"
 #include "msa/infra/TcpClient.h"
+#include "msa/server/NetworkServices.h"
+#include "msa/server/ServerRuntime.h"
+#include "msa/server/ServerSettings.h"
+#include "msa/ui/PlannerEditor.h"
 
 #include <gtest/gtest.h>
 
@@ -21,7 +21,6 @@
 #include <QTemporaryDir>
 #include <QThread>
 #include <QTimer>
-
 #include <algorithm>
 #include <chrono>
 #include <functional>
@@ -273,6 +272,63 @@ TEST_F(ServerRuntimeTest, QmlModelsReceiveTypedHistoryAndExplicitRetryKeepsOneUs
     EXPECT_EQ(models.messages()->count(), 2);
     EXPECT_TRUE(models.messages()->stale());
     EXPECT_FALSE(models.sendMessage("Не отправлять без связи"));
+}
+
+TEST_F(ServerRuntimeTest, TypedPlannerFormsReachServerAndRefreshConfirmedRows)
+{
+    infra::TcpClient client{{"127.0.0.1", m_server->port(), "test-token", std::chrono::milliseconds{kWaitMs},
+                             std::chrono::milliseconds{kWaitMs}}};
+    ui::ClientModels models;
+    ui::PlannerEditor editor{models};
+    desktop::DesktopClientController controller{client, models};
+    client.connectToServer();
+    ASSERT_TRUE(waitUntil([&models]() { return models.online(); }));
+    editor.newTask();
+    editor.setField("title", "Задача из формы");
+    ASSERT_TRUE(editor.submit());
+    ASSERT_TRUE(waitUntil([&editor, &models]()
+                          { return !editor.active() && models.tasks()->count() == 1 && !models.tasks()->stale(); }));
+    const auto identifierRole = models.tasks()->roleNames().key("identifier");
+    const auto taskId = models.tasks()->data(models.tasks()->index(0), identifierRole).toString();
+    ASSERT_TRUE(models.setTaskDone(taskId, true));
+    ASSERT_TRUE(
+        waitUntil([&models, &taskId]() { return models.tasks()->rowByIdentifier(taskId).value("done").toBool(); }));
+    editor.editTask(taskId);
+    editor.setField("title", "Изменённая задача");
+    ASSERT_TRUE(editor.submit());
+    ASSERT_TRUE(waitUntil(
+        [&editor, &models, &taskId]()
+        {
+            return !editor.active() &&
+                   models.tasks()->rowByIdentifier(taskId).value("title").toString() == "Изменённая задача";
+        }));
+    EXPECT_TRUE(models.tasks()->rowByIdentifier(taskId).value("done").toBool());
+    editor.newHabit();
+    editor.setField("name", "Чтение");
+    editor.setField("target", "2.5");
+    ASSERT_TRUE(editor.submit());
+    ASSERT_TRUE(waitUntil([&editor, &models]()
+                          { return !editor.active() && models.habits()->count() == 1 && !models.habits()->stale(); }));
+    const auto habitId = models.habits()->data(models.habits()->index(0), identifierRole).toString();
+    editor.recordHabit(habitId);
+    editor.setField("value", "3.5");
+    ASSERT_TRUE(editor.submit());
+    ASSERT_TRUE(waitUntil(
+        [&editor, &models, &habitId]()
+        { return !editor.active() && models.habits()->rowByIdentifier(habitId).value("progress").toDouble() == 3.5; }));
+    editor.newReminder();
+    editor.setField("title", "Напомнить");
+    editor.setChoice("kind", 1);
+    ASSERT_TRUE(editor.submit());
+    ASSERT_TRUE(waitUntil([&editor, &models]() { return !editor.active() && models.reminders()->count() == 1; }));
+    const auto reminderId = models.reminders()->data(models.reminders()->index(0), identifierRole).toString();
+    editor.deleteReminder(reminderId);
+    ASSERT_TRUE(editor.submit());
+    ASSERT_TRUE(waitUntil([&editor, &models]() { return !editor.active() && models.reminders()->count() == 0; }));
+    editor.deleteTask(taskId);
+    ASSERT_TRUE(editor.submit());
+    ASSERT_TRUE(waitUntil([&editor, &models]() { return !editor.active() && models.tasks()->count() == 0; }));
+    client.disconnectFromServer();
 }
 
 TEST_F(ServerRuntimeTest, PlannerMethodsPersistAndCalendarReturnsOccurrences)

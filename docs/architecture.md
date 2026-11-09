@@ -218,6 +218,8 @@ sequenceDiagram
 | Тесты инфраструктуры | QCoreApplication и временные файловые базы, откат схемы и операций | `tests/infra/` |
 | Общие QML-компоненты | Тёмная тема, элементы управления, карточки и состояния | `src/ui/common/UI/` |
 | Экраны ПК и настройки | Навигация, чат/планы/напоминания, форма JSON-параметров и связка apps | `src/ui/desktop/`, `src/apps/desktop/include/msa/desktop/DesktopPreferencesController.h` |
+| PlannerEditor | Метаданные форм, типизированные действия, подтверждение и сохранение черновика при отказе | `src/ui/desktop/Model/include/msa/ui/PlannerEditor.h`, `src/ui/desktop/UI/PlannerDialog.qml` |
+| ClientPlannerAction и ClientPlannerProtocol | Типы core и преобразование действий форм в существующие методы JSON | `src/core/include/msa/core/ClientPlannerAction.h`, `src/infra/src/ClientPlannerProtocol.cpp` |
 | JsonClientPreferences | Строгий локальный JSON клиента, атомарное сохранение | `src/infra/include/msa/infra/JsonClientPreferences.h` |
 | ClientPreferences | Параметры подключения и проверка заполненного набора без Qt | `src/core/include/msa/core/ClientPreferences.h` |
 | Mobile UI | Заглушка экранов | `src/ui/mobile/` |
@@ -259,8 +261,8 @@ ServerProcessTest дополнительно запускает собранны
 Декодер сначала строит весь результат и не допускает частичной замены списков.
 Подробнее — [клиентские модели](modules/ClientModels.md).
 
-Первый набор экранов ПК и JSON-настройки готовы библиотечно. Пока отсутствуют
-остальные формы действий и создание окна/клиентской связки в main desktop/mobile,
+Экраны ПК, формы планировщика и JSON-настройки готовы библиотечно. Пока отсутствуют
+создание окна/клиентской связки в main desktop/mobile, выбор точки в UI геонапоминаний,
 геолокация устройства, музыка, голос и Android-уведомления. Прямые координаты
 передаются явными параметрами запросов, выбранная точка геонапоминания закрепляется
 только подтверждением. UI атрибуции публичных сервисов ещё предстоит подключить.

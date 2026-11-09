@@ -67,9 +67,10 @@ Rectangle {
                 Layout.fillHeight: true
                 ChatScreen { anchors.fill: parent; visible: root.desktop.page === 0; client: root.client }
                 PlansScreen { anchors.fill: parent; visible: root.desktop.page === 1; client: root.client; desktop: root.desktop }
-                RemindersScreen { anchors.fill: parent; visible: root.desktop.page === 2; client: root.client }
+                RemindersScreen { anchors.fill: parent; visible: root.desktop.page === 2; client: root.client; editor: root.desktop.planner }
                 SettingsScreen { anchors.fill: parent; visible: root.desktop.page === 3; desktop: root.desktop }
             }
         }
     }
+    PlannerDialog { editor: root.desktop.planner }
 }

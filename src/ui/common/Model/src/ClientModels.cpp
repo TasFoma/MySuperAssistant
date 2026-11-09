@@ -527,6 +527,16 @@ void ClientModels::reconnect()
 {
     emit reconnectRequested();
 }
+bool ClientModels::submitPlannerAction(core::ClientPlannerAction action)
+{
+    return submit(std::move(action));
+}
+void ClientModels::finishPlannerAction(const core::ClientPlannerAction& action, bool success, const QString& message,
+                                       const QString& effect)
+{
+    emit plannerActionFinished(action, success, success ? QString{} : (message.isNull() ? errorText() : message),
+                               success ? QString{"none"} : (effect.isNull() ? errorEffect() : effect));
+}
 void ClientModels::setError(const QString& message, const QString& effect, const QString& savedUser)
 {
     if (!message.isEmpty() && effect == "none" && (m_effect == "unknown" || m_effect == "user_saved"))

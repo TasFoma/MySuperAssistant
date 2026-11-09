@@ -2,6 +2,8 @@ add_library(msa_ui_desktop STATIC
     Model/src/placeholder.cpp
     Model/include/msa/ui/DesktopState.h
     Model/src/DesktopState.cpp
+    Model/include/msa/ui/PlannerEditor.h
+    Model/src/PlannerEditor.cpp
 )
 
 target_compile_features(msa_ui_desktop PUBLIC cxx_std_20)
@@ -11,6 +13,8 @@ msa_apply_warnings(msa_ui_desktop)
 
 set(msaDesktopQmlFiles
     UI/DesktopShell.qml
+    UI/PlannerDialog.qml
+    UI/EventRecord.qml
     UI/ChatScreen.qml
     UI/PlansScreen.qml
     UI/RemindersScreen.qml

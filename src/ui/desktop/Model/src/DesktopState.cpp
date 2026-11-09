@@ -15,6 +15,10 @@ int DesktopState::page() const
 {
     return m_page;
 }
+PlannerEditor* DesktopState::planner()
+{
+    return &m_planner;
+}
 QStringList DesktopState::pages() const
 {
     return {"Чат", "Планы", "Напоминания", "Настройки"};

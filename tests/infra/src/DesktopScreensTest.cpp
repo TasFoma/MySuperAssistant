@@ -56,7 +56,7 @@ protected:
     }
     [[nodiscard]] QQuickItem* item(const char* name)
     {
-        QList<QQuickItem*> remaining{m_view.rootObject()};
+        QList<QQuickItem*> remaining{m_view.contentItem()};
         const auto requested = QString::fromLatin1(name);
         while (!remaining.isEmpty())
         {
@@ -170,7 +170,97 @@ TEST_F(DesktopScreensTest, RendersPopulatedScreensAndRetainsRowsOffline)
     EXPECT_EQ(m_models.habits()->count(), 1);
 }
 
+TEST_F(DesktopScreensTest, PlannerDialogUsesRealInputAndWaitsForAcknowledgement)
+{
+    m_models.setConnectionState(msa::core::ClientConnectionState::Ready);
+    msa::core::ClientSnapshot snapshot;
+    snapshot.mainChatIdentifier = 1;
+    ASSERT_TRUE(m_models.applyResult(snapshot, m_models.sessionRevision(), m_models.viewRevision()));
+    m_state.navigate(1);
+    activate(item("newTaskButton"));
+    auto* editor = m_state.planner();
+    ASSERT_TRUE(editor->active());
+    activate(item("plannerSubmitButton"));
+    EXPECT_FALSE(editor->errorText().isEmpty());
+    auto* title = item("plannerField_title");
+    ASSERT_NE(title, nullptr);
+    title->forceActiveFocus(Qt::TabFocusReason);
+    const auto text = QString::fromUtf8("Название 🙂");
+    QKeyEvent input{QEvent::KeyPress, Qt::Key_unknown, Qt::NoModifier, text};
+    QGuiApplication::sendEvent(&m_view, &input);
+    std::optional<msa::core::ClientPlannerAction> action;
+    QObject::connect(&m_models, &msa::ui::ClientModels::actionRequested, &m_view,
+                     [&action](const msa::core::ClientAction& value)
+                     { action = std::get<msa::core::ClientPlannerAction>(value); });
+    activate(item("plannerSubmitButton"));
+    ASSERT_TRUE(action);
+    EXPECT_EQ(std::get<msa::core::ClientSaveTask>(*action).title, text.toStdString());
+    EXPECT_TRUE(editor->pending());
+    EXPECT_FALSE(item("plannerSubmitButton")->isEnabled());
+    EXPECT_EQ(m_models.tasks()->count(), 0);
+    EXPECT_TRUE(m_view.grabWindow().save("planner-task-preview.png"));
+    m_models.setError("Проверка серверного отказа");
+    m_models.finishPlannerAction(*action, false);
+    EXPECT_TRUE(editor->active());
+    EXPECT_EQ(item("plannerField_title")->property("text").toString(), text);
+    activate(item("plannerSubmitButton"));
+    m_models.finishPlannerAction(*action, true);
+    EXPECT_FALSE(editor->active());
+}
+
+TEST_F(DesktopScreensTest, PlannerDialogChangesReminderFieldsAndCancelsDestructiveAction)
+{
+    m_models.setConnectionState(msa::core::ClientConnectionState::Ready);
+    msa::core::ClientSnapshot snapshot;
+    snapshot.mainChatIdentifier = 1;
+    snapshot.tasks.push_back({17, "Не удалять без подтверждения", {}, msa::core::TaskPriority::Normal, false, {}});
+    ASSERT_TRUE(m_models.applyResult(snapshot, m_models.sessionRevision(), m_models.viewRevision()));
+    m_state.navigate(2);
+    activate(item("newReminderButton"));
+    auto* editor = m_state.planner();
+    auto* title = item("plannerField_title");
+    ASSERT_NE(title, nullptr);
+    title->forceActiveFocus(Qt::TabFocusReason);
+    QKeyEvent input{QEvent::KeyPress, Qt::Key_unknown, Qt::NoModifier, QString::fromUtf8("Напоминание")};
+    QGuiApplication::sendEvent(&m_view, &input);
+    auto* kind = item("plannerChoice_kind");
+    ASSERT_NE(kind, nullptr);
+    kind->forceActiveFocus(Qt::TabFocusReason);
+    for (int step{0}; step < 2; ++step)
+    {
+        QKeyEvent next{QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier};
+        QKeyEvent release{QEvent::KeyRelease, Qt::Key_Down, Qt::NoModifier};
+        QGuiApplication::sendEvent(&m_view, &next);
+        QGuiApplication::sendEvent(&m_view, &release);
+        QGuiApplication::processEvents();
+        EXPECT_TRUE(kind->hasActiveFocus());
+    }
+    QGuiApplication::processEvents();
+    EXPECT_EQ(item("plannerField_title")->property("text").toString(), QString::fromUtf8("Напоминание"));
+    auto* place = item("plannerField_place");
+    ASSERT_NE(place, nullptr);
+    EXPECT_TRUE(place->isVisible());
+    place->forceActiveFocus(Qt::TabFocusReason);
+    QKeyEvent address{QEvent::KeyPress, Qt::Key_unknown, Qt::NoModifier, QString::fromUtf8("Магазин")};
+    QGuiApplication::sendEvent(&m_view, &address);
+    std::vector<msa::core::ClientPlannerAction> actions;
+    QObject::connect(&m_models, &msa::ui::ClientModels::actionRequested, &m_view,
+                     [&actions](const msa::core::ClientAction& value)
+                     { actions.push_back(std::get<msa::core::ClientPlannerAction>(value)); });
+    activate(item("plannerSubmitButton"));
+    ASSERT_EQ(actions.size(), 1U);
+    EXPECT_EQ(std::get<msa::core::ClientCreatePlaceReminder>(actions.front()).place, "Магазин");
+    EXPECT_TRUE(m_view.grabWindow().save("planner-reminder-preview.png"));
+    m_models.finishPlannerAction(actions.front(), true);
+    editor->deleteTask("17");
+    QGuiApplication::processEvents();
+    activate(item("plannerCancelButton"));
+    EXPECT_EQ(actions.size(), 1U);
+    EXPECT_EQ(m_models.tasks()->count(), 1);
+}
+
 TEST_F(DesktopScreensTest, CalendarRejectsInvalidDateWithoutReadRequest)
+
 {
     int reads{0};
     QObject::connect(&m_models, &msa::ui::ClientModels::readRequested, &m_view,

@@ -55,6 +55,8 @@ public:
     [[nodiscard]] bool replaceRows(const std::vector<ClientListRow>& rows, bool stale = false);
     /// @brief Наличие строкового ID, без потери точности int64.
     [[nodiscard]] bool containsIdentifier(const QString& identifier) const;
+    /// @brief Копия ролей записи для заполнения формы; пустая карта, если ID отсутствует.
+    [[nodiscard]] QVariantMap rowByIdentifier(const QString& identifier) const;
 signals:
     void countChanged(); ///< @brief Изменилось число строк.
     void staleChanged(); ///< @brief Изменился признак свежести.

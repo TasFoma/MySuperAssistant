@@ -2,6 +2,7 @@
 
 #include "msa/infra/ProtocolCodec.h"
 #include "msa/infra/ProtocolPayload.h"
+#include "msa/infra/detail/ClientPlannerProtocol.h"
 
 #include <QDate>
 #include <QJsonArray>
@@ -376,6 +377,10 @@ ClientWireRequest ClientProtocol::request(const core::ClientAction& action)
                          {"expected_user_message_id", Payload::identifier(value.userMessageIdentifier)},
                          {"search_query", optionalSearch(value.searchQuery)}}};
             }
+            else if constexpr (std::is_same_v<ActionType, core::ClientPlannerAction>)
+            {
+                return ClientPlannerProtocol::request(value);
+            }
             else
             {
                 return {"chat.create", {}};
@@ -399,6 +404,10 @@ void ClientProtocol::validateActionResult(const core::ClientAction& action, cons
             {
                 fields(value, {"chat_id"});
                 static_cast<void>(identifier(value["chat_id"]));
+            }
+            else if constexpr (std::is_same_v<ActionType, core::ClientPlannerAction>)
+            {
+                ClientPlannerProtocol::validateResult(action, value);
             }
             else
             {

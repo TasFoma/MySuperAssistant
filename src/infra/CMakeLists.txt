@@ -1,4 +1,6 @@
 add_library(msa_infra STATIC
+    include/msa/infra/detail/ClientPlannerProtocol.h
+    src/ClientPlannerProtocol.cpp
     include/msa/infra/JsonClientPreferences.h
     src/JsonClientPreferences.cpp
     include/msa/infra/ClientProtocol.h

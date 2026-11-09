@@ -13,6 +13,7 @@ msa_apply_warnings(msa_ui_common)
 set(msaCommonQmlFiles
     UI/Theme.qml
     UI/DetailsCard.qml
+    UI/RecordActions.qml
     UI/AppButton.qml
     UI/AppTextField.qml
     UI/AppTextArea.qml

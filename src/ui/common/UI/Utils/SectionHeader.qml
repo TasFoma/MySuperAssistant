@@ -8,6 +8,7 @@ ColumnLayout {
     Text {
         Layout.fillWidth: true
         text: parent.title
+        visible: text.length > 0
         textFormat: Text.PlainText
         color: Theme.text
         font.family: Theme.fontFamily

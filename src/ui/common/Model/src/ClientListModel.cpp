@@ -414,4 +414,10 @@ bool ClientListModel::containsIdentifier(const QString& identifier) const
     return std::ranges::any_of(m_rows, [identifier](const auto& item)
                                { return item.value("identifier").toString() == identifier; });
 }
+QVariantMap ClientListModel::rowByIdentifier(const QString& identifier) const
+{
+    const auto found = std::ranges::find_if(m_rows, [&identifier](const auto& row)
+                                          { return row.value("identifier").toString() == identifier; });
+    return found == m_rows.end() ? QVariantMap{} : *found;
+}
 } // namespace msa::ui

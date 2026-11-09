@@ -12,6 +12,7 @@
 - `AppButton`, `AppTextField`, `AppTextArea` — кнопка с тремя тонами и поля ввода.
 - `UI/Utils/SurfaceCard.qml`, `UI/Utils/SectionHeader.qml` — контейнер и заголовок раздела.
 - `DetailsCard` — заголовок, подготовленные сведения и признак устаревших данных.
+- `RecordActions` — общие кнопки изменения/удаления с сигналами пользовательских действий.
 - `TaskRow` — задача и сигнал `doneRequested(identifier, done)`.
 - `MessageBubble` — автор, выбираемый обычный текст, время, входящее/исходящее сообщение.
 - `HabitProgress` — прогресс и готовая строка количества из C++.

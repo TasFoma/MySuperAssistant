@@ -116,6 +116,11 @@ public:
     Q_INVOKABLE bool sendMessage(const QString& text, const QString& searchQuery = {});
     Q_INVOKABLE bool retryMessage(const QString& userIdentifier, const QString& searchQuery = {});
     Q_INVOKABLE bool createChat();
+    /// @brief Передаёт типизированное действие формы только при готовой сессии.
+    [[nodiscard]] bool submitPlannerAction(core::ClientPlannerAction action);
+    /// @brief Связка приложения сообщает итог после проверки подтверждения либо явного отказа.
+    void finishPlannerAction(const core::ClientPlannerAction& action, bool success,
+                             const QString& message = {}, const QString& effect = {});
     /// @brief Ручное переподключение передаётся связке приложения.
     Q_INVOKABLE void reconnect();
     /// @brief Убирает сообщение ошибки по явному действию пользователя.
@@ -132,6 +137,8 @@ signals:
     void readRequested(msa::core::ClientReadRequest request, quint64 session, quint64 view);
     /// @brief Явное действие; в отключённом состоянии не испускается.
     void actionRequested(msa::core::ClientAction action);
+    /// @brief Подтверждение или отказ формы; транспортные данные остаются в apps/infra.
+    void plannerActionFinished(msa::core::ClientPlannerAction action, bool success, QString message, QString effect);
     void reconnectRequested(); ///< @brief Пользователь нажал переподключение.
 private:
     struct ChatCache
@@ -181,3 +188,4 @@ private:
 
 Q_DECLARE_METATYPE(msa::core::ClientReadRequest)
 Q_DECLARE_METATYPE(msa::core::ClientAction)
+Q_DECLARE_METATYPE(msa::core::ClientPlannerAction)
