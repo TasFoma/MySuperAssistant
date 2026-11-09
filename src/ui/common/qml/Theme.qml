@@ -44,5 +44,9 @@ QtObject {
     readonly property int shortMotion: 90
     readonly property int inputWidth: 260
     readonly property int cardWidth: 380
+    readonly property int desktopWidth: 1200
+    readonly property int desktopHeight: 800
+    readonly property int navigationWidth: 184
+    readonly property int conversationWidth: 228
 }
 

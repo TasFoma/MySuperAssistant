@@ -50,7 +50,7 @@ flowchart TD
     server[msa_server] --> support[msa_server_support: связка apps/server]
     support --> infra[msa_infra: SQLite, HTTP, TCP]
     support --> core[msa_core]
-    desktop[msa_desktop] --> desktopUI[msa_ui_desktop: заглушка]
+    desktop[msa_desktop] --> desktopUI[msa_ui_desktop: экраны и DesktopState]
     desktop --> desktopSupport[msa_desktop_support: связка клиента]
     desktopSupport --> common[msa_ui_common: C++ модели и QML]
     desktop --> plugin[msa_ui_commonplugin: Msa.Ui.Common]
@@ -58,6 +58,7 @@ flowchart TD
     plugin --> common
     desktopSupport --> infra
     desktopSupport --> core
+    desktopSupport --> desktopUI
     desktop --> gui[Qt6::Gui]
     mobile[msa_mobile] --> mobileUI[msa_ui_mobile: заглушка]
     mobile --> common
@@ -79,6 +80,8 @@ flowchart TD
     infraTests --> infra
     infraTests --> desktopSupport
     uiTests[msa_ui_tests: offscreen] --> plugin
+    uiTests --> desktopPlugin[msa_ui_desktopplugin: Msa.Ui.Desktop]
+    desktopPlugin --> desktopUI
     infraTests -. QProcess .-> server
 ```
 
@@ -89,7 +92,8 @@ Qt Core/Sql/Network транзитивно через infra. При ANDROID по
 Общий модуль Msa.Ui.Common создаётся через qt_add_qml_module; статический плагин
 линкуется и импортируется в desktop/mobile. Theme.qml хранит визуальные токены,
 компоненты отображают свойства и испускают пользовательские действия.
-Тестовая галерея отделена от будущих экранов: [CommonQml](modules/CommonQml.md).
+Тестовая галерея отделена от [экранов ПК](modules/DesktopScreens.md):
+общая библиотека описана в [CommonQml](modules/CommonQml.md).
 
 ## Поток данных сервера
 
@@ -198,7 +202,10 @@ sequenceDiagram
 | SqliteHabitRepository | SQLite-хранилище привычек и журнала с каскадным удалением | `src/infra/include/msa/infra/SqliteHabitRepository.h`, `src/infra/src/SqliteHabitRepository.cpp` |
 | Тесты инфраструктуры | QCoreApplication и временные файловые базы, откат схемы и операций | `tests/infra/` |
 | Общие QML-компоненты | Тёмная тема, элементы управления, карточки и состояния | `src/ui/common/qml/` |
-| Desktop и mobile UI | Заглушки экранов | `src/ui/desktop/`, `src/ui/mobile/` |
+| Экраны ПК и настройки | Навигация, чат/планы/напоминания, форма JSON-параметров и связка apps | `src/ui/desktop/`, `src/apps/desktop/src/DesktopPreferencesController.h` |
+| JsonClientPreferences | Строгий локальный JSON клиента, атомарное сохранение | `src/infra/include/msa/infra/JsonClientPreferences.h` |
+| ClientPreferences | Параметры подключения и проверка заполненного набора без Qt | `src/core/include/msa/core/ClientPreferences.h` |
+| Mobile UI | Заглушка экранов | `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
 
 Контракты репозиториев: поиск возвращает `optional`, списки — независимые копии без
@@ -237,7 +244,8 @@ ServerProcessTest дополнительно запускает собранны
 Декодер сначала строит весь результат и не допускает частичной замены списков.
 Подробнее — [клиентские модели](modules/ClientModels.md).
 
-Пока отсутствуют пользовательские экраны и создание клиентской связки в main desktop/mobile,
+Первый набор экранов ПК и JSON-настройки готовы библиотечно. Пока отсутствуют
+остальные формы действий и создание окна/клиентской связки в main desktop/mobile,
 геолокация устройства, музыка, голос и Android-уведомления. Прямые координаты
 передаются явными параметрами запросов, выбранная точка геонапоминания закрепляется
 только подтверждением. UI атрибуции публичных сервисов ещё предстоит подключить.

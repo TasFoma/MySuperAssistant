@@ -6,6 +6,7 @@
 #include <QQmlExtensionPlugin>
 
 Q_IMPORT_QML_PLUGIN(MsaUiCommonPlugin)
+Q_IMPORT_QML_PLUGIN(MsaUiDesktopPlugin)
 
 int main(int argc, char* argv[])
 {

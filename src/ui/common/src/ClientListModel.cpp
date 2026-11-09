@@ -1,6 +1,7 @@
 #include "msa/ui/ClientListModel.h"
 
 #include <QDate>
+#include <QLocale>
 #include <QStringList>
 #include <QTime>
 #include <algorithm>
@@ -41,7 +42,7 @@ QString enumText(int value, std::initializer_list<const char*> names)
     {
         if (position++ == value)
         {
-            return QLatin1String{name};
+            return QString::fromUtf8(name);
         }
     }
     return {};
@@ -57,7 +58,10 @@ QVariantMap row(const core::Task& value)
             {"dueDate", value.dueDate ? QVariant{date(*value.dueDate)} : QVariant{}},
             {"priority", enumText(static_cast<int>(value.priority), {"Low", "Normal", "High"})},
             {"done", value.done},
-            {"createdAt", moment(value.createdAt)}};
+            {"createdAt", moment(value.createdAt)},
+            {"detailsText", (value.dueDate ? date(*value.dueDate) : QString{"Без срока"}) + " · " +
+                                enumText(static_cast<int>(value.priority),
+                                         {"Низкий приоритет", "Обычный приоритет", "Высокий приоритет"})}};
 }
 template <typename ReminderType> QVariantMap reminder(const ReminderType& value)
 {
@@ -87,6 +91,34 @@ template <typename ReminderType> QVariantMap reminder(const ReminderType& value)
     {
         result["status"] = enumText(static_cast<int>(value.status), {"Pending", "Fired", "Missed"});
     }
+    const auto kind = result.value("kind").toString();
+    QString details;
+    if (kind == "Place")
+    {
+        details = "По месту: " + result.value("place").toString();
+    }
+    else
+    {
+        details = result.value("dueAt").toString();
+        if (kind == "Recurring")
+        {
+            details += " · повтор через " + result.value("intervalMinutes").toString() + " мин.";
+        }
+    }
+    const auto status = result.value("status").toString();
+    if (status == "Fired")
+    {
+        details += " · выполнено";
+    }
+    if (status == "Missed")
+    {
+        details += " · пропущено";
+    }
+    if (status == "Pending")
+    {
+        details += " · ожидает";
+    }
+    result["detailsText"] = details;
     return result;
 }
 QVariantMap row(const core::TimedReminder& value)
@@ -108,21 +140,30 @@ QVariantMap row(const core::HabitProgress& value)
             {"target", value.habit.target},
             {"unit", text(value.habit.unit)},
             {"period", enumText(static_cast<int>(value.habit.period), {"Day", "Week"})},
-            {"progress", value.progress}};
+            {"progress", value.progress},
+            {"detailsText", QLocale{}.toString(value.progress) + " / " + QLocale{}.toString(value.habit.target) + " " +
+                                text(value.habit.unit)}};
 }
 QVariantMap row(const core::ClientEventOccurrence& value)
 {
     const auto& event = value.event;
-    return {{"identifier", identifier(event.identifier)},
-            {"title", text(event.title)},
-            {"date", date(event.date)},
-            {"time", event.time
-                         ? QVariant{QTime::fromMSecsSinceStartOfDay(static_cast<int>(event.time->count() * 60000))
-                                        .toString("HH:mm")}
-                         : QVariant{}},
-            {"description", text(event.description)},
-            {"repeat", enumText(static_cast<int>(event.repeat), {"None", "Daily", "Weekly", "Monthly"})},
-            {"occurrenceDate", date(value.occurrenceDate)}};
+    return {
+        {"identifier", identifier(event.identifier)},
+        {"title", text(event.title)},
+        {"date", date(event.date)},
+        {"time", event.time ? QVariant{QTime::fromMSecsSinceStartOfDay(static_cast<int>(event.time->count() * 60000))
+                                           .toString("HH:mm")}
+                            : QVariant{}},
+        {"description", text(event.description)},
+        {"repeat", enumText(static_cast<int>(event.repeat), {"None", "Daily", "Weekly", "Monthly"})},
+        {"occurrenceDate", date(value.occurrenceDate)},
+        {"detailsText",
+         date(value.occurrenceDate) +
+             (event.time
+                  ? " · " +
+                        QTime::fromMSecsSinceStartOfDay(static_cast<int>(event.time->count() * 60000)).toString("HH:mm")
+                  : QString{}) +
+             "\n" + text(event.description)}};
 }
 QVariantMap row(const core::Chat& value)
 {
@@ -134,7 +175,8 @@ QVariantMap row(const core::ChatMessage& value)
             {"chatIdentifier", identifier(value.chatIdentifier)},
             {"role", enumText(static_cast<int>(value.role), {"User", "Assistant"})},
             {"text", text(value.text)},
-            {"createdAt", moment(value.createdAt)}};
+            {"createdAt", moment(value.createdAt)},
+            {"detailsText", value.role == core::MessageRole::User ? QString{"Вы"} : QString{"Ассистент"}}};
 }
 QVariantMap row(const core::UserProfileFact& value)
 {
@@ -225,7 +267,8 @@ const QHash<int, QByteArray>& roles()
                                                        "travelMode",
                                                        "distanceMeters",
                                                        "durationSeconds",
-                                                       "approximate"});
+                                                       "approximate",
+                                                       "detailsText"});
         QHash<int, QByteArray> result;
         int role = Qt::UserRole + 1;
         for (const auto* name : names)

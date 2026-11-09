@@ -1,0 +1,66 @@
+import QtQuick
+import QtQuick.Controls.Basic as Controls
+import QtQuick.Layouts
+import Msa.Ui.Common 1.0
+
+Controls.ScrollView {
+    id: root
+    required property var desktop
+    clip: true
+    contentWidth: availableWidth
+    ColumnLayout {
+        width: root.availableWidth
+        spacing: Theme.spaceLarge
+        SectionHeader { Layout.fillWidth: true; title: "Настройки"; description: "Подключение к серверу" }
+        SurfaceCard {
+            Layout.fillWidth: true
+            ColumnLayout {
+                width: parent.width
+                spacing: Theme.spaceMedium
+                SectionHeader { Layout.fillWidth: true; title: "Сервер"; description: "Адрес без схемы URL, порт и токен авторизации" }
+                AppTextField { id: host; objectName: "settingsHost"; Layout.fillWidth: true; placeholderText: "Хост"; text: root.desktop.host }
+                AppTextField { id: port; objectName: "settingsPort"; Layout.fillWidth: true; placeholderText: "Порт"; text: root.desktop.port; inputMethodHints: Qt.ImhDigitsOnly }
+                AppTextField {
+                    id: token
+                    objectName: "settingsToken"
+                    Layout.fillWidth: true
+                    placeholderText: "Токен"
+                    text: root.desktop.token
+                    echoMode: TextInput.Password
+                    inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Controls.CheckBox {
+                        id: autoConnect
+                        objectName: "autoConnectCheck"
+                        checked: root.desktop.autoConnect
+                        palette.highlight: Theme.accent
+                        palette.base: Theme.raised
+                        palette.text: Theme.text
+                        Accessible.name: "Подключаться при запуске"
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Подключаться при запуске"
+                        textFormat: Text.PlainText
+                        wrapMode: Text.Wrap
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontBody
+                        color: Theme.text
+                    }
+                }
+                SectionHeader {
+                    Layout.fillWidth: true
+                    description: "Можно выключить для работы без сервера. Автоматическое подключение ограничено пятью попытками."
+                }
+                AppButton {
+                    objectName: "saveSettingsButton"
+                    text: "Сохранить"
+                    onClicked: root.desktop.savePreferences(host.text, port.text, token.text, autoConnect.checked)
+                }
+                SectionHeader { Layout.fillWidth: true; description: root.desktop.settingsMessage }
+            }
+        }
+    }
+}

@@ -1,9 +1,10 @@
 add_library(msa_desktop_support STATIC
+    src/DesktopPreferencesController.cpp
     src/DesktopClientController.cpp
 )
 target_compile_features(msa_desktop_support PUBLIC cxx_std_20)
 target_include_directories(msa_desktop_support PUBLIC src)
-target_link_libraries(msa_desktop_support PUBLIC msa_ui_common msa_infra msa_core)
+target_link_libraries(msa_desktop_support PUBLIC msa_ui_desktop msa_ui_common msa_infra msa_core)
 msa_apply_warnings(msa_desktop_support)
 
 qt_add_executable(msa_desktop

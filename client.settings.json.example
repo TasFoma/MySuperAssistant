@@ -1,0 +1,7 @@
+{
+    "version": 1,
+    "host": "SERVER_HOST",
+    "port": 12345,
+    "token": "REPLACE_WITH_SERVER_TOKEN",
+    "auto_connect": true
+}
