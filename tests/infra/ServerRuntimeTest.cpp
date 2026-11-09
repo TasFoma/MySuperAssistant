@@ -1,4 +1,5 @@
 #include "NetworkServices.h"
+#include "DesktopClientController.h"
 #include "ServerRuntime.h"
 #include "ServerSettings.h"
 
@@ -244,6 +245,34 @@ TEST_F(ServerRuntimeTest, ProductionClientAuthenticatesWritesAndRefreshesSnapsho
     client.reconnect();
     ASSERT_TRUE(waitUntil([&client, &readyCount]() { return client.state() == infra::TcpClientState::Ready && readyCount == 2; }));
     EXPECT_EQ(client.initialSnapshot().value("tasks").toArray().size(), 1);
+}
+
+TEST_F(ServerRuntimeTest, QmlModelsReceiveTypedHistoryAndExplicitRetryKeepsOneUser)
+{
+    const auto chatId = result("chat.create").value("chat_id").toString();
+    infra::TcpClient client{{"127.0.0.1", m_server->port(), "test-token", std::chrono::milliseconds{kWaitMs},
+        std::chrono::milliseconds{kWaitMs}, std::chrono::milliseconds{5}, std::chrono::milliseconds{20}}};
+    ui::ClientModels models;
+    desktop::DesktopClientController controller{client, models};
+    client.connectToServer();
+    ASSERT_TRUE(waitUntil([&models, &chatId]() { return models.online() && models.chats()->containsIdentifier(chatId); }));
+    ASSERT_TRUE(models.selectChat(chatId));
+    ASSERT_TRUE(waitUntil([&models]() { return !models.messages()->stale(); }));
+    m_external.next = core::LlmFailure{core::LlmFailureKind::Unavailable, "Модель временно недоступна"};
+    ASSERT_TRUE(models.sendMessage("  Полный исходник\n🙂  "));
+    ASSERT_TRUE(waitUntil([&models]() { return models.errorEffect() == "user_saved" && models.messages()->count() == 1; }));
+    const auto userId = models.savedUserIdentifier();
+    ASSERT_FALSE(userId.isEmpty());
+    m_external.next = core::LlmResponse{.reply = "Успешный ответ"};
+    ASSERT_TRUE(models.retryMessage(userId));
+    ASSERT_TRUE(waitUntil([&models]() { return models.messages()->count() == 2; }));
+    EXPECT_TRUE(models.errorText().isEmpty());
+    EXPECT_EQ(messages(chatId).value("messages").toArray().size(), 2);
+    client.disconnectFromServer();
+    EXPECT_FALSE(models.online());
+    EXPECT_EQ(models.messages()->count(), 2);
+    EXPECT_TRUE(models.messages()->stale());
+    EXPECT_FALSE(models.sendMessage("Не отправлять без связи"));
 }
 
 TEST_F(ServerRuntimeTest, PlannerMethodsPersistAndCalendarReturnsOccurrences)

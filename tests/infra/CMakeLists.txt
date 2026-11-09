@@ -1,4 +1,5 @@
 add_executable(msa_infra_tests
+    ClientModelsTest.cpp
     TcpClientTest.cpp
     ProtocolTestClient.cpp
     ServerProcessTest.cpp
@@ -30,7 +31,7 @@ add_executable(msa_infra_tests
 )
 
 target_compile_features(msa_infra_tests PRIVATE cxx_std_20)
-target_link_libraries(msa_infra_tests PRIVATE msa_infra msa_server_support GTest::gtest)
+target_link_libraries(msa_infra_tests PRIVATE msa_infra msa_server_support msa_desktop_support GTest::gtest)
 target_compile_definitions(msa_infra_tests PRIVATE MSA_SERVER_EXECUTABLE="$<TARGET_FILE:msa_server>")
 add_dependencies(msa_infra_tests msa_server)
 msa_apply_warnings(msa_infra_tests)
@@ -42,7 +43,7 @@ gtest_add_tests(TARGET msa_infra_tests
     SqliteEventWarningRepositoryTest.cpp SqliteMoodRepositoryTest.cpp SqliteTaskRepositoryTest.cpp
     SqliteEventRepositoryTest.cpp SqliteReminderRepositoryTest.cpp
     SqliteHabitRepositoryTest.cpp SqliteConversationTest.cpp LlamaClientTest.cpp ExternalServicesTest.cpp
-    SqliteNavigationRepositoryTest.cpp ProtocolCodecTest.cpp TcpServerTest.cpp TcpClientTest.cpp ServerRuntimeTest.cpp ServerProcessTest.cpp
+    SqliteNavigationRepositoryTest.cpp ProtocolCodecTest.cpp TcpServerTest.cpp TcpClientTest.cpp ClientModelsTest.cpp ServerRuntimeTest.cpp ServerProcessTest.cpp
     TEST_LIST msaInfraTests)
 if(WIN32)
     set_tests_properties(${msaInfraTests} PROPERTIES

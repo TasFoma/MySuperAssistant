@@ -11,8 +11,11 @@ core содержит типы и сервисы планировщика, ча�
 stdlib — приватная вычислительная зависимость PCRE2 (решение 11).
 infra реализует SQLite-репозитории, HTTP-адаптеры, JSON-кодек и TCP-транспорт.
 TcpClient предоставляет асинхронные клиентские сессии, начальную загрузку и
-ограниченный цикл восстановления (решение 50). Он пока используется тестами;
-адаптер данных для ui/common и подключение приложений относятся к следующим шагам.
+ограниченный цикл восстановления (решение 50). ClientProtocol в infra разбирает
+вложенные результаты в ClientData из core; ClientModels/ClientListModel в ui/common
+показывают эти типы через Qt-свойства и роли. DesktopClientController в apps/desktop
+соединяет модели с транспортом (решение 51). Проверяемая цель msa_desktop_support
+принадлежит приложению; постоянные настройки и окно в main пока не подключены.
 apps/server связывает их в ServerRuntime; msa_server_support — проверяемая
 библиотека той же связки приложения, не новый архитектурный слой.
 
@@ -48,9 +51,10 @@ flowchart TD
     support --> infra[msa_infra: SQLite, HTTP, TCP]
     support --> core[msa_core]
     desktop[msa_desktop] --> desktopUI[msa_ui_desktop: заглушка]
-    desktop --> common[msa_ui_common: заглушка]
-    desktop --> infra
-    desktop --> core
+    desktop --> desktopSupport[msa_desktop_support: связка клиента]
+    desktopSupport --> common[msa_ui_common: C++ модели]
+    desktopSupport --> infra
+    desktopSupport --> core
     desktop --> gui[Qt6::Gui]
     mobile[msa_mobile] --> mobileUI[msa_ui_mobile: заглушка]
     mobile --> common
@@ -70,6 +74,7 @@ flowchart TD
     coreTests[msa_core_tests] --> core
     infraTests[msa_infra_tests] --> support
     infraTests --> infra
+    infraTests --> desktopSupport
     infraTests -. QProcess .-> server
 ```
 
@@ -103,6 +108,10 @@ sequenceDiagram
 
 | Модуль | Что есть сейчас | Путь |
 | --- | --- | --- |
+| ClientData | Структуры снимка, коллекций, страниц, чтений и действий без Qt | `src/core/include/msa/core/ClientData.h` |
+| ClientProtocol | Строгий JSON-разбор вложенных результатов чтения и кодирование типизированных действий | `src/infra/include/msa/infra/ClientProtocol.h`, `src/infra/src/ClientProtocol.cpp` |
+| ClientListModel и ClientModels | Общие QML-модели, локальный выбор, страницы и последние данные без связи | `src/ui/common/include/msa/ui/ClientListModel.h`, `ClientModels.h`, `src/ui/common/src/` |
+| DesktopClientController | Соединение транспорта и моделей, обновление данных без повторов записи | `src/apps/desktop/src/DesktopClientController.h`, `DesktopClientController.cpp` |
 | TcpClient | Асинхронные auth/get_all, ответы/события и максимум пять попыток восстановления | `src/infra/include/msa/infra/TcpClient.h`, `src/infra/src/TcpClient.cpp` |
 | ProtocolTestClient и ServerProcessTest | Независимый TCP/JSON-клиент, запуск настоящего сервера и восстановление после обрывов | `tests/infra/ProtocolTestClient.h`, `ProtocolTestClient.cpp`, `ServerProcessTest.cpp` |
 | ServerRuntime | Обработчики протокола, репозитории, транзакции команд и проверки сроков | `src/apps/server/src/ServerRuntime.h`, `ServerRuntime.cpp` |
@@ -214,7 +223,13 @@ ServerProcessTest дополнительно запускает собранны
 Сведения о конкретных правилах и точках входа находятся в docs/modules;
 протокол описан в docs/protocol.md, запуск — в README.md.
 
-Пока отсутствуют пользовательские экраны и подключение TcpClient к desktop/mobile,
+Модели ui/common не зависят от infra; запросы/действия передаются типами core.
+При обрыве остаются последние данные в памяти с stale=true, серверные действия
+отключены. Новая сессия/выбор и порядковый номер чтения защищают от поздних ответов.
+Декодер сначала строит весь результат и не допускает частичной замены списков.
+Подробнее — [клиентские модели](modules/ClientModels.md).
+
+Пока отсутствуют пользовательские экраны и создание клиентской связки в main desktop/mobile,
 геолокация устройства, музыка, голос и Android-уведомления. Прямые координаты
 передаются явными параметрами запросов, выбранная точка геонапоминания закрепляется
 только подтверждением. UI атрибуции публичных сервисов ещё предстоит подключить.

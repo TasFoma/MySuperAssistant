@@ -1,6 +1,7 @@
 include(${PROJECT_SOURCE_DIR}/cmake/Pcre2.cmake)
 
 add_library(msa_core STATIC
+    include/msa/core/ClientData.h
     include/msa/core/WebSearchProvider.h
     src/WebSearchProvider.cpp
     include/msa/core/CachedGeocoder.h
