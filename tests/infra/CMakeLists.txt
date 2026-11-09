@@ -1,4 +1,5 @@
 add_executable(msa_infra_tests
+    TcpClientTest.cpp
     ProtocolTestClient.cpp
     ServerProcessTest.cpp
     ServerRuntimeTest.cpp
@@ -41,7 +42,7 @@ gtest_add_tests(TARGET msa_infra_tests
     SqliteEventWarningRepositoryTest.cpp SqliteMoodRepositoryTest.cpp SqliteTaskRepositoryTest.cpp
     SqliteEventRepositoryTest.cpp SqliteReminderRepositoryTest.cpp
     SqliteHabitRepositoryTest.cpp SqliteConversationTest.cpp LlamaClientTest.cpp ExternalServicesTest.cpp
-    SqliteNavigationRepositoryTest.cpp ProtocolCodecTest.cpp TcpServerTest.cpp ServerRuntimeTest.cpp ServerProcessTest.cpp
+    SqliteNavigationRepositoryTest.cpp ProtocolCodecTest.cpp TcpServerTest.cpp TcpClientTest.cpp ServerRuntimeTest.cpp ServerProcessTest.cpp
     TEST_LIST msaInfraTests)
 if(WIN32)
     set_tests_properties(${msaInfraTests} PROPERTIES

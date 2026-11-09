@@ -5,6 +5,7 @@
 #include "../core/FakeClock.h"
 #include "msa/infra/ProtocolPayload.h"
 #include "msa/infra/SqliteSchema.h"
+#include "msa/infra/TcpClient.h"
 
 #include <gtest/gtest.h>
 
@@ -220,6 +221,29 @@ TEST_F(ServerRuntimeTest, RestoresMainIdentityAndDoesNotPersistPerRequestChatSel
     infra::SqliteDatabase database{m_settings.databasePath, infra::sqliteMigrations()};
     infra::SqliteChatRepository chats{database};
     EXPECT_FALSE(chats.currentChatId());
+}
+
+TEST_F(ServerRuntimeTest, ProductionClientAuthenticatesWritesAndRefreshesSnapshotAfterManualReconnect)
+{
+    infra::TcpClient client{{"127.0.0.1", m_server->port(), "test-token", std::chrono::milliseconds{kWaitMs},
+        std::chrono::milliseconds{kWaitMs}, std::chrono::milliseconds{5}, std::chrono::milliseconds{20}}};
+    int readyCount{0};
+    std::vector<infra::ProtocolSuccess> replies;
+    QObject::connect(&client, &infra::TcpClient::ready, &client,
+        [&readyCount](infra::TcpClientServerInfo, QJsonObject) { ++readyCount; });
+    QObject::connect(&client, &infra::TcpClient::responseReceived, &client,
+        [&replies](infra::ProtocolSuccess reply) { replies.push_back(std::move(reply)); });
+    client.connectToServer();
+    ASSERT_TRUE(waitUntil([&client, &readyCount]() { return client.state() == infra::TcpClientState::Ready && readyCount == 1; }));
+    EXPECT_TRUE(client.initialSnapshot().value("tasks").toArray().isEmpty());
+    const auto requestId = client.sendRequest("task.create", {{"title", "Через настоящий клиент"},
+        {"due_date", QJsonValue::Null}, {"priority", "Normal"}});
+    ASSERT_TRUE(waitUntil([&replies]() { return replies.size() == 1; }));
+    EXPECT_EQ(replies.front().requestId, requestId);
+    EXPECT_TRUE(replies.front().result.value("task_id").isString());
+    client.reconnect();
+    ASSERT_TRUE(waitUntil([&client, &readyCount]() { return client.state() == infra::TcpClientState::Ready && readyCount == 2; }));
+    EXPECT_EQ(client.initialSnapshot().value("tasks").toArray().size(), 1);
 }
 
 TEST_F(ServerRuntimeTest, PlannerMethodsPersistAndCalendarReturnsOccurrences)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QJsonObject>
+#include <QMetaType>
 #include <QString>
 
 #include <optional>
@@ -77,3 +78,7 @@ struct ProtocolDecodeError
 /// Либо целое проверенное сообщение, либо причина отказа без частичного исполнения.
 using ProtocolDecodeResult = std::variant<ProtocolMessage, ProtocolDecodeError>;
 } // namespace msa::infra
+
+Q_DECLARE_METATYPE(msa::infra::ProtocolSuccess)
+Q_DECLARE_METATYPE(msa::infra::ProtocolFailure)
+Q_DECLARE_METATYPE(msa::infra::ProtocolEvent)
