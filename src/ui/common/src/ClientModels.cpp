@@ -89,6 +89,10 @@ bool ClientModels::online() const
 {
     return m_state == core::ClientConnectionState::Ready && m_hasSnapshot;
 }
+bool ClientModels::reconnectAvailable() const
+{
+    return m_state == core::ClientConnectionState::Disconnected || m_state == core::ClientConnectionState::Exhausted;
+}
 QString ClientModels::mainChatIdentifier() const
 {
     return m_mainChat > 0 ? QString::number(m_mainChat) : QString{};

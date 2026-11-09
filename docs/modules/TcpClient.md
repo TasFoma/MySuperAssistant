@@ -107,5 +107,7 @@ sendRequest назначает ID, который не переиспользу�
 Это транспортная библиотека. [ClientProtocol](ClientProtocol.md) разбирает данные,
 [ClientModels](ClientModels.md) отображают их, DesktopClientController связывает
 объекты в apps без зависимости UI от infra. Постоянные клиентские настройки,
-создание связки в main desktop/mobile, кнопка и экраны остаются следующими шагами.
+создание связки в main desktop/mobile и экраны остаются следующими шагами.
+Общий ConnectionBanner уже передаёт явное действие переподключения через
+ClientModels; его подключение к пользовательскому окну ещё впереди.
 

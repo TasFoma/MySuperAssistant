@@ -50,3 +50,23 @@ if(WIN32)
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
     )
 endif()
+
+add_executable(msa_ui_tests UiTestMain.cpp CommonComponentsTest.cpp)
+target_compile_features(msa_ui_tests PRIVATE cxx_std_20)
+target_link_libraries(msa_ui_tests PRIVATE msa_ui_common msa_ui_commonplugin GTest::gtest)
+msa_apply_warnings(msa_ui_tests)
+qt_add_resources(msa_ui_tests "common_component_tests"
+    PREFIX /tests
+    FILES qml/CommonComponentsGallery.qml
+)
+gtest_add_tests(TARGET msa_ui_tests SOURCES CommonComponentsTest.cpp TEST_LIST msaUiTests)
+set_tests_properties(${msaUiTests} PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QT_FORCE_STDERR_LOGGING=1"
+    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
+)
+if(WIN32)
+    set_tests_properties(${msaUiTests} PROPERTIES
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+    )
+    set_property(TEST ${msaUiTests} APPEND PROPERTY ENVIRONMENT "QT_QPA_FONTDIR=$ENV{WINDIR}/Fonts")
+endif()

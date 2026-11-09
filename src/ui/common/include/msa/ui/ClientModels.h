@@ -30,6 +30,7 @@ class ClientModels final : public QObject
     Q_PROPERTY(msa::ui::ClientListModel* routes READ routes CONSTANT)
     Q_PROPERTY(bool online READ online NOTIFY connectionChanged)
     Q_PROPERTY(bool serverActionsEnabled READ online NOTIFY connectionChanged)
+    Q_PROPERTY(bool reconnectAvailable READ reconnectAvailable NOTIFY connectionChanged)
     Q_PROPERTY(QString connectionState READ connectionState NOTIFY connectionChanged)
     Q_PROPERTY(QString statusText READ statusText NOTIFY connectionChanged)
     Q_PROPERTY(QString mainChatIdentifier READ mainChatIdentifier NOTIFY metadataChanged)
@@ -67,6 +68,8 @@ public:
     [[nodiscard]] ClientListModel* routes();
     /// @brief Готовы транспорт и проверенный снимок текущей сессии.
     [[nodiscard]] bool online() const;
+    /// @brief Кнопка ручного подключения доступна после отключения или исчерпания пяти попыток.
+    [[nodiscard]] bool reconnectAvailable() const;
     /// @brief Машинное имя состояния для QML.
     [[nodiscard]] QString connectionState() const;
     /// @brief Русский текст состояния, попытки и задержки.

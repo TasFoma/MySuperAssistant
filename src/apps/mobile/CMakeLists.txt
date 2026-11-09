@@ -3,5 +3,5 @@ qt_add_executable(msa_mobile
 )
 
 target_compile_features(msa_mobile PRIVATE cxx_std_20)
-target_link_libraries(msa_mobile PRIVATE msa_ui_mobile msa_ui_common msa_infra msa_core Qt6::Gui)
+target_link_libraries(msa_mobile PRIVATE msa_ui_mobile msa_ui_common msa_ui_commonplugin msa_infra msa_core Qt6::Gui)
 msa_apply_warnings(msa_mobile)

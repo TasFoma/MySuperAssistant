@@ -4,7 +4,7 @@
 
 Слои core/infra/ui собраны отдельными статическими библиотеками. Сервер работает
 без окна через QCoreApplication; desktop/mobile пока содержат цикл приложения
-без QML и экранов. Правила сборки сервера — решение 49.
+без пользовательских окон и экранов. Правила сборки сервера — решение 49.
 
 core содержит типы и сервисы планировщика, чата, ментора, памяти, дневника,
 контекста LLM и навигации. Он не использует Qt, файлы или сеть; исключение из
@@ -52,7 +52,10 @@ flowchart TD
     support --> core[msa_core]
     desktop[msa_desktop] --> desktopUI[msa_ui_desktop: заглушка]
     desktop --> desktopSupport[msa_desktop_support: связка клиента]
-    desktopSupport --> common[msa_ui_common: C++ модели]
+    desktopSupport --> common[msa_ui_common: C++ модели и QML]
+    desktop --> plugin[msa_ui_commonplugin: Msa.Ui.Common]
+    mobile --> plugin
+    plugin --> common
     desktopSupport --> infra
     desktopSupport --> core
     desktop --> gui[Qt6::Gui]
@@ -75,6 +78,7 @@ flowchart TD
     infraTests[msa_infra_tests] --> support
     infraTests --> infra
     infraTests --> desktopSupport
+    uiTests[msa_ui_tests: offscreen] --> plugin
     infraTests -. QProcess .-> server
 ```
 
@@ -82,7 +86,10 @@ UI зависит только от core и Qt Quick; прямой связи с
 раз в корневом CMake и нужен для конфигурации всего проекта. Сервер получает
 Qt Core/Sql/Network транзитивно через infra. При ANDROID подключаются mobile
 и общий UI, иначе — сервер, desktop и тесты. Все цели требуют C++20.
-QML-файлов и qt_add_qml_module пока нет.
+Общий модуль Msa.Ui.Common создаётся через qt_add_qml_module; статический плагин
+линкуется и импортируется в desktop/mobile. Theme.qml хранит визуальные токены,
+компоненты отображают свойства и испускают пользовательские действия.
+Тестовая галерея отделена от будущих экранов: [CommonQml](modules/CommonQml.md).
 
 ## Поток данных сервера
 
@@ -190,7 +197,8 @@ sequenceDiagram
 | SqliteReminderRepository | SQLite-хранилище временных, повторяющихся и геонапоминаний с общими ID | `src/infra/include/msa/infra/SqliteReminderRepository.h`, `src/infra/src/SqliteReminderRepository.cpp` |
 | SqliteHabitRepository | SQLite-хранилище привычек и журнала с каскадным удалением | `src/infra/include/msa/infra/SqliteHabitRepository.h`, `src/infra/src/SqliteHabitRepository.cpp` |
 | Тесты инфраструктуры | QCoreApplication и временные файловые базы, откат схемы и операций | `tests/infra/` |
-| Общий, desktop и mobile UI | Пустые библиотеки, без компонентов и экранов | `src/ui/common/`, `src/ui/desktop/`, `src/ui/mobile/` |
+| Общие QML-компоненты | Тёмная тема, элементы управления, карточки и состояния | `src/ui/common/qml/` |
+| Desktop и mobile UI | Заглушки экранов | `src/ui/desktop/`, `src/ui/mobile/` |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
 
 Контракты репозиториев: поиск возвращает `optional`, списки — независимые копии без
