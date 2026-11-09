@@ -1,4 +1,5 @@
 add_library(msa_infra_voice STATIC
+    include/msa/infra/SpeechEngineFactory.h
     include/msa/infra/QtSpeechSynthesizer.h
     src/QtSpeechSynthesizer.cpp
     include/msa/infra/ProcessSpeechRecognizer.h
@@ -8,9 +9,14 @@ add_library(msa_infra_voice STATIC
     src/VoiceProtocol.cpp
     src/JsonVoicePreferences.cpp
 )
+if(WIN32)
+    target_sources(msa_infra_voice PRIVATE ../platform/windows/src/WindowsSpeechEngine.cpp)
+else()
+    target_sources(msa_infra_voice PRIVATE src/DefaultSpeechEngine.cpp)
+endif()
 target_compile_features(msa_infra_voice PUBLIC cxx_std_20)
 target_include_directories(msa_infra_voice PUBLIC include)
-target_link_libraries(msa_infra_voice PUBLIC msa_core Qt6::Network Qt6::TextToSpeech)
+target_link_libraries(msa_infra_voice PUBLIC msa_core Qt6::Network Qt6::TextToSpeech Qt6::Multimedia)
 msa_apply_warnings(msa_infra_voice)
 
 if(TARGET msa_vosk)

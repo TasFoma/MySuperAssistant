@@ -104,3 +104,9 @@ QtSpeechSynthesizer и SpeechController принадлежат runtime; конт
 Конструктор не создаёт движок Qt и не воспроизводит звук. stop останавливает речь,
 контроллер отписывает обработчик до уничтожения backend. Смена сервера на озвучку
 не влияет. Кнопки и ограничения — [SpeechSynthesizer](SpeechSynthesizer.md).
+
+AudioDevices и AudioDevicesController восстанавливают выбранные вход/выход до
+голосовых/музыкальных параметров. audioSettingsPath по умолчанию указывает на
+audio.settings.json рядом с клиентскими настройками. Перечисление и восстановление
+не начинают запись/озвучку; смена сервера не меняет устройства. Контроллер применяет
+каталог к AudioDevicesModel и маршруты к трём backend; подробности — [AudioDevices](AudioDevices.md).

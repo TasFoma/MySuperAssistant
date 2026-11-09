@@ -1,6 +1,7 @@
 #pragma once
 
 #include "msa/core/ClientPreferences.h"
+#include "msa/ui/AudioDevicesModel.h"
 #include "msa/ui/ClientModels.h"
 #include "msa/ui/MusicModel.h"
 #include "msa/ui/PlannerEditor.h"
@@ -16,6 +17,7 @@ namespace msa::ui
 class DesktopState final : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(msa::ui::AudioDevicesModel* audioDevices READ audioDevices CONSTANT)
     Q_PROPERTY(int page READ page NOTIFY pageChanged)
     Q_PROPERTY(QStringList pages READ pages CONSTANT)
     Q_PROPERTY(QString host READ host NOTIFY preferencesChanged)
@@ -28,6 +30,8 @@ class DesktopState final : public QObject
     Q_PROPERTY(msa::ui::MusicModel* music READ music CONSTANT)
     Q_PROPERTY(msa::ui::VoiceModel* voice READ voice CONSTANT)
 public:
+    /// @brief Модель выбора локального ввода/вывода, доступная без сервера.
+    [[nodiscard]] AudioDevicesModel* audioDevices();
     /// @brief Принимает общие модели, живущие дольше состояния экрана.
     explicit DesktopState(ClientModels& models, QObject* parent = nullptr);
     /// @brief Единая форма действий планировщика.
@@ -67,12 +71,13 @@ signals:
     void preferencesChanged();                                    ///< @brief Изменены сохранённые параметры.
     void settingsMessageChanged();                                ///< @brief Изменён результат операции с настройками.
     void saveRequested(msa::core::ClientPreferences preferences); ///< @brief Проверенные параметры для записи.
-    void connectRequested(); ///< @brief Явное применение сохранённых параметров.
+    void connectRequested();                                      ///< @brief Явное применение сохранённых параметров.
 private:
     ClientModels& m_models;
     PlannerEditor m_planner{m_models, this};
     MusicModel m_music{this};
     VoiceModel m_voice{this};
+    AudioDevicesModel m_audioDevices{this};
     int m_page{0};
     core::ClientPreferences m_preferences{};
     QString m_settingsMessage{};

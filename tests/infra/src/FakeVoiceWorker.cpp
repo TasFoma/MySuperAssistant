@@ -61,6 +61,12 @@ void FakeVoiceWorker::receive()
         if (type == "load")
         {
             m_scenario = QFileInfo{message.value("model").toString()}.fileName();
+            if (m_scenario == "device" &&
+                message.value("input_device").toString().toLatin1() != QByteArray{"test-mic"}.toBase64())
+            {
+                send({{"type", "error"}, {"message", "Микрофон не передан"}});
+                continue;
+            }
             if (m_scenario == "loading_timeout")
             {
                 continue;
@@ -80,6 +86,14 @@ void FakeVoiceWorker::receive()
         else if (type == "start")
         {
             const auto session = msa::infra::VoiceProtocol::session(message);
+            if (m_scenario == "empty" || m_scenario == "bad_level")
+            {
+                send({{"type", "level"},
+                      {"session", QString::number(session)},
+                      {"value", m_scenario == "empty" ? 0.25 : 1.5}});
+                send({{"type", "done"}, {"session", QString::number(session)}});
+                continue;
+            }
             if (m_scenario == "crash")
             {
                 QCoreApplication::exit(9);

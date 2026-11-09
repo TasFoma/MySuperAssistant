@@ -13,6 +13,7 @@
 #include <QQuickView>
 #include <QThread>
 
+#include <algorithm>
 #include <optional>
 
 namespace
@@ -385,6 +386,58 @@ TEST_F(DesktopScreensTest, MusicRemainsUsableAcrossAllPagesAndDisconnectedSessio
     EXPECT_FALSE(music->errorText().isEmpty());
     EXPECT_TRUE(m_models.errorText().isEmpty());
 }
+TEST_F(DesktopScreensTest, AudioDeviceControlsChooseIdsOnlyOnUserActivationAndRefreshOffline)
+{
+    auto* devices = m_state.audioDevices();
+    msa::core::AudioDevicesState state;
+    state.inputs = {{"", "По умолчанию", true}, {"YQ==", "Микрофон гарнитуры", true}};
+    state.outputs = {{"", "По умолчанию", true}, {"Yg==", "Наушники", true}};
+    std::vector<QString> selections;
+    int refreshes{};
+    QObject::connect(devices, &msa::ui::AudioDevicesModel::selectionRequested, &m_view,
+                     [&selections](bool, const QString& identifier) { selections.push_back(identifier); });
+    QObject::connect(devices, &msa::ui::AudioDevicesModel::refreshRequested, &m_view, [&refreshes] { ++refreshes; });
+    devices->applyState(state);
+    m_state.navigate(3);
+    QGuiApplication::processEvents();
+    ASSERT_TRUE(selections.empty());
+    auto* input = item("inputDeviceCombo");
+    ASSERT_NE(input, nullptr);
+    input->forceActiveFocus(Qt::TabFocusReason);
+    QKeyEvent press{QEvent::KeyPress, Qt::Key_Down, Qt::NoModifier};
+    QKeyEvent release{QEvent::KeyRelease, Qt::Key_Down, Qt::NoModifier};
+    QGuiApplication::sendEvent(&m_view, &press);
+    QGuiApplication::sendEvent(&m_view, &release);
+    ASSERT_FALSE(selections.empty());
+    EXPECT_EQ(selections.back(), "YQ==");
+    auto* output = item("outputDeviceCombo");
+    ASSERT_NE(output, nullptr);
+    output->forceActiveFocus(Qt::TabFocusReason);
+    QGuiApplication::sendEvent(&m_view, &press);
+    QGuiApplication::sendEvent(&m_view, &release);
+    EXPECT_EQ(selections.back(), "Yg==");
+    activate(item("refreshAudioDevicesButton"));
+    EXPECT_EQ(refreshes, 1);
+    const auto count = selections.size();
+    state.preferences = {"YQ==", "Yg=="};
+    devices->applyState(state);
+    EXPECT_EQ(selections.size(), count);
+    auto* scroll = item("settingsScroll");
+    ASSERT_NE(scroll, nullptr);
+    auto* flickable = scroll->property("contentItem").value<QQuickItem*>();
+    ASSERT_NE(flickable, nullptr);
+    const auto maximum = std::max(0.0, flickable->property("contentHeight").toDouble() - flickable->height());
+    const auto position = std::clamp(input->mapToItem(flickable, QPointF{}).y(), 0.0, maximum);
+    ASSERT_TRUE(flickable->setProperty("contentY", position));
+    QElapsedTimer timer;
+    timer.start();
+    while (timer.elapsed() < kLayoutSettleMilliseconds)
+    {
+        QGuiApplication::processEvents();
+        QThread::msleep(1);
+    }
+    EXPECT_TRUE(m_view.grabWindow().save("audio-devices-preview.png"));
+}
 TEST_F(DesktopScreensTest, MessageSpeechIsExplicitWorksOfflineAndCanBeStopped)
 {
     msa::core::ClientSnapshot snapshot;
@@ -456,6 +509,18 @@ TEST_F(DesktopScreensTest, DictationChangesDraftOfflineAndNeverSendsServerAction
     ASSERT_EQ(commands.size(), 1);
     EXPECT_EQ(commands.back(), msa::core::RecognitionCommand::Start);
     voice->applyEvent({msa::core::RecognitionEvent::Kind::State, msa::core::RecognitionState::Recording, {}});
+    voice->applyEvent({msa::core::RecognitionEvent::Kind::Level, msa::core::RecognitionState::Recording, {}, 0.6});
+    QElapsedTimer levelTimer;
+    levelTimer.start();
+    while (levelTimer.elapsed() < kLayoutSettleMilliseconds)
+    {
+        QGuiApplication::processEvents();
+        QThread::msleep(1);
+    }
+    ASSERT_NE(item("microphoneLevel"), nullptr);
+    EXPECT_TRUE(item("microphoneLevel")->isVisible());
+    EXPECT_DOUBLE_EQ(item("microphoneLevel")->property("value").toDouble(), 0.6);
+    EXPECT_TRUE(m_view.grabWindow().save("microphone-level-preview.png"));
     activate(item("voiceFinishButton"));
     EXPECT_EQ(commands.back(), msa::core::RecognitionCommand::Finish);
     voice->applyEvent(

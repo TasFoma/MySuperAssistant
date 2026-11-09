@@ -20,6 +20,7 @@ class VoiceModel final : public QObject
     Q_PROPERTY(bool canFinish READ canFinish NOTIFY statusChanged)
     Q_PROPERTY(bool canCancel READ canCancel NOTIFY statusChanged)
     Q_PROPERTY(bool speaking READ speaking NOTIFY statusChanged)
+    Q_PROPERTY(double inputLevel READ inputLevel NOTIFY statusChanged)
 public:
     explicit VoiceModel(QObject* parent = nullptr);
     /// @brief Применяет только успешно прочитанный или сохранённый путь.
@@ -29,6 +30,8 @@ public:
     /// @brief Обновляет состояние локальной озвучки без изменения черновика.
     void applySpeechEvent(const core::SpeechEvent& event);
     [[nodiscard]] bool speaking() const;
+    /// @brief Пиковый уровень входа во время записи, от 0 до 1.
+    [[nodiscard]] double inputLevel() const;
     /// @brief Независимая от сетевой ошибки диагностика голоса.
     void setError(const QString& message);
     [[nodiscard]] QString modelPath() const;
@@ -64,5 +67,6 @@ private:
     QString m_error{};
     core::RecognitionState m_state{core::RecognitionState::Unconfigured};
     bool m_speaking{false};
+    double m_inputLevel{};
 };
 } // namespace msa::ui

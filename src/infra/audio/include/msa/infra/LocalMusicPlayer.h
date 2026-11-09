@@ -3,6 +3,7 @@
 #include "msa/core/MusicData.h"
 #include "msa/core/MusicPlaylist.h"
 
+#include <QAudioDevice>
 #include <QAudioOutput>
 #include <QMediaPlayer>
 #include <QObject>
@@ -29,6 +30,8 @@ public:
     void restore();
     /// @brief Выполняет явное действие пользователя в потоке владельца.
     void execute(const core::MusicCommand& command);
+    /// @brief Меняет только вывод; недоступный выбор останавливает звук без скрытой подмены.
+    void setOutputDevice(const QAudioDevice& device);
 signals:
     void stateChanged(msa::core::MusicState state);         ///< @brief Новый снимок плеера.
     void scanRequested(QString folder, quint64 generation); ///< @brief Запрос рабочему потоку.
@@ -58,5 +61,6 @@ private:
     bool m_terminalQueued{false};
     QString m_settingsError{};
     QString m_mediaError{};
+    bool m_outputAvailable{true};
 };
 } // namespace msa::infra

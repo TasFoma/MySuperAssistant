@@ -87,6 +87,14 @@ void VoiceModel::setDraft(const QString& text)
 void VoiceModel::applyEvent(const core::RecognitionEvent& event)
 {
     m_state = event.state;
+    if (event.kind == core::RecognitionEvent::Kind::Level)
+    {
+        m_inputLevel = event.level;
+    }
+    if (m_state != core::RecognitionState::Recording)
+    {
+        m_inputLevel = 0;
+    }
     if (event.kind == core::RecognitionEvent::Kind::Error)
     {
         m_error = QString::fromStdString(event.text);
@@ -147,6 +155,10 @@ void VoiceModel::cancel()
 bool VoiceModel::speaking() const
 {
     return m_speaking;
+}
+double VoiceModel::inputLevel() const
+{
+    return m_inputLevel;
 }
 void VoiceModel::applySpeechEvent(const core::SpeechEvent& event)
 {

@@ -32,6 +32,8 @@ public:
     ~ProcessSpeechRecognizer() override;
     void setHandler(core::RecognitionHandler handler) override;
     void configure(const std::string& modelPath) override;
+    /// @brief Применяет Base64 ID микрофона либо системный выбор; отменяет прежнюю запись.
+    void setInputDevice(const QString& identifier);
     void start() override;
     void finish() override;
     void cancel() override;
@@ -47,12 +49,13 @@ private:
     void send(QJsonObject object);
     void fail(const QString& message);
     void setState(core::RecognitionState state);
-    void notify(core::RecognitionEvent::Kind kind, const QString& text = {});
+    void notify(core::RecognitionEvent::Kind kind, const QString& text = {}, double level = 0);
 
 private:
     QString m_executable;
     RecognitionTimeouts m_timeouts;
     QString m_modelPath{};
+    QString m_inputDevice{};
     core::RecognitionHandler m_handler{};
     core::RecognitionState m_state{core::RecognitionState::Unconfigured};
     QLocalServer m_listener{this};

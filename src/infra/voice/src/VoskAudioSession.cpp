@@ -4,7 +4,10 @@
 #include <QAudioFormat>
 #include <QMediaDevices>
 #include <QTimer>
+#include <QtEndian>
 
+#include <algorithm>
+#include <cmath>
 #include <exception>
 #include <stdexcept>
 
@@ -17,6 +20,8 @@ constexpr int kChannels = 1;
 constexpr qsizetype kBytesPerSample = 2;
 constexpr qint64 kQuantumBytes = 8000;
 constexpr qint64 kMaximumBufferedBytes = kQuantumBytes * 4;
+constexpr qint64 kLevelIntervalMilliseconds = 100;
+constexpr double kPcmScale = 32768;
 } // namespace
 VoskAudioSession::VoskAudioSession(QObject* parent) : QObject{parent} {}
 VoskAudioSession::~VoskAudioSession()
@@ -48,7 +53,14 @@ void VoskAudioSession::start()
         {
             throw std::runtime_error{"Модель ещё не загружена."};
         }
-        const auto device = QMediaDevices::defaultAudioInput();
+        auto device = QMediaDevices::defaultAudioInput();
+        if (!m_inputDevice.isEmpty())
+        {
+            const auto devices = QMediaDevices::audioInputs();
+            const auto found =
+                std::ranges::find_if(devices, [this](const QAudioDevice& item) { return item.id() == m_inputDevice; });
+            device = found == devices.end() ? QAudioDevice{} : *found;
+        }
         if (device.isNull())
         {
             throw std::runtime_error{"Микрофон не найден."};
@@ -63,6 +75,7 @@ void VoskAudioSession::start()
         }
         m_decoder->begin();
         m_pending.clear();
+        m_levelTimer.invalidate();
         m_audio = new QAudioSource{device, format, this};
         auto* source = m_audio.data();
         source->setBufferSize(kMaximumBufferedBytes);
@@ -82,11 +95,17 @@ void VoskAudioSession::start()
             throw std::runtime_error{"Не удалось открыть микрофон."};
         }
         connect(m_input, &QIODevice::readyRead, this, [this] { readAudio(); });
+        readAudio();
     }
     catch (const std::exception& error)
     {
         fail(QString::fromUtf8(error.what()));
     }
+}
+void VoskAudioSession::setInputDevice(const QByteArray& identifier)
+{
+    stop();
+    m_inputDevice = identifier;
 }
 void VoskAudioSession::stop()
 {
@@ -112,6 +131,16 @@ void VoskAudioSession::finish()
     }
     try
     {
+        // Забираем остаток уже захваченного PCM до FinalResult, не ожидая нового звука.
+        for (qint64 remaining{kMaximumBufferedBytes};
+             remaining > 0 && m_recording && m_input && m_input->bytesAvailable() > 0; remaining -= kQuantumBytes)
+        {
+            readAudio();
+        }
+        if (!m_recording)
+        {
+            return;
+        }
         complete(m_decoder->finish());
     }
     catch (const std::exception& error)
@@ -131,12 +160,29 @@ void VoskAudioSession::readAudio()
         {
             throw std::runtime_error{"Распознавание не успевает за записью. Повторите попытку."};
         }
-        m_pending += m_input->read(kQuantumBytes);
+        const auto bytes = m_input->read(kQuantumBytes);
+        if (bytes.isEmpty() && m_input->bytesAvailable() > 0)
+        {
+            throw std::runtime_error{"Не удалось прочитать звук микрофона."};
+        }
+        m_pending += bytes;
         const auto length = m_pending.size() - m_pending.size() % kBytesPerSample;
         if (length > 0)
         {
             const auto pcm = m_pending.first(length);
             m_pending.remove(0, length);
+            if (!m_levelTimer.isValid() || m_levelTimer.elapsed() >= kLevelIntervalMilliseconds)
+            {
+                int peak{};
+                for (qsizetype offset{}; offset < pcm.size(); offset += kBytesPerSample)
+                {
+                    const auto sample =
+                        qFromLittleEndian<qint16>(reinterpret_cast<const uchar*>(pcm.constData() + offset));
+                    peak = std::max(peak, std::abs(static_cast<int>(sample)));
+                }
+                m_levelTimer.start();
+                emit levelChanged(peak / kPcmScale);
+            }
             if (const auto text = m_decoder->accept(pcm))
             {
                 complete(*text);

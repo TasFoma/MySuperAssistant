@@ -48,6 +48,57 @@ void settle()
         QThread::msleep(1);
     }
 }
+TEST(AudioInputRecognizerTest, SelectedMicrophoneReachesWorkerAndChangingItCancelsRecording)
+{
+    msa::infra::ProcessSpeechRecognizer recognizer{QString::fromUtf8(MSA_FAKE_VOICE_WORKER)};
+    int texts{};
+    recognizer.setHandler(
+        [&texts](const msa::core::RecognitionEvent& event)
+        {
+            if (event.kind == Kind::Text)
+            {
+                ++texts;
+            }
+        });
+    recognizer.setInputDevice(QString::fromLatin1(QByteArray{"test-mic"}.toBase64()));
+    recognizer.configure(QFileInfo{"device"}.absoluteFilePath().toStdString());
+    recognizer.start();
+    ASSERT_TRUE(waitFor([&texts] { return texts == 1; }));
+    recognizer.configure(QFileInfo{"finish"}.absoluteFilePath().toStdString());
+    recognizer.start();
+    ASSERT_TRUE(waitFor([&recognizer] { return recognizer.state() == State::Recording; }));
+    recognizer.setInputDevice({});
+    EXPECT_EQ(recognizer.state(), State::Idle);
+    settle();
+    EXPECT_EQ(texts, 1);
+}
+TEST(AudioInputRecognizerTest, LevelAndEmptyResultAreReportedAndInvalidLevelFails)
+{
+    msa::infra::ProcessSpeechRecognizer recognizer{QString::fromUtf8(MSA_FAKE_VOICE_WORKER)};
+    double level{};
+    std::string error;
+    recognizer.setHandler(
+        [&level, &error](const msa::core::RecognitionEvent& event)
+        {
+            if (event.kind == Kind::Level)
+            {
+                level = event.level;
+            }
+            if (event.kind == Kind::Error)
+            {
+                error = event.text;
+            }
+        });
+    recognizer.configure(QFileInfo{"empty"}.absoluteFilePath().toStdString());
+    recognizer.start();
+    ASSERT_TRUE(waitFor([&error] { return !error.empty(); }));
+    EXPECT_DOUBLE_EQ(level, 0.25);
+    EXPECT_NE(error.find("не распознана"), std::string::npos);
+    EXPECT_EQ(recognizer.state(), State::Ready);
+    recognizer.configure(QFileInfo{"bad_level"}.absoluteFilePath().toStdString());
+    recognizer.start();
+    ASSERT_TRUE(waitFor([&recognizer] { return recognizer.state() == State::Failed; }));
+}
 TEST(VoiceProtocolTest, PreservesSplitUtf8MultipleFramesAndLargeIdentifiers)
 {
     QByteArray pending;

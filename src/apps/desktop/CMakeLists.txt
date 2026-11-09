@@ -1,4 +1,6 @@
 add_library(msa_desktop_support STATIC
+    include/msa/desktop/AudioDevicesController.h
+    src/AudioDevicesController.cpp
     include/msa/desktop/SpeechController.h
     src/SpeechController.cpp
     include/msa/desktop/VoiceController.h

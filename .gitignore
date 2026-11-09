@@ -5,6 +5,8 @@ CMakeUserPresets.json
 server.local.json
 client.settings.json
 music.settings.json
+voice.settings.json
+audio.settings.json
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal

@@ -2,6 +2,7 @@
 
 #include "msa/core/SpeechSynthesizer.h"
 
+#include <QAudioDevice>
 #include <QObject>
 #include <QString>
 #include <QTextToSpeech>
@@ -20,6 +21,8 @@ public:
     void setHandler(core::SpeechHandler handler) override;
     void speak(const std::string& text) override;
     void stop() override;
+    /// @brief Смена вывода останавливает речь; системный выбор сохраняет штатный движок.
+    void setOutputDevice(const QAudioDevice& device, bool systemDefault);
 
 private:
     void initialize();
@@ -33,5 +36,8 @@ private:
     QString m_pending{};
     bool m_requested{false};
     bool m_playing{false};
+    QAudioDevice m_outputDevice{};
+    bool m_systemDefault{true};
+    bool m_outputConfigured{false};
 };
 } // namespace msa::infra

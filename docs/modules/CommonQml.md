@@ -53,6 +53,9 @@ HTML в сообщениях не исполняется: используетс
 Android пока не проверен.
 
 VoiceModel также предоставляет команды озвучки сообщения/остановки и состояние speaking.
+AudioDevicesModel предоставляет имена, выбранные индексы и действия устройств;
+применение каталога не испускает команды. VoiceModel показывает уровень входного PCM
+только во время записи. Каталог/файлы остаются в infra: [AudioDevices](AudioDevices.md).
 MessageBubble испускает speakRequested, когда экран включил speechEnabled;
 сам компонент backend не вызывает. Подробнее — [SpeechSynthesizer](SpeechSynthesizer.md).
 

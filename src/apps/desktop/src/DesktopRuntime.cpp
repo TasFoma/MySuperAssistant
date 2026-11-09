@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+
 #include <exception>
 #include <utility>
 
@@ -33,7 +34,12 @@ DesktopRuntime::DesktopRuntime(DesktopRuntimeOptions options, QObject* parent) :
     m_player{m_options.musicSettingsPath, m_options.musicSeed, this}, m_music{*m_state.music(), m_player, this},
     m_recognizer{voiceWorker(m_options), {}, this}, m_synthesizer{{}, this},
     m_speech{*m_state.voice(), m_synthesizer, m_recognizer, this},
-    m_voice{*m_state.voice(), m_recognizer, voiceSettings(m_options), this}
+    m_voice{*m_state.voice(), m_recognizer, voiceSettings(m_options), this},
+    m_audioDevices{m_options.audioSettingsPath.isEmpty()
+                       ? QFileInfo{m_options.clientSettingsPath}.absoluteDir().filePath("audio.settings.json")
+                       : m_options.audioSettingsPath,
+                   this},
+    m_audioController{*m_state.audioDevices(), m_audioDevices, m_player, m_recognizer, m_synthesizer, this}
 {
     connect(&m_state, &ui::DesktopState::connectRequested, this, [this]() { connectSaved(); });
     connect(&m_models, &ui::ClientModels::reconnectRequested, this, [this]() { connectSaved(); });
@@ -58,6 +64,7 @@ void DesktopRuntime::start()
     }
     m_started = true;
     m_preferences.load();
+    m_audioDevices.restore();
     m_music.restore();
     m_voice.restore();
     if (m_state.canConnect() && m_state.autoConnect())

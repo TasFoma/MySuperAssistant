@@ -124,6 +124,17 @@ Item {
                     visible: root.voice.canCancel
                     onClicked: root.voice.cancel()
                 }
+                Controls.ProgressBar {
+                    objectName: "microphoneLevel"
+                    Layout.preferredWidth: Theme.controlHeight * 2
+                    visible: root.voice.canFinish
+                    from: 0
+                    to: 1
+                    value: root.voice.inputLevel
+                    palette.dark: Theme.accent
+                    palette.midlight: Theme.raised
+                    Accessible.name: "Уровень микрофона"
+                }
                 Text {
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0

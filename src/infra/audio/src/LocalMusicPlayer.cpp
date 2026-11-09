@@ -49,11 +49,34 @@ core::MusicState LocalMusicPlayer::state() const
             m_preferences.volume,
             m_player && m_player->playbackState() == QMediaPlayer::PlayingState,
             m_scanning,
-            error.trimmed().toStdString()};
+            (error + (m_outputAvailable
+                          ? QString{}
+                          : QString::fromUtf8(" Выбранное устройство вывода недоступно. Проверьте настройки звука.")))
+                .trimmed()
+                .toStdString()};
 }
 void LocalMusicPlayer::publish()
 {
     emit stateChanged(state());
+}
+void LocalMusicPlayer::setOutputDevice(const QAudioDevice& device)
+{
+    const auto wasAvailable = m_outputAvailable;
+    m_outputAvailable = !device.isNull();
+    if (!m_outputAvailable)
+    {
+        stopPlayer();
+        publish();
+        return;
+    }
+    if (m_audio.device() != device)
+    {
+        m_audio.setDevice(device);
+    }
+    if (!wasAvailable)
+    {
+        publish();
+    }
 }
 void LocalMusicPlayer::restore()
 {
@@ -158,6 +181,11 @@ void LocalMusicPlayer::stopPlayer()
 void LocalMusicPlayer::playCurrent()
 {
     stopPlayer();
+    if (!m_outputAvailable)
+    {
+        publish();
+        return;
+    }
     const auto* track = m_playlist.current();
     if (!track)
     {

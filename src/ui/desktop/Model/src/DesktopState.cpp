@@ -1,6 +1,7 @@
 #include "msa/ui/DesktopState.h"
 
 #include <QDate>
+
 #include <algorithm>
 
 namespace msa::ui
@@ -26,6 +27,10 @@ MusicModel* DesktopState::music()
 VoiceModel* DesktopState::voice()
 {
     return &m_voice;
+}
+AudioDevicesModel* DesktopState::audioDevices()
+{
+    return &m_audioDevices;
 }
 QStringList DesktopState::pages() const
 {

@@ -1,9 +1,12 @@
 #include "msa/infra/QtSpeechSynthesizer.h"
 
+#include "msa/infra/SpeechEngineFactory.h"
+
 #include <QLocale>
 #include <QTimer>
 #include <QVoice>
 
+#include <exception>
 #include <utility>
 
 namespace msa::infra
@@ -35,7 +38,7 @@ void QtSpeechSynthesizer::notify(core::SpeechState state, const QString& error)
 }
 void QtSpeechSynthesizer::initialize()
 {
-    m_engine = std::make_unique<QTextToSpeech>(m_engineName);
+    m_engine = createSpeechEngine(m_engineName, m_outputDevice, m_systemDefault);
     connect(m_engine.get(), &QTextToSpeech::errorOccurred, this,
             [this](QTextToSpeech::ErrorReason reason, const QString& message)
             {
@@ -77,9 +80,22 @@ void QtSpeechSynthesizer::speak(const std::string& text)
         return;
     }
     stop();
+    if (m_outputConfigured && m_outputDevice.isNull())
+    {
+        notify(core::SpeechState::Failed, "Выбранное устройство вывода недоступно. Проверьте настройки звука.");
+        return;
+    }
     if (!m_engine)
     {
-        initialize();
+        try
+        {
+            initialize();
+        }
+        catch (const std::exception& error)
+        {
+            notify(core::SpeechState::Failed, QString::fromUtf8(error.what()));
+            return;
+        }
     }
     if (m_engine->state() == QTextToSpeech::Error)
     {
@@ -90,6 +106,28 @@ void QtSpeechSynthesizer::speak(const std::string& text)
     m_requested = true;
     notify(core::SpeechState::Speaking);
     QTimer::singleShot(0, this, [this] { ready(); });
+}
+void QtSpeechSynthesizer::setOutputDevice(const QAudioDevice& device, bool systemDefault)
+{
+    if (m_outputConfigured && m_outputDevice == device && m_systemDefault == systemDefault)
+    {
+        return;
+    }
+    const auto wasRequested = std::exchange(m_requested, false);
+    m_pending.clear();
+    m_playing = false;
+    if (m_engine)
+    {
+        m_engine->stop(QTextToSpeech::BoundaryHint::Immediate);
+    }
+    m_engine.reset();
+    m_outputDevice = device;
+    m_systemDefault = systemDefault;
+    m_outputConfigured = true;
+    if (wasRequested)
+    {
+        notify(core::SpeechState::Idle);
+    }
 }
 void QtSpeechSynthesizer::ready()
 {

@@ -1,4 +1,8 @@
 add_library(msa_infra_audio STATIC
+    include/msa/infra/AudioDevices.h
+    include/msa/infra/JsonAudioDevicePreferences.h
+    src/AudioDevices.cpp
+    src/JsonAudioDevicePreferences.cpp
     include/msa/infra/JsonMusicPreferences.h
     include/msa/infra/LocalMusicPlayer.h
     include/msa/infra/detail/MusicLibraryScanner.h

@@ -6,6 +6,7 @@ import Msa.Ui.Common 1.0
 
 Controls.ScrollView {
     id: root
+    objectName: "settingsScroll"
     required property var desktop
     clip: true
     contentWidth: availableWidth
@@ -84,7 +85,50 @@ Controls.ScrollView {
             ColumnLayout {
                 width: parent.width
                 spacing: Theme.spaceMedium
-                SectionHeader { Layout.fillWidth: true; title: "Голосовой ввод"; description: "Локальная модель Vosk. Запись включается кнопкой в чате." }
+                SectionHeader { Layout.fillWidth: true; title: "Звук и голосовой ввод"; description: "Устройства сохраняются сразу. Запись включается только кнопкой в чате." }
+                SectionHeader { Layout.fillWidth: true; description: "Микрофон" }
+                Controls.ComboBox {
+                    objectName: "inputDeviceCombo"
+                    Layout.fillWidth: true
+                    implicitHeight: Theme.controlHeight
+                    model: root.desktop.audioDevices.inputNames
+                    currentIndex: root.desktop.audioDevices.inputIndex
+                    onActivated: index => root.desktop.audioDevices.selectInput(index)
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontBody
+                    palette.button: Theme.raised
+                    palette.buttonText: Theme.text
+                    palette.text: Theme.text
+                    palette.base: Theme.surface
+                    palette.highlight: Theme.accent
+                    palette.highlightedText: Theme.accentText
+                    Accessible.name: "Микрофон для диктовки"
+                }
+                SectionHeader { Layout.fillWidth: true; description: "Динамики или наушники — музыка и озвучка" }
+                Controls.ComboBox {
+                    objectName: "outputDeviceCombo"
+                    Layout.fillWidth: true
+                    implicitHeight: Theme.controlHeight
+                    model: root.desktop.audioDevices.outputNames
+                    currentIndex: root.desktop.audioDevices.outputIndex
+                    onActivated: index => root.desktop.audioDevices.selectOutput(index)
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontBody
+                    palette.button: Theme.raised
+                    palette.buttonText: Theme.text
+                    palette.text: Theme.text
+                    palette.base: Theme.surface
+                    palette.highlight: Theme.accent
+                    palette.highlightedText: Theme.accentText
+                    Accessible.name: "Устройство вывода музыки и речи"
+                }
+                AppButton {
+                    objectName: "refreshAudioDevicesButton"
+                    text: "Обновить устройства"
+                    tone: "secondary"
+                    onClicked: root.desktop.audioDevices.refresh()
+                }
+                SectionHeader { Layout.fillWidth: true; description: root.desktop.audioDevices.errorText }
                 Text {
                     Layout.fillWidth: true
                     text: root.desktop.voice.modelPath

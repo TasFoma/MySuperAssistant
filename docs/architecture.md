@@ -40,6 +40,14 @@ QtSpeechSynthesizer в infra обеспечивают локальную озв�
 SpeechController соединяет их с VoiceModel и исключает одновременную диктовку.
 Движок Qt TextToSpeech создаётся при первой озвучке, автоматического чтения нет.
 
+AudioDevices из msa_infra_audio перечисляет входы/выходы и атомарно сохраняет
+выбор в audio.settings.json. AudioDevicesModel в ui/common показывает каталог;
+AudioDevicesController в apps применяет его к микрофону Vosk, музыке и озвучке.
+Системный вариант следует устройству по умолчанию, явный ID не заменяется молча
+при исчезновении. Платформенная фабрика движка озвучки Windows находится в
+infra/platform/windows. SpeechRecognizer передаёт пиковый уровень PCM, а пустой
+результат сопровождается диагностикой. UI по-прежнему не зависит от infra.
+
 «Сохранить» записывает настройки, «Подключиться» и ConnectionBanner запускают
 цикл с последним сохранённым endpoint. Runtime завершает старые запросы до
 уничтожения контроллера; ожидавшая запись получает unknown и не повторяется.
@@ -106,6 +114,7 @@ flowchart TD
     voice --> core
     voice --> network
     voice --> speech[Qt6::TextToSpeech]
+    voice --> multimedia
     voice -. QLocalSocket .-> voiceWorker[msa_voice_worker]
     voiceWorker --> voice
     voiceWorker --> voskAdapter[msa_infra_vosk]
@@ -268,6 +277,9 @@ sequenceDiagram
 | JsonClientPreferences | Строгий локальный JSON клиента, атомарное сохранение | `src/infra/include/msa/infra/JsonClientPreferences.h` |
 | MusicPlaylist / MusicData | Очередь, ограничение ошибок, снимки и команды без Qt | `src/core/include/msa/core/MusicPlaylist.h`, `src/core/include/msa/core/MusicData.h` |
 | Локальное аудио | Qt Multimedia, отменяемое сканирование и JSON параметров | `src/infra/audio/` |
+| AudioDeviceData / AudioDevices / AudioDevicesModel | Типы, каталог и сохранение устройств, модель выбора | `src/core/include/msa/core/AudioDeviceData.h`, `src/infra/audio/`, `src/ui/common/Model/include/msa/ui/AudioDevicesModel.h` |
+| AudioDevicesController | Применение ввода/вывода к трём локальным backend | `src/apps/desktop/include/msa/desktop/AudioDevicesController.h` |
+| WindowsSpeechEngine | Фабрика Qt WinRT для явного вывода озвучки | `src/infra/platform/windows/src/WindowsSpeechEngine.cpp` |
 | MusicModel / MusicPanel | Общая панель и локальные действия без проверки TCP-сессии | `src/ui/common/Model/include/msa/ui/MusicModel.h`, `src/ui/common/UI/MusicPanel.qml` |
 | MusicController | Соединение аудио и UI, путь к отдельным настройкам | `src/apps/desktop/include/msa/desktop/MusicController.h` |
 | SpeechRecognizer | Контракт локального распознавания и события без Qt | `src/core/include/msa/core/SpeechRecognizer.h` |

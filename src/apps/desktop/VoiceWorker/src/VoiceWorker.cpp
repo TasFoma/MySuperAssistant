@@ -30,6 +30,8 @@ VoiceWorker::VoiceWorker(QObject* parent) : QObject{parent}
     connect(&m_capture, &infra::VoskAudioSession::completed, this,
             [this] { send({{"type", "done"}, {"session", QString::number(m_session)}}); });
     connect(&m_capture, &infra::VoskAudioSession::failed, this, [this](const QString& message) { fail(message); });
+    connect(&m_capture, &infra::VoskAudioSession::levelChanged, this, [this](double level)
+            { send({{"type", "level"}, {"session", QString::number(m_session)}, {"value", level}}); });
 }
 void VoiceWorker::connectTo(const QString& channel)
 {
@@ -61,8 +63,17 @@ void VoiceWorker::receive()
 void VoiceWorker::handle(const QJsonObject& object)
 {
     const auto type = object.value("type").toString();
-    if (type == "load" && object.size() == 3 && !m_capture.loaded() && object.value("model").isString())
+    if (type == "load" && object.size() == 4 && !m_capture.loaded() && object.value("model").isString() &&
+        object.value("input_device").isString())
     {
+        constexpr qsizetype kMaximumDeviceIdentifier = 4096;
+        const auto identifier = object.value("input_device").toString().toLatin1();
+        const auto decoded = QByteArray::fromBase64Encoding(identifier, QByteArray::AbortOnBase64DecodingErrors);
+        if (identifier.size() > kMaximumDeviceIdentifier || !decoded || decoded.decoded.toBase64() != identifier)
+        {
+            throw std::runtime_error{"Некорректный ID микрофона."};
+        }
+        m_capture.setInputDevice(decoded.decoded);
         m_capture.load(object.value("model").toString());
         send({{"type", "ready"}});
         return;

@@ -108,6 +108,16 @@ void FakeSpeechSynthesizer::stop()
         m_handler({msa::core::SpeechState::Idle, {}});
     }
 }
+TEST(VoiceModelTest, InputMeterFollowsRecordingAndResetsOnCompletion)
+{
+    msa::ui::VoiceModel model;
+    model.applyEvent({Kind::Level, State::Recording, {}, 0.75});
+    EXPECT_DOUBLE_EQ(model.inputLevel(), 0.75);
+    EXPECT_TRUE(model.canFinish());
+    model.applyEvent({Kind::State, State::Ready, {}});
+    EXPECT_DOUBLE_EQ(model.inputLevel(), 0);
+    EXPECT_TRUE(model.draft().isEmpty());
+}
 TEST(SpeechSynthesisTest, ExplicitPlaybackAndRecordingExcludeEachOtherWithoutChangingDraft)
 {
     QTemporaryDir directory;

@@ -70,7 +70,7 @@ ProcessSpeechRecognizer::ProcessSpeechRecognizer(QString executable, Recognition
                                 fail("Процесс распознавания отключился.");
                             }
                         });
-                send({{"type", "load"}, {"model", m_modelPath}});
+                send({{"type", "load"}, {"model", m_modelPath}, {"input_device", m_inputDevice}});
             });
 }
 ProcessSpeechRecognizer::~ProcessSpeechRecognizer()
@@ -95,12 +95,12 @@ core::RecognitionState ProcessSpeechRecognizer::state() const
 {
     return m_state;
 }
-void ProcessSpeechRecognizer::notify(core::RecognitionEvent::Kind kind, const QString& text)
+void ProcessSpeechRecognizer::notify(core::RecognitionEvent::Kind kind, const QString& text, double level)
 {
     const auto handler = m_handler;
     if (handler)
     {
-        handler({kind, m_state, text.toStdString()});
+        handler({kind, m_state, text.toStdString(), level});
     }
 }
 void ProcessSpeechRecognizer::setState(core::RecognitionState state)
@@ -128,6 +128,15 @@ void ProcessSpeechRecognizer::configure(const std::string& modelPath)
         return;
     }
     setState(path.isEmpty() ? core::RecognitionState::Unconfigured : core::RecognitionState::Idle);
+}
+void ProcessSpeechRecognizer::setInputDevice(const QString& identifier)
+{
+    if (m_inputDevice == identifier)
+    {
+        return;
+    }
+    m_inputDevice = identifier;
+    shutdown();
 }
 void ProcessSpeechRecognizer::start()
 {
@@ -343,6 +352,19 @@ void ProcessSpeechRecognizer::handle(const QJsonObject& object)
     {
         return;
     }
+    if (type == "level" && object.size() == 4 && object.value("value").isDouble())
+    {
+        const auto level = object.value("value").toDouble(-1);
+        if (!(level >= 0 && level <= 1))
+        {
+            throw std::runtime_error{"Неверный уровень микрофона."};
+        }
+        if (m_state == core::RecognitionState::Recording)
+        {
+            notify(core::RecognitionEvent::Kind::Level, {}, level);
+        }
+        return;
+    }
     if (m_state != core::RecognitionState::Recording && m_state != core::RecognitionState::Finishing)
     {
         throw std::runtime_error{"Неожиданное состояние записи."};
@@ -354,9 +376,9 @@ void ProcessSpeechRecognizer::handle(const QJsonObject& object)
         {
             throw std::runtime_error{"Неверный текст записи."};
         }
-        m_hasResult = true;
         if (!text.isEmpty())
         {
+            m_hasResult = true;
             notify(core::RecognitionEvent::Kind::Text, text);
         }
         return;
@@ -366,9 +388,16 @@ void ProcessSpeechRecognizer::handle(const QJsonObject& object)
         m_deadline.stop();
         m_session = 0;
         const auto timedOut = m_recordingTimedOut;
+        const auto empty = !m_hasResult;
         const auto generation = m_generation;
         m_recordingTimedOut = false;
         setState(core::RecognitionState::Ready);
+        if (empty && generation == m_generation && m_state == core::RecognitionState::Ready)
+        {
+            notify(core::RecognitionEvent::Kind::Error,
+                   "Речь не распознана. Проверьте выбранный микрофон и индикатор уровня, затем повторите запись.");
+            return;
+        }
         if (timedOut && generation == m_generation && m_state == core::RecognitionState::Ready)
         {
             notify(core::RecognitionEvent::Kind::Error, "Запись завершена по ограничению времени.");

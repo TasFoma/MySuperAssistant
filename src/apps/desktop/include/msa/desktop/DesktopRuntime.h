@@ -1,11 +1,13 @@
 #pragma once
 
 #include "msa/core/ClientPreferences.h"
+#include "msa/desktop/AudioDevicesController.h"
 #include "msa/desktop/DesktopClientController.h"
 #include "msa/desktop/DesktopPreferencesController.h"
 #include "msa/desktop/MusicController.h"
 #include "msa/desktop/SpeechController.h"
 #include "msa/desktop/VoiceController.h"
+#include "msa/infra/AudioDevices.h"
 #include "msa/infra/LocalMusicPlayer.h"
 #include "msa/infra/ProcessSpeechRecognizer.h"
 #include "msa/infra/QtSpeechSynthesizer.h"
@@ -34,6 +36,7 @@ struct DesktopRuntimeOptions
     std::chrono::milliseconds maximumReconnectDelay{std::chrono::seconds{15}};
     QString voiceSettingsPath{};
     QString voiceWorkerPath{};
+    QString audioSettingsPath{};
 };
 /// @brief Владеет моделями и локальной музыкой, создаёт сетевую сессию по сохранённым параметрам.
 class DesktopRuntime final : public QObject
@@ -65,6 +68,8 @@ private:
     infra::QtSpeechSynthesizer m_synthesizer;
     SpeechController m_speech;
     VoiceController m_voice;
+    infra::AudioDevices m_audioDevices;
+    AudioDevicesController m_audioController;
     std::optional<infra::TcpClient> m_client{};
     std::optional<DesktopClientController> m_controller{};
     std::optional<core::ClientPreferences> m_activePreferences{};
