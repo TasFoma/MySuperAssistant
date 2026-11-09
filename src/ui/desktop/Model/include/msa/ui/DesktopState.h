@@ -21,6 +21,7 @@ class DesktopState final : public QObject
     Q_PROPERTY(QString port READ port NOTIFY preferencesChanged)
     Q_PROPERTY(QString token READ token NOTIFY preferencesChanged)
     Q_PROPERTY(bool autoConnect READ autoConnect NOTIFY preferencesChanged)
+    Q_PROPERTY(bool canConnect READ canConnect NOTIFY preferencesChanged)
     Q_PROPERTY(QString settingsMessage READ settingsMessage NOTIFY settingsMessageChanged)
     Q_PROPERTY(msa::ui::PlannerEditor* planner READ planner CONSTANT)
     Q_PROPERTY(msa::ui::MusicModel* music READ music CONSTANT)
@@ -39,6 +40,12 @@ public:
     [[nodiscard]] QString port() const;
     [[nodiscard]] QString token() const;
     [[nodiscard]] bool autoConnect() const;
+    /// @brief Последние успешно сохранённые параметры для явного подключения в apps.
+    [[nodiscard]] core::ClientPreferences preferences() const;
+    /// @brief Есть корректный сохранённый набор; черновик QML сам соединение не меняет.
+    [[nodiscard]] bool canConnect() const;
+    /// @brief Запрашивает подключение по сохранённым параметрам без автоматического сохранения формы.
+    Q_INVOKABLE void connectToServer();
     /// @brief Результат проверки или сохранения без секретных значений.
     [[nodiscard]] QString settingsMessage() const;
     /// @brief Применяет успешно прочитанный файл без подключения к сети.
@@ -56,6 +63,7 @@ signals:
     void preferencesChanged();                                    ///< @brief Изменены сохранённые параметры.
     void settingsMessageChanged();                                ///< @brief Изменён результат операции с настройками.
     void saveRequested(msa::core::ClientPreferences preferences); ///< @brief Проверенные параметры для записи.
+    void connectRequested(); ///< @brief Явное применение сохранённых параметров.
 private:
     ClientModels& m_models;
     PlannerEditor m_planner{m_models, this};

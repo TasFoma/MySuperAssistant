@@ -38,7 +38,7 @@ stateDiagram-v2
 
 Неудачные токен, версия, параметры auth, начальный снимок или протокол останавливают
 цикл в Disconnected с connectionError. Исправление требует ручного действия.
-Состояние, номер попытки и retryScheduled/retryExhausted доступны будущему UI.
+Состояние, номер попытки и retryScheduled/retryExhausted передаются UI через связку apps.
 Кнопки переподключения и музыкальный экран в этом модуле не создаются.
 
 ## Пять попыток и работа без сервера
@@ -107,8 +107,9 @@ sendRequest назначает ID, который не переиспользу�
 Это транспортная библиотека. [ClientProtocol](ClientProtocol.md) разбирает данные,
 [ClientModels](ClientModels.md) отображают их, DesktopClientController связывает
 объекты в apps без зависимости UI от infra. JSON-настройки и первый набор экранов
-описаны в [DesktopScreens](DesktopScreens.md); создание связки в main desktop/mobile
-и применение auto_connect при запуске остаются следующими шагами.
+описаны в [DesktopScreens](DesktopScreens.md); DesktopRuntime создаётся в main
+desktop и применяет auto_connect. Сборка mobile ещё впереди.
 Общий ConnectionBanner уже передаёт явное действие переподключения через
-ClientModels; его подключение к пользовательскому окну ещё впереди.
+ClientModels и DesktopRuntime в пользовательском окне. Новый сохранённый endpoint
+применяется только явным действием, транспорт при этом заменяется в apps.
 

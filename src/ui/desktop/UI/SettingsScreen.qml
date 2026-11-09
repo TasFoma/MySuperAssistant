@@ -54,11 +54,22 @@ Controls.ScrollView {
                     Layout.fillWidth: true
                     description: "Можно выключить для работы без сервера. Автоматическое подключение ограничено пятью попытками."
                 }
-                AppButton {
-                    objectName: "saveSettingsButton"
-                    text: "Сохранить"
-                    onClicked: root.desktop.savePreferences(host.text, port.text, token.text, autoConnect.checked)
+                RowLayout {
+                    spacing: Theme.spaceSmall
+                    AppButton {
+                        objectName: "saveSettingsButton"
+                        text: "Сохранить"
+                        onClicked: root.desktop.savePreferences(host.text, port.text, token.text, autoConnect.checked)
+                    }
+                    AppButton {
+                        objectName: "connectSettingsButton"
+                        text: "Подключиться"
+                        tone: "secondary"
+                        enabled: root.desktop.canConnect
+                        onClicked: root.desktop.connectToServer()
+                    }
                 }
+                SectionHeader { Layout.fillWidth: true; description: "Подключение использует сохранённые параметры. Переключатель выше действует при следующем запуске." }
                 SectionHeader { Layout.fillWidth: true; description: root.desktop.settingsMessage }
             }
         }

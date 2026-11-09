@@ -98,6 +98,8 @@ public:
     void setConnectionState(core::ClientConnectionState state, int attempt = 0, int retryDelayMs = 0);
     /// @brief Инвалидирует ответы сессии и отмечает все списки устаревшими.
     void invalidateSession();
+    /// @brief Очищает данные и ID при явной смене адреса или учётных данных сервера.
+    void resetServerData();
     /// @brief Применяет проверенный результат только подходящему контексту сессии/экрана.
     [[nodiscard]] bool applyResult(const core::ClientReadResult& result, std::uint64_t session, std::uint64_t view);
     /// @brief Устанавливает понятную ошибку без технических данных протокола.

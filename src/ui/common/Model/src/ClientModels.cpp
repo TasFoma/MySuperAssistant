@@ -214,6 +214,32 @@ void ClientModels::invalidateSession()
     }
     emit connectionChanged();
 }
+void ClientModels::resetServerData()
+{
+    invalidateSession();
+    ++m_viewRevision;
+    m_history.clear();
+    m_selectedChat = 0;
+    m_mainChat = 0;
+    m_timeZone.clear();
+    m_serverTime = {};
+    m_day.reset();
+    m_month.reset();
+    m_monthDays.clear();
+    m_routeStatistics.clear();
+    for (auto* model : {&m_tasks, &m_reminders, &m_habits, &m_eventsToday, &m_calendarEvents, &m_chats, &m_messages,
+                        &m_profile, &m_moods, &m_routes})
+    {
+        static_cast<void>(model->replaceRows({}, true));
+    }
+    clearError();
+    setConnectionState(core::ClientConnectionState::Disconnected);
+    emit metadataChanged();
+    emit selectionChanged();
+    emit paginationChanged();
+    emit calendarChanged();
+    emit routeStatisticsChanged();
+}
 bool ClientModels::applyResult(const core::ClientReadResult& result, std::uint64_t session, std::uint64_t view)
 {
     if (session != m_sessionRevision || m_state != core::ClientConnectionState::Ready)

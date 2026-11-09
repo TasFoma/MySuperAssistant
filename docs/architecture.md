@@ -3,8 +3,9 @@
 ## Текущее состояние
 
 Слои core/infra/ui собраны отдельными статическими библиотеками. Сервер работает
-без окна через QCoreApplication; desktop/mobile пока содержат цикл приложения
-без пользовательских окон и экранов. Правила сборки сервера — решение 49.
+без окна через QCoreApplication; desktop открывает DesktopWindow через
+QQmlApplicationEngine, mobile пока содержит цикл приложения без окна.
+Правила сборки сервера — решение 49, ручного применения параметров клиента — 56.
 
 core содержит типы и сервисы планировщика, чата, ментора, памяти, дневника,
 контекста LLM и навигации. Он не использует Qt, файлы или сеть; исключение из
@@ -15,7 +16,8 @@ TcpClient предоставляет асинхронные клиентские
 вложенные результаты в ClientData из core; ClientModels/ClientListModel в ui/common
 показывают эти типы через Qt-свойства и роли. DesktopClientController в apps/desktop
 соединяет модели с транспортом (решение 51). Проверяемая цель msa_desktop_support
-принадлежит приложению; постоянные настройки и окно в main пока не подключены.
+принадлежит приложению. DesktopRuntime владеет моделями, постоянными настройками,
+локальным плеером и заменяемой сетевой сессией; main передаёт модели QML-окну.
 apps/server связывает их в ServerRuntime; msa_server_support — проверяемая
 библиотека той же связки приложения, не новый архитектурный слой.
 
@@ -24,7 +26,15 @@ apps/server связывает их в ServerRuntime; msa_server_support — п�
 Qt Multimedia, фоновый сканер и отдельный JSON параметров; сервер эту библиотеку
 не линкует. MusicModel/MusicPanel в ui/common получают снимки core; MusicController
 в apps/desktop соединяет модель и LocalMusicPlayer. DesktopState владеет моделью,
-DesktopShell показывает панель снизу во всех разделах. Создание объектов в main впереди.
+DesktopShell показывает панель снизу во всех разделах. При запуске восстанавливается
+папка без воспроизведения, auto_connect управляет только сетью.
+
+«Сохранить» записывает настройки, «Подключиться» и ConnectionBanner запускают
+цикл с последним сохранённым endpoint. Runtime завершает старые запросы до
+уничтожения контроллера; ожидавшая запись получает unknown и не повторяется.
+Смена host/port/token очищает ID, списки и кэш прежнего сервера; обычное
+переподключение сохраняет последние данные. Закрытие последнего окна завершает
+цикл Qt, сеть и аудио; режима трея нет. Подробности — [DesktopRuntime](modules/DesktopRuntime.md).
 
 Схема SQLite версии 13: чаты/сообщения, профиль с источниками/версиями/тегами,
 задачи, серии событий, напоминания, привычки и журнал, дневник, даты приветствия
@@ -74,6 +84,7 @@ flowchart TD
     support --> core[msa_core]
     desktop[msa_desktop] --> desktopUI[msa_ui_desktop: экраны и DesktopState]
     desktop --> desktopSupport[msa_desktop_support: связка клиента]
+    desktop --> desktopPlugin[msa_ui_desktopplugin: Msa.Ui.Desktop]
     desktopSupport --> common[msa_ui_common: C++ модели и QML]
     desktop --> plugin[msa_ui_commonplugin: Msa.Ui.Common]
     mobile --> plugin
@@ -105,9 +116,12 @@ flowchart TD
     infraTests --> infra
     infraTests --> desktopSupport
     uiTests[msa_ui_tests: offscreen] --> plugin
-    uiTests --> desktopPlugin[msa_ui_desktopplugin: Msa.Ui.Desktop]
+    uiTests --> desktopPlugin
+    uiTests --> desktopSupport
     desktopPlugin --> desktopUI
     infraTests -. QProcess .-> server
+    uiTests -. QProcess .-> server
+    uiTests -. QProcess offscreen .-> desktop
 ```
 
 UI зависит только от core и Qt Quick; прямой связи с infra нет. Qt ищется один
@@ -228,6 +242,7 @@ sequenceDiagram
 | Тесты инфраструктуры | QCoreApplication и временные файловые базы, откат схемы и операций | `tests/infra/` |
 | Общие QML-компоненты | Тёмная тема, элементы управления, карточки и состояния | `src/ui/common/UI/` |
 | Экраны ПК и настройки | Навигация, чат/планы/напоминания, форма JSON-параметров и связка apps | `src/ui/desktop/`, `src/apps/desktop/include/msa/desktop/DesktopPreferencesController.h` |
+| DesktopRuntime / DesktopWindow | Запуск окна, загрузка настроек, владение музыкой и смена сетевой сессии | `src/apps/desktop/include/msa/desktop/DesktopRuntime.h`, `src/ui/desktop/UI/DesktopWindow.qml` |
 | PlannerEditor | Метаданные форм, типизированные действия, подтверждение и сохранение черновика при отказе | `src/ui/desktop/Model/include/msa/ui/PlannerEditor.h`, `src/ui/desktop/UI/PlannerDialog.qml` |
 | ClientPlannerAction и ClientPlannerProtocol | Типы core и преобразование действий форм в существующие методы JSON | `src/core/include/msa/core/ClientPlannerAction.h`, `src/infra/src/ClientPlannerProtocol.cpp` |
 | JsonClientPreferences | Строгий локальный JSON клиента, атомарное сохранение | `src/infra/include/msa/infra/JsonClientPreferences.h` |
@@ -275,8 +290,9 @@ ServerProcessTest дополнительно запускает собранны
 Декодер сначала строит весь результат и не допускает частичной замены списков.
 Подробнее — [клиентские модели](modules/ClientModels.md).
 
-Экраны ПК, формы планировщика, музыка и JSON-настройки готовы библиотечно. Пока отсутствуют
-создание окна/клиентской связки в main desktop/mobile, выбор точки в UI геонапоминаний,
+Экраны ПК, формы планировщика, музыка и JSON-настройки подключены в main desktop.
+Окно и работа с настоящим локальным сервером проверяются offscreen. Пока отсутствуют
+окно/клиентская связка mobile, выбор точки в UI геонапоминаний,
 геолокация устройства, голос и Android-уведомления. Прямые координаты
 передаются явными параметрами запросов, выбранная точка геонапоминания закрепляется
 только подтверждением. UI атрибуции публичных сервисов ещё предстоит подключить.

@@ -18,6 +18,8 @@ class DesktopClientController final : public QObject
 public:
     /// @brief Объекты невладеющие, должны жить дольше связки в том же потоке Qt.
     DesktopClientController(infra::TcpClient& client, ui::ClientModels& models, QObject* parent = nullptr);
+    /// @brief Завершает сессию перед уничтожением связки, сохраняя unknown ожидавших записей.
+    void stop();
 
 private:
     struct Context

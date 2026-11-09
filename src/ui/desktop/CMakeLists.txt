@@ -12,6 +12,7 @@ target_link_libraries(msa_ui_desktop PUBLIC msa_ui_common Qt6::Quick)
 msa_apply_warnings(msa_ui_desktop)
 
 set(msaDesktopQmlFiles
+    UI/DesktopWindow.qml
     UI/DesktopShell.qml
     UI/PlannerDialog.qml
     UI/EventRecord.qml

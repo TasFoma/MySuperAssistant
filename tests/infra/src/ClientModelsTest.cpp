@@ -409,6 +409,8 @@ void ClientCompositionTest::SetUp()
     m_client = std::make_unique<TcpClient>(
         TcpClientSettings{"127.0.0.1", m_server.serverPort(), "composition-token", 500ms, 1000ms, 5ms, 20ms});
     m_controller = std::make_unique<desktop::DesktopClientController>(*m_client, m_models);
+    QObject::connect(&m_models, &ui::ClientModels::reconnectRequested, &m_models,
+                     [this]() { m_client->reconnect(); });
 }
 
 void ClientCompositionTest::connectReady()

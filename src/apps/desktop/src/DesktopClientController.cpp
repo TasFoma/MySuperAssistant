@@ -95,7 +95,6 @@ DesktopClientController::DesktopClientController(infra::TcpClient& client, ui::C
             [this](core::ClientReadRequest request, quint64 session, quint64 view) { read(request, session, view); });
     connect(&models, &ui::ClientModels::actionRequested, this,
             [this](const core::ClientAction& action) { act(action); });
-    connect(&models, &ui::ClientModels::reconnectRequested, this, [this]() { m_client.reconnect(); });
     connect(&client, &infra::TcpClient::responseReceived, this, [this](const auto& value) { response(value); });
     connect(&client, &infra::TcpClient::serverRejected, this,
             [this](const infra::ProtocolFailure& failure)
@@ -132,6 +131,23 @@ DesktopClientController::DesktopClientController(infra::TcpClient& client, ui::C
     // Конструктор связывается до запуска клиента; не включает сеть сам.
 }
 
+void DesktopClientController::stop()
+{
+    const auto pending = std::move(m_pending);
+    m_pending.clear();
+    for (const auto& entry : pending)
+    {
+        const auto& context = entry.second;
+        if (!context.action)
+        {
+            continue;
+        }
+        const QString message{"Сессия закрыта. Итог записи неизвестен. Проверьте данные прежнего сервера."};
+        m_models.setError(message, "unknown");
+        finishPlanner(m_models, context.action, false, message, "unknown");
+    }
+    m_client.disconnectFromServer();
+}
 void DesktopClientController::updateState()
 {
     m_models.setConnectionState(state(m_client.state()), m_attempt, m_delay);

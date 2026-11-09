@@ -1,4 +1,6 @@
 add_library(msa_desktop_support STATIC
+    include/msa/desktop/DesktopRuntime.h
+    src/DesktopRuntime.cpp
     include/msa/desktop/MusicController.h
     src/MusicController.cpp
     include/msa/desktop/DesktopPreferencesController.h
@@ -16,5 +18,5 @@ qt_add_executable(msa_desktop
 )
 
 target_compile_features(msa_desktop PRIVATE cxx_std_20)
-target_link_libraries(msa_desktop PRIVATE msa_desktop_support msa_ui_desktop msa_ui_commonplugin Qt6::Gui)
+target_link_libraries(msa_desktop PRIVATE msa_desktop_support msa_ui_desktopplugin msa_ui_commonplugin Qt6::Gui)
 msa_apply_warnings(msa_desktop)

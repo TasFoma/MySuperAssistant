@@ -116,6 +116,13 @@ TEST_F(DesktopScreensTest, SettingsMaskTokenAndDispatchValidatedPreferencesWhile
     EXPECT_EQ(saved->host, "localhost");
     EXPECT_EQ(saved->port, 43210);
     EXPECT_FALSE(saved->autoConnect);
+    int connections{0};
+    QObject::connect(&m_state, &msa::ui::DesktopState::connectRequested, &m_view, [&connections]() { ++connections; });
+    EXPECT_FALSE(item("connectSettingsButton")->isEnabled());
+    m_state.applyPreferences(*saved);
+    EXPECT_TRUE(item("connectSettingsButton")->isEnabled());
+    activate(item("connectSettingsButton"));
+    EXPECT_EQ(connections, 1);
 }
 
 TEST_F(DesktopScreensTest, RendersPopulatedScreensAndRetainsRowsOffline)

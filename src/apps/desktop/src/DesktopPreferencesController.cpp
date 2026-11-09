@@ -30,7 +30,7 @@ DesktopPreferencesController::DesktopPreferencesController(ui::DesktopState& sta
                     infra::JsonClientPreferences::save(m_path, preferences);
                     m_state.applyPreferences(preferences);
                     m_state.setSettingsMessage(
-                        "Настройки сохранены. Новое подключение использует их при запуске клиента.");
+                        "Настройки сохранены. Нажмите «Подключиться», чтобы применить их сейчас.");
                 }
                 catch (const std::exception&)
                 {

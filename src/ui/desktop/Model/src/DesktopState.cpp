@@ -43,6 +43,23 @@ bool DesktopState::autoConnect() const
 {
     return m_preferences.autoConnect;
 }
+core::ClientPreferences DesktopState::preferences() const
+{
+    return m_preferences;
+}
+bool DesktopState::canConnect() const
+{
+    return core::validClientPreferences(m_preferences) && !token().trimmed().isEmpty();
+}
+void DesktopState::connectToServer()
+{
+    if (!canConnect())
+    {
+        setSettingsMessage("Сначала сохраните корректные параметры сервера.");
+        return;
+    }
+    emit connectRequested();
+}
 QString DesktopState::settingsMessage() const
 {
     return m_settingsMessage;
