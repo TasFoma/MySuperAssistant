@@ -21,6 +21,36 @@
       "cacheVariables": {
         "CMAKE_PREFIX_PATH": "C:/Qt/6.10.3/msvc2022_64"
       }
+    },
+    {
+      "name": "android-debug-local",
+      "displayName": "Android arm64 debug (local Qt)",
+      "inherits": "android-debug",
+      "toolchainFile": "C:/Qt/6.10.3/android_arm64_v8a/lib/cmake/Qt6/qt.toolchain.cmake",
+      "cacheVariables": {
+        "QT_HOST_PATH": "C:/Qt/6.10.3/msvc2022_64",
+        "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/Ninja/ninja.exe"
+      },
+      "environment": {
+        "JAVA_HOME": "$env{LOCALAPPDATA}/Android/Java/jdk-17.0.21+9",
+        "ANDROID_SDK_ROOT": "$env{LOCALAPPDATA}/Android/Sdk",
+        "ANDROID_NDK_ROOT": "$env{LOCALAPPDATA}/Android/Sdk/ndk/27.2.12479018"
+      }
+    },
+    {
+      "name": "android-release-local",
+      "displayName": "Android arm64 release (local Qt)",
+      "inherits": "android-release",
+      "toolchainFile": "C:/Qt/6.10.3/android_arm64_v8a/lib/cmake/Qt6/qt.toolchain.cmake",
+      "cacheVariables": {
+        "QT_HOST_PATH": "C:/Qt/6.10.3/msvc2022_64",
+        "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/Ninja/ninja.exe"
+      },
+      "environment": {
+        "JAVA_HOME": "$env{LOCALAPPDATA}/Android/Java/jdk-17.0.21+9",
+        "ANDROID_SDK_ROOT": "$env{LOCALAPPDATA}/Android/Sdk",
+        "ANDROID_NDK_ROOT": "$env{LOCALAPPDATA}/Android/Sdk/ndk/27.2.12479018"
+      }
     }
   ],
   "buildPresets": [
@@ -35,6 +65,14 @@
       "displayName": "Windows Release (local Qt)",
       "configurePreset": "windows-release-local",
       "configuration": "Release"
+    },
+    {
+      "name": "android-debug-local",
+      "configurePreset": "android-debug-local"
+    },
+    {
+      "name": "android-release-local",
+      "configurePreset": "android-release-local"
     }
   ]
 }

@@ -809,7 +809,36 @@ SpeechSynthesizer.md, DesktopRuntime.md, DesktopScreens.md, CommonQml.md и Musi
 
 Источник: `android_client/lib/*`.
 
-- [ ] Пользователь ставит Android-кит Qt, SDK, NDK, JDK; пресеты `android-debug`/`android-release`.
+- [x] Android-кит Qt, SDK, NDK, JDK; пресеты `android-debug`/`android-release` (2026-11-10).
+      Подготовка 2026-11-10: пользователь установил Android-киты Qt 6.10.3,
+      включая arm64-v8a. По явному разрешению агент установил Temurin JDK 17.0.21,
+      SDK Platform 36, Build Tools 36.0.0, Platform Tools и NDK 27.2.12479018.
+      Архивы JDK и Command-line Tools проверены по SHA-256; версии SDK/NDK
+      проверены по установленным пакетам. Пути записаны через штатный sdktool
+      в Android-настройки Qt Creator, требуется перезапуск уже открытого Creator.
+      Мастер GUI не использовался: служба Computer Use недоступна.
+      Пользователь подтвердил USB-отладку; ADB видит Samsung A55 (SM-A556E)
+      как device: Android 16/API 36, arm64-v8a. Решением 59 согласованы
+      минимум Android 9/API 28, только arm64-v8a, без эмулятора.
+      Добавлены общие android-debug/android-release (Ninja) и локальные
+      пресеты в шаблоне и CMakeUserPresets.json. CMake распознаёт пресеты.
+      Пользователь отдельно разрешил Android Debug-конфигурацию и сборку
+      командами cmake --preset android-debug-local и cmake --build --preset
+      android-debug-local. Конфигурация и сборка прошли до Debug APK;
+      AAPT2 подтвердил minSdkVersion=28, targetSdkVersion=36, arm64-v8a.
+      Release-пресет подготовлен, но сборкой не проверен. Установка APK пока
+      не проверена; приложение остаётся без окна, старые файлы не требовались.
+      Windows-конфигурация и сборка успешны, все 516 тестов зелёные после
+      повторного прогона. Первый прогон одновременно с Android-компиляцией
+      получил тайм-аут запуска desktop; без этой нагрузки отказ не повторился.
+      Обновлены README.md, docs/architecture.md, docs/decisions.md,
+      docs/lessons.md и этот план; протокол не менялся.
+
+Подготовка окружения завершена. Следующий шаг — экраны ui/mobile на общих
+компонентах; до реализации нужно согласовать мобильную навигацию и указать
+конкретные старые Dart-файлы для чтения. Функциональная проверка на телефоне
+остаётся отдельным пунктом; наличие APK не подтверждает работу клиента с сервером.
+
 - [ ] Экраны в `ui/mobile` на компонентах из `ui/common`.
 - [ ] Уведомления и планирование напоминаний (JNI) в `infra/platform/android`.
 - [ ] Геолокация (Qt Positioning), озвучка, распознавание речи.

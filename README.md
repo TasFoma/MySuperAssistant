@@ -54,6 +54,44 @@ JSON разбирается в infra, UI получает типы core; кон�
 тесты используют `tests/<набор>/src` и `tests/<набор>/include`.
 Правила новых файлов и групп модулей закреплены в [AGENTS.md](AGENTS.md).
 
+## Подготовка Android
+
+Для установленного Qt 6.10.3 Android нужны JDK 17, Android SDK Platform 36,
+Build Tools 36.0.0, Platform Tools и NDK 27.2.12479018. Версию NDK подтверждает
+`modules/Core.json` Android-кита. Минимум — Android 9 (API 28), только arm64-v8a,
+без эмулятора (решение 59). Общие пресеты android-debug/android-release используют
+Ninja, личные пути задаются в CMakeUserPresets.json; шаблон содержит оба
+android-debug-local/android-release-local вместе с Windows-пресетами.
+
+На текущем ПК инструменты установлены в `%LOCALAPPDATA%/Android/Sdk` и
+`%LOCALAPPDATA%/Android/Java/jdk-17.0.21+9`. Пути сохранены штатным `sdktool`
+в Android-настройках Qt Creator; для их применения перезапустите Creator.
+Глобальные JAVA_HOME и PATH не менялись, существующий JDK 25 сохранён.
+
+После включения USB-отладки и подтверждения доверия компьютеру на телефоне:
+
+```powershell
+& "$env:LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" devices -l
+```
+
+Статус `device` означает готовность ADB; при `unauthorized` нужно подтвердить
+запрос на телефоне. Samsung A55 проверен через ADB: Android 16/API 36, arm64-v8a.
+
+Команды из корня для Android Debug и Release:
+
+```powershell
+cmake --preset android-debug-local
+cmake --build --preset android-debug-local
+cmake --preset android-release-local
+cmake --build --preset android-release-local
+```
+
+Android Debug сконфигурирован и собран, включая APK:
+`out/build/android-debug-local/src/apps/mobile/android-build/build/outputs/apk/debug/android-build-debug.apk`.
+AAPT2 подтвердил minSdkVersion=28, targetSdkVersion=36 и arm64-v8a.
+Release-пресет подготовлен, но ещё не проверен сборкой. Установка и запуск
+на телефоне пока не проверены; мобильное приложение ещё не создаёт окно.
+
 ## Сборка Windows Debug
 
 Требуются CMake 3.25+, Visual Studio 2022 с MSVC x64, Git, Qt 6.10+ с Gui,
@@ -85,7 +123,7 @@ Visual Studio многоконфигурационная: Debug задаётся
 в памяти. `msa_infra_tests` проверяет SQLite, HTTP/JSON, TCP и связку сервера на
 временных базах и локальных сокетах, включая напоминания во время HTTP-запроса.
 Настоящая сеть и модель для тестов не нужны. CTest добавляет каталог Qt в PATH
-для infra-тестов. Android-пресеты пока не подготовлены.
+для infra-тестов. Android-пресеты описаны выше; тестовые цели пока только для ПК.
 
 Музыкальные тесты используют временные папки, повреждённые файлы и беззвучный
 WAV с нулевой громкостью, а не личную медиатеку. Они проверяют реальный Qt backend,
