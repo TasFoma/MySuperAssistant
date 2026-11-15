@@ -1,4 +1,4 @@
-#include "msa/desktop/DesktopClientController.h"
+#include "msa/client/ClientController.h"
 
 #include "msa/infra/ClientProtocol.h"
 
@@ -7,7 +7,7 @@
 #include <utility>
 #include <variant>
 
-namespace msa::desktop
+namespace msa::client
 {
 namespace
 {
@@ -52,7 +52,7 @@ void finishPlanner(ui::ClientModels& models, const std::optional<core::ClientAct
 }
 } // namespace
 
-DesktopClientController::DesktopClientController(infra::TcpClient& client, ui::ClientModels& models, QObject* parent) :
+ClientController::ClientController(infra::TcpClient& client, ui::ClientModels& models, QObject* parent) :
     QObject{parent}, m_client{client}, m_models{models}
 {
     connect(&client, &infra::TcpClient::stateChanged, this, [this](infra::TcpClientState) { updateState(); });
@@ -131,7 +131,7 @@ DesktopClientController::DesktopClientController(infra::TcpClient& client, ui::C
     // Конструктор связывается до запуска клиента; не включает сеть сам.
 }
 
-void DesktopClientController::stop()
+void ClientController::stop()
 {
     const auto pending = std::move(m_pending);
     m_pending.clear();
@@ -148,12 +148,12 @@ void DesktopClientController::stop()
     }
     m_client.disconnectFromServer();
 }
-void DesktopClientController::updateState()
+void ClientController::updateState()
 {
     m_models.setConnectionState(state(m_client.state()), m_attempt, m_delay);
 }
 
-void DesktopClientController::read(core::ClientReadRequest request, std::uint64_t session, std::uint64_t view)
+void ClientController::read(core::ClientReadRequest request, std::uint64_t session, std::uint64_t view)
 {
     if (!m_models.online() || session != m_models.sessionRevision())
     {
@@ -173,7 +173,7 @@ void DesktopClientController::read(core::ClientReadRequest request, std::uint64_
     }
 }
 
-void DesktopClientController::act(const core::ClientAction& action)
+void ClientController::act(const core::ClientAction& action)
 {
     if (!m_models.online())
     {
@@ -195,7 +195,7 @@ void DesktopClientController::act(const core::ClientAction& action)
     }
 }
 
-void DesktopClientController::response(const infra::ProtocolSuccess& response)
+void ClientController::response(const infra::ProtocolSuccess& response)
 {
     const auto found = m_pending.find(response.requestId);
     if (found == m_pending.end())
@@ -241,7 +241,7 @@ void DesktopClientController::response(const infra::ProtocolSuccess& response)
     }
 }
 
-void DesktopClientController::queueRefresh()
+void ClientController::queueRefresh()
 {
     if (m_refreshQueued)
     {
@@ -255,4 +255,4 @@ void DesktopClientController::queueRefresh()
                            m_models.refresh();
                        });
 }
-} // namespace msa::desktop
+} // namespace msa::client

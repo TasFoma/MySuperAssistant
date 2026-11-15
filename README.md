@@ -14,7 +14,11 @@ HTTP llama-server, явный поиск — SearXNG; геокодинг — Nom
 ментора, выделения фактов и памяти требует отдельной проверки. Контекст ограничен
 кодовыми точками Unicode; точного контроля токенов пока нет.
 `msa_desktop` открывает окно с чатом, планами, напоминаниями, настройками и
-локальной музыкой. `msa_mobile` пока запускает цикл QGuiApplication без окна.
+локальной музыкой. `msa_mobile` открывает мобильное окно и подключает
+[MobileRuntime](docs/modules/MobileRuntime.md) к серверу.
+[Мобильные экраны](docs/modules/MobileScreens.md): нижние
+вкладки, отдельный список бесед, календарь месяца, задачи, привычки, напоминания
+и настройки. Формы, проверка параметров и TCP-контроллер общие с ПК.
 На ПК добавлен [голосовой ввод Vosk на C++](docs/modules/SpeechRecognizer.md).
 Озвучка сообщений доступна через Qt TextToSpeech; мобильные уведомления ещё не подключены.
 
@@ -48,7 +52,7 @@ JSON разбирается в infra, UI получает типы core; кон�
 Заголовки C++ находятся в include, реализации — в соседнем src, включая код
 приложений и тестовых помощников. Например, desktop использует
 `src/apps/desktop/include/msa/desktop/` и `src/apps/desktop/src/`.
-В `src/ui/common/` и `src/ui/desktop/` модели находятся в `Model/include` и
+В `src/ui/common/`, `src/ui/desktop/` и `src/ui/mobile/` модели находятся в `Model/include` и
 `Model/src`, QML — в `UI`. Повторно используемая вёрстка — в `UI/Utils`.
 Внутренние помощники core имеют заголовки в `include/msa/core/detail/`;
 тесты используют `tests/<набор>/src` и `tests/<набор>/include`.
@@ -90,7 +94,18 @@ Android Debug сконфигурирован и собран, включая APK
 `out/build/android-debug-local/src/apps/mobile/android-build/build/outputs/apk/debug/android-build-debug.apk`.
 AAPT2 подтвердил minSdkVersion=28, targetSdkVersion=36 и arm64-v8a.
 Release-пресет подготовлен, но ещё не проверен сборкой. Установка и запуск
-на телефоне пока не проверены; мобильное приложение ещё не создаёт окно.
+на телефоне пока не проверены. Эти сведения об APK относятся к подготовке
+окружения; после добавления MobileRuntime Android нужно пересобрать.
+
+При первом запуске mobile открывает настройки: укажите адрес сервера в Tailscale,
+порт и токен, нажмите «Сохранить», затем «Подключиться». Параметры хранятся
+в client.settings.json в AppConfigLocation приложения msa_mobile, отдельно от ПК.
+Сохранение не меняет действующее подключение; auto_connect применяется при запуске.
+После пяти неудачных попыток доступно ручное переподключение. Без связи остаются
+последние данные в памяти и черновик; очередь записей без сети не создаётся.
+Уведомления, фоновая служба, геолокация и голос Android пока не подключены.
+Для offscreen-проверок тот же msa_mobile собирается на Windows; путь к отдельному
+файлу можно передать через `--config <path>`.
 
 ## Сборка Windows Debug
 
@@ -145,6 +160,14 @@ CTest задаёт offscreen и программный рендеринг: ви�
 На Windows offscreen получает системные шрифты из WINDIR/Fonts.
 Тест галереи сохраняет `out/build/windows-debug-local/common-components-preview.png`.
 Тесты экранов сохраняют рядом `desktop-screen-0.png` … `desktop-screen-3.png`.
+Мобильные проверки сохраняют `mobile-screen-0.png` … `mobile-screen-3.png`
+при ширине 320 пикселей и `mobile-keyboard-preview.png` при уменьшенной области
+экрана. Они проверяют те же общие формы и модель настроек без настоящей сети;
+это не проверка системной клавиатуры или запуска приложения на A55.
+MobileRuntimeTest отдельно проверяет окно, настройки и TCP, включая создание
+задачи через настоящий локальный msa_server и запуск msa_mobile отдельным
+offscreen-процессом. Снимки: mobile-startup-preview.png,
+mobile-startup-invalid-preview.png и mobile-runtime-preview.png.
 Настройки проверяются на временных файлах; личные параметры не читаются.
 
 ## Запуск клиента ПК

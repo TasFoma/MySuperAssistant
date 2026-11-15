@@ -1,6 +1,9 @@
 # Типизированные клиентские модели
 
 По решению 51 UI принимает типы core, а JSON разбирается только в infra.
+Мобильные экраны используют те же ClientModels без зависимости от desktop.
+PlannerEditor и ClientSettingsModel находятся в ui/common; MobileState в ui/mobile
+добавляет только состояние мобильного представления и сетку календаря.
 Публичные объявления содержат Doxygen; этот документ описывает связку и ограничения.
 
 ## Данные и граница протокола
@@ -68,10 +71,10 @@ ClientModels владеет списками и предоставляет св�
 
 ## Связка приложения
 
-DesktopClientController соединяет TcpClient и ClientModels. Его заголовок находится в
-`src/apps/desktop/include/msa/desktop/`, реализация — в `src/apps/desktop/src/`.
-Проверяемая библиотека msa_desktop_support принадлежит apps/desktop,
-не добавляет нового слоя. UI линкуется только с core и Qt Quick; QObject моделей
+ClientController соединяет TcpClient и ClientModels. Его заголовок находится в
+`src/apps/common/include/msa/client/`, реализация — в `src/apps/common/src/`.
+Проверяемая библиотека msa_client_support принадлежит apps/common и используется
+desktop и mobile (решение 61), не добавляя нового слоя. UI линкуется только с core и Qt Quick; QObject моделей
 не знает ни адреса сервера, ни методов протокола, ни QJsonObject.
 
 Контроллер создаётся с зависимостями до запуска клиента и сам сеть не включает.
@@ -106,7 +109,7 @@ invalidateSession сохраняет кэш для восстановления 
 чтений и защиту от старого снимка, пришедшего после нового.
 
 `tests/infra/src/ServerRuntimeTest.cpp` дополнительно проверяет всю цепочку
-ClientModels → DesktopClientController → TcpClient → ServerRuntime → SQLite/LLM:
+ClientModels → ClientController → TcpClient → ServerRuntime → SQLite/LLM:
 получение user_saved, явный retry без второго User, история и её сохранение без связи.
 Сеть внешних поставщиков, настоящая модель и UI-экраны не используются.
 

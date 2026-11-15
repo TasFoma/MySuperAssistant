@@ -74,19 +74,19 @@ if(WIN32)
 endif()
 
 add_executable(msa_ui_tests src/UiTestMain.cpp src/CommonComponentsTest.cpp src/DesktopScreensTest.cpp
-    src/DesktopRuntimeTest.cpp ../core/src/FakeClock.cpp)
+    src/DesktopRuntimeTest.cpp src/MobileRuntimeTest.cpp src/MobileScreensTest.cpp ../core/src/FakeClock.cpp)
 target_compile_features(msa_ui_tests PRIVATE cxx_std_20)
-target_link_libraries(msa_ui_tests PRIVATE msa_desktop_support msa_ui_desktopplugin msa_ui_commonplugin GTest::gtest)
+target_link_libraries(msa_ui_tests PRIVATE msa_desktop_support msa_mobile_support msa_ui_desktopplugin msa_ui_commonplugin msa_ui_mobile msa_ui_mobileplugin GTest::gtest)
 target_include_directories(msa_ui_tests PRIVATE ../core/include)
 target_compile_definitions(msa_ui_tests PRIVATE MSA_DESKTOP_EXECUTABLE="$<TARGET_FILE:msa_desktop>"
-    MSA_SERVER_EXECUTABLE="$<TARGET_FILE:msa_server>")
-add_dependencies(msa_ui_tests msa_desktop msa_server)
+    MSA_SERVER_EXECUTABLE="$<TARGET_FILE:msa_server>" MSA_MOBILE_EXECUTABLE="$<TARGET_FILE:msa_mobile>")
+add_dependencies(msa_ui_tests msa_desktop msa_mobile msa_server)
 msa_apply_warnings(msa_ui_tests)
 qt_add_resources(msa_ui_tests "common_component_tests"
     PREFIX /tests
     FILES qml/CommonComponentsGallery.qml
 )
-gtest_add_tests(TARGET msa_ui_tests SOURCES src/CommonComponentsTest.cpp src/DesktopScreensTest.cpp src/DesktopRuntimeTest.cpp TEST_LIST msaUiTests)
+gtest_add_tests(TARGET msa_ui_tests SOURCES src/CommonComponentsTest.cpp src/DesktopScreensTest.cpp src/DesktopRuntimeTest.cpp src/MobileRuntimeTest.cpp src/MobileScreensTest.cpp TEST_LIST msaUiTests)
 set_tests_properties(${msaUiTests} PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QT_FORCE_STDERR_LOGGING=1"
     WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"

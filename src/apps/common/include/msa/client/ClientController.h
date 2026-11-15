@@ -10,14 +10,14 @@
 #include <map>
 #include <optional>
 
-namespace msa::desktop
+namespace msa::client
 {
 /// @brief Связывает типизированные модели и транспорт; формат JSON остаётся в infra.
-class DesktopClientController final : public QObject
+class ClientController final : public QObject
 {
 public:
     /// @brief Объекты невладеющие, должны жить дольше связки в том же потоке Qt.
-    DesktopClientController(infra::TcpClient& client, ui::ClientModels& models, QObject* parent = nullptr);
+    ClientController(infra::TcpClient& client, ui::ClientModels& models, QObject* parent = nullptr);
     /// @brief Завершает сессию перед уничтожением связки, сохраняя unknown ожидавших записей.
     void stop();
 
@@ -37,6 +37,7 @@ private:
     void queueRefresh();
     void updateState();
 
+private:
     infra::TcpClient& m_client;
     ui::ClientModels& m_models;
     std::map<QString, Context> m_pending{};
@@ -45,4 +46,4 @@ private:
     int m_delay{0};
     bool m_refreshQueued{false};
 };
-} // namespace msa::desktop
+} // namespace msa::client

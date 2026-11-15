@@ -4,8 +4,13 @@
 
 Слои core/infra/ui собраны отдельными статическими библиотеками. Сервер работает
 без окна через QCoreApplication; desktop открывает DesktopWindow через
-QQmlApplicationEngine, mobile пока содержит цикл приложения без окна.
+QQmlApplicationEngine; mobile открывает MobileWindow с MobileRuntime.
 Правила сборки сервера — решение 49, ручного применения параметров клиента — 56.
+Библиотека [мобильных экранов](modules/MobileScreens.md) подключена через
+[MobileRuntime](modules/MobileRuntime.md) в apps/mobile: MobileState и Msa.Ui.Mobile
+зависят от ui/common и core.
+PlannerEditor/PlannerFormDialog и ClientSettingsModel общие для обоих клиентов;
+DesktopState сохраняет прежний контракт через композицию.
 
 Для mobile согласованы Android 9+ (API 28), arm64-v8a и отсутствие эмулятора
 (решение 59). Общие Android-пресеты используют Ninja, личные пресеты указывают
@@ -13,6 +18,8 @@ toolchain Qt 6.10.3 Android и пути SDK/NDK/JDK. SDK 36 и NDK 27.2.12479018
 установлены; подключение Samsung A55 через ADB подтверждено. Android Debug
 собран до APK; AAPT2 подтвердил минимум API 28 и единственный ABI arm64-v8a.
 Release-сборка и запуск приложения на телефоне пока не проверены.
+Добавленные окно и MobileRuntime проверяются на Windows; Android после этих
+изменений требует пересборки и отдельной проверки на устройстве.
 
 core содержит типы и сервисы планировщика, чата, ментора, памяти, дневника,
 контекста LLM и навигации. Он не использует Qt, файлы или сеть; исключение из
@@ -21,8 +28,9 @@ infra реализует SQLite-репозитории, HTTP-адаптеры, J
 TcpClient предоставляет асинхронные клиентские сессии, начальную загрузку и
 ограниченный цикл восстановления (решение 50). ClientProtocol в infra разбирает
 вложенные результаты в ClientData из core; ClientModels/ClientListModel в ui/common
-показывают эти типы через Qt-свойства и роли. DesktopClientController в apps/desktop
-соединяет модели с транспортом (решение 51). Проверяемая цель msa_desktop_support
+показывают эти типы через Qt-свойства и роли. ClientController в apps/common
+соединяет модели с транспортом обоих клиентов (решения 51, 61), цель msa_client_support.
+Проверяемая цель msa_desktop_support
 принадлежит приложению. DesktopRuntime владеет моделями, постоянными настройками,
 локальным плеером и заменяемой сетевой сессией; main передаёт модели QML-окну.
 apps/server связывает их в ServerRuntime; msa_server_support — проверяемая
@@ -90,11 +98,12 @@ NetworkServices владеет постоянным рабочим потоко�
 
 По решению 54 заголовки и реализации разделены во всём собственном C++-коде:
 include содержит `.h`, соседний src — `.cpp`. В приложениях заголовки доступны
-через `include/msa/desktop/` или `include/msa/server/`, но не через каталог src.
+через `include/msa/desktop/`, `include/msa/mobile/`, `include/msa/client/` или
+`include/msa/server/`, но не через каталог src.
 Внутренние заголовки core находятся в `include/msa/core/detail/` и не являются
 публичным контрактом. Тестовые помощники имеют свои include и src внутри набора.
 
-В ui/common и ui/desktop C++-модели находятся в `Model/include/msa/ui/` и
+В ui/common, ui/desktop и ui/mobile C++-модели находятся в `Model/include/msa/ui/` и
 `Model/src/`, QML — в `UI/`. SurfaceCard и SectionHeader находятся в
 `ui/common/UI/Utils/` как общие элементы вёрстки. UI/Model — организационное
 разделение внутри существующих CMake-целей; новый слой или зависимость не добавлены.
@@ -116,6 +125,10 @@ flowchart TD
     mobile --> plugin
     plugin --> common
     desktopSupport --> infra
+    desktopSupport --> clientSupport[msa_client_support: ClientController в apps/common]
+    clientSupport --> common
+    clientSupport --> infra
+    clientSupport --> core
     desktopSupport --> audio[msa_infra_audio: локальная музыка]
     desktopSupport --> voice[msa_infra_voice: процессы, речь и настройки]
     voice --> core
@@ -132,7 +145,12 @@ flowchart TD
     desktopSupport --> core
     desktopSupport --> desktopUI
     desktop --> gui[Qt6::Gui]
-    mobile[msa_mobile] --> mobileUI[msa_ui_mobile: заглушка]
+    mobile[msa_mobile] --> mobileUI[msa_ui_mobile: экраны и MobileState]
+    mobile --> mobileSupport[msa_mobile_support: MobileRuntime]
+    mobileSupport --> mobileUI
+    mobileSupport --> clientSupport
+    mobile --> mobilePlugin[msa_ui_mobileplugin: Msa.Ui.Mobile]
+    mobilePlugin --> mobileUI
     mobile --> common
     mobile --> infra
     mobile --> core
@@ -153,6 +171,7 @@ flowchart TD
     infraTests --> desktopSupport
     uiTests[msa_ui_tests: offscreen] --> plugin
     uiTests --> desktopPlugin
+    uiTests --> mobilePlugin
     uiTests --> desktopSupport
     desktopPlugin --> desktopUI
     infraTests -. QProcess .-> server
@@ -162,8 +181,9 @@ flowchart TD
 
 UI зависит только от core и Qt Quick; прямой связи с infra нет. Qt ищется один
 раз в корневом CMake и нужен для конфигурации всего проекта. Сервер получает
-Qt Core/Sql/Network транзитивно через infra. При ANDROID подключаются mobile
-и общий UI, иначе — сервер, desktop и тесты. Все цели требуют C++20.
+Qt Core/Sql/Network транзитивно через infra. Библиотеки общего и мобильного UI
+собираются на обеих платформах; при ANDROID подключается приложение mobile,
+иначе — сервер, desktop и тесты, включая мобильные экраны. Все цели требуют C++20.
 Общий модуль Msa.Ui.Common создаётся через qt_add_qml_module; статический плагин
 линкуется и импортируется в desktop/mobile. Theme.qml хранит визуальные токены,
 компоненты отображают свойства и испускают пользовательские действия.
@@ -197,7 +217,7 @@ sequenceDiagram
 | ClientData | Структуры снимка, коллекций, страниц, чтений и действий без Qt | `src/core/include/msa/core/ClientData.h` |
 | ClientProtocol | Строгий JSON-разбор вложенных результатов чтения и кодирование типизированных действий | `src/infra/include/msa/infra/ClientProtocol.h`, `src/infra/src/ClientProtocol.cpp` |
 | ClientListModel и ClientModels | Общие QML-модели, локальный выбор, страницы и последние данные без связи | `src/ui/common/Model/include/msa/ui/ClientListModel.h`, `ClientModels.h`, `src/ui/common/Model/src/` |
-| DesktopClientController | Соединение транспорта и моделей, обновление данных без повторов записи | `src/apps/desktop/include/msa/desktop/DesktopClientController.h`, `src/apps/desktop/src/DesktopClientController.cpp` |
+| ClientController | Общая связка транспорта и моделей, обновление данных без повторов записи | `src/apps/common/include/msa/client/ClientController.h`, `src/apps/common/src/ClientController.cpp` |
 | TcpClient | Асинхронные auth/get_all, ответы/события и максимум пять попыток восстановления | `src/infra/include/msa/infra/TcpClient.h`, `src/infra/src/TcpClient.cpp` |
 | ProtocolTestClient и ServerProcessTest | Независимый TCP/JSON-клиент, запуск настоящего сервера и восстановление после обрывов | `tests/infra/include/ProtocolTestClient.h`, `tests/infra/src/` |
 | ServerRuntime | Обработчики протокола, репозитории, транзакции команд и проверки сроков | `src/apps/server/include/msa/server/ServerRuntime.h`, `src/apps/server/src/ServerRuntime.cpp` |
@@ -279,7 +299,8 @@ sequenceDiagram
 | Общие QML-компоненты | Тёмная тема, элементы управления, карточки и состояния | `src/ui/common/UI/` |
 | Экраны ПК и настройки | Навигация, чат/планы/напоминания, форма JSON-параметров и связка apps | `src/ui/desktop/`, `src/apps/desktop/include/msa/desktop/DesktopPreferencesController.h` |
 | DesktopRuntime / DesktopWindow | Запуск окна, загрузка настроек, владение музыкой и смена сетевой сессии | `src/apps/desktop/include/msa/desktop/DesktopRuntime.h`, `src/ui/desktop/UI/DesktopWindow.qml` |
-| PlannerEditor | Метаданные форм, типизированные действия, подтверждение и сохранение черновика при отказе | `src/ui/desktop/Model/include/msa/ui/PlannerEditor.h`, `src/ui/desktop/UI/PlannerDialog.qml` |
+| PlannerEditor | Общие формы, типизированные действия, подтверждение и черновик при отказе | `src/ui/common/Model/include/msa/ui/PlannerEditor.h`, `src/ui/common/UI/PlannerFormDialog.qml` |
+| ClientSettingsModel | Общая проверка параметров подключения и запросы к связке приложения | `src/ui/common/Model/include/msa/ui/ClientSettingsModel.h` |
 | ClientPlannerAction и ClientPlannerProtocol | Типы core и преобразование действий форм в существующие методы JSON | `src/core/include/msa/core/ClientPlannerAction.h`, `src/infra/src/ClientPlannerProtocol.cpp` |
 | JsonClientPreferences | Строгий локальный JSON клиента, атомарное сохранение | `src/infra/include/msa/infra/JsonClientPreferences.h` |
 | MusicPlaylist / MusicData | Очередь, ограничение ошибок, снимки и команды без Qt | `src/core/include/msa/core/MusicPlaylist.h`, `src/core/include/msa/core/MusicData.h` |
@@ -296,7 +317,8 @@ sequenceDiagram
 | VoiceWorker | Служебный C++-процесс, захват микрофона и модель Vosk | `src/apps/desktop/VoiceWorker/` |
 | VoiceModel / VoiceController | Черновик/действия UI, соединение backend и отдельного файла | `src/ui/common/Model/include/msa/ui/VoiceModel.h`, `src/apps/desktop/include/msa/desktop/VoiceController.h` |
 | ClientPreferences | Параметры подключения и проверка заполненного набора без Qt | `src/core/include/msa/core/ClientPreferences.h` |
-| Mobile UI | Заглушка экранов | `src/ui/mobile/` |
+| Mobile UI | Четыре вкладки, отдельный список бесед, календарь и формы | `src/ui/mobile/`, [описание](modules/MobileScreens.md) |
+| MobileRuntime | Окно, постоянные параметры и заменяемая TCP-сессия мобильного клиента | `src/apps/mobile/`, [описание](modules/MobileRuntime.md) |
 | Приложения | Точки входа сервера и клиентов | `src/apps/server/`, `src/apps/desktop/`, `src/apps/mobile/` |
 
 Контракты репозиториев: поиск возвращает `optional`, списки — независимые копии без
@@ -337,7 +359,7 @@ ServerProcessTest дополнительно запускает собранны
 
 Экраны ПК, формы планировщика, музыка и JSON-настройки подключены в main desktop.
 Окно и работа с настоящим локальным сервером проверяются offscreen. Пока отсутствуют
-окно/клиентская связка mobile, выбор точки в UI геонапоминаний,
+выбор точки в UI геонапоминаний,
 геолокация устройства, озвучка и Android-уведомления. Голосовой ввод ПК подключён,
 проверен без микрофона; личная модель и качество речи требуют ручной проверки. Прямые координаты
 передаются явными параметрами запросов, выбранная точка геонапоминания закрепляется

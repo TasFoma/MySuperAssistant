@@ -1,5 +1,5 @@
 #include "FakeClock.h"
-#include "msa/desktop/DesktopClientController.h"
+#include "msa/client/ClientController.h"
 #include "msa/infra/ProtocolPayload.h"
 #include "msa/infra/SqliteSchema.h"
 #include "msa/infra/TcpClient.h"
@@ -252,7 +252,7 @@ TEST_F(ServerRuntimeTest, QmlModelsReceiveTypedHistoryAndExplicitRetryKeepsOneUs
     infra::TcpClient client{{"127.0.0.1", m_server->port(), "test-token", std::chrono::milliseconds{kWaitMs},
         std::chrono::milliseconds{kWaitMs}, std::chrono::milliseconds{5}, std::chrono::milliseconds{20}}};
     ui::ClientModels models;
-    desktop::DesktopClientController controller{client, models};
+    client::ClientController controller{client, models};
     client.connectToServer();
     ASSERT_TRUE(waitUntil([&models, &chatId]() { return models.online() && models.chats()->containsIdentifier(chatId); }));
     ASSERT_TRUE(models.selectChat(chatId));
@@ -280,7 +280,7 @@ TEST_F(ServerRuntimeTest, TypedPlannerFormsReachServerAndRefreshConfirmedRows)
                              std::chrono::milliseconds{kWaitMs}}};
     ui::ClientModels models;
     ui::PlannerEditor editor{models};
-    desktop::DesktopClientController controller{client, models};
+    client::ClientController controller{client, models};
     client.connectToServer();
     ASSERT_TRUE(waitUntil([&models]() { return models.online(); }));
     editor.newTask();

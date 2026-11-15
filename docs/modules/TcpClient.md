@@ -105,11 +105,12 @@ sendRequest назначает ID, который не переиспользу�
 после ручного переподключения к ServerRuntime. Команды — в [README](../../README.md).
 
 Это транспортная библиотека. [ClientProtocol](ClientProtocol.md) разбирает данные,
-[ClientModels](ClientModels.md) отображают их, DesktopClientController связывает
+[ClientModels](ClientModels.md) отображают их, ClientController связывает
 объекты в apps без зависимости UI от infra. JSON-настройки и первый набор экранов
 описаны в [DesktopScreens](DesktopScreens.md); DesktopRuntime создаётся в main
-desktop и применяет auto_connect. Сборка mobile ещё впереди.
+desktop и применяет auto_connect. MobileRuntime в apps/mobile использует тот же
+ClientController из apps/common и собственные настройки.
 Общий ConnectionBanner уже передаёт явное действие переподключения через
-ClientModels и DesktopRuntime в пользовательском окне. Новый сохранённый endpoint
+ClientModels и runtime каждого клиента в пользовательском окне. Новый сохранённый endpoint
 применяется только явным действием, транспорт при этом заменяется в apps.
 

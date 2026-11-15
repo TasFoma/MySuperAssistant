@@ -1,5 +1,5 @@
 #include "FakeClock.h"
-#include "msa/desktop/DesktopClientController.h"
+#include "msa/client/ClientController.h"
 #include "ProtocolTestClient.h"
 #include "msa/infra/ClientProtocol.h"
 #include "msa/infra/ProtocolPayload.h"
@@ -337,7 +337,7 @@ protected:
     TcpServer m_server{"composition-token", "Etc/UTC", m_clock};
     std::unique_ptr<TcpClient> m_client{};
     ui::ClientModels m_models{};
-    std::unique_ptr<desktop::DesktopClientController> m_controller{};
+    std::unique_ptr<client::ClientController> m_controller{};
     QJsonObject m_snapshot{snapshot()};
     bool m_profileFailure{false};
     bool m_badActionAck{false};
@@ -408,7 +408,7 @@ void ClientCompositionTest::SetUp()
         });
     m_client = std::make_unique<TcpClient>(
         TcpClientSettings{"127.0.0.1", m_server.serverPort(), "composition-token", 500ms, 1000ms, 5ms, 20ms});
-    m_controller = std::make_unique<desktop::DesktopClientController>(*m_client, m_models);
+    m_controller = std::make_unique<client::ClientController>(*m_client, m_models);
     QObject::connect(&m_models, &ui::ClientModels::reconnectRequested, &m_models,
                      [this]() { m_client->reconnect(); });
 }

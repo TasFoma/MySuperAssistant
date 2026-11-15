@@ -10,13 +10,11 @@ add_library(msa_desktop_support STATIC
     include/msa/desktop/MusicController.h
     src/MusicController.cpp
     include/msa/desktop/DesktopPreferencesController.h
-    include/msa/desktop/DesktopClientController.h
     src/DesktopPreferencesController.cpp
-    src/DesktopClientController.cpp
 )
 target_compile_features(msa_desktop_support PUBLIC cxx_std_20)
 target_include_directories(msa_desktop_support PUBLIC include)
-target_link_libraries(msa_desktop_support PUBLIC msa_ui_desktop msa_ui_common msa_infra msa_infra_audio msa_infra_voice msa_core)
+target_link_libraries(msa_desktop_support PUBLIC msa_client_support msa_ui_desktop msa_ui_common msa_infra msa_infra_audio msa_infra_voice msa_core)
 if(TARGET msa_voice_worker)
     target_compile_definitions(msa_desktop_support PRIVATE MSA_VOICE_WORKER_FILE_NAME="$<TARGET_FILE_NAME:msa_voice_worker>")
 else()

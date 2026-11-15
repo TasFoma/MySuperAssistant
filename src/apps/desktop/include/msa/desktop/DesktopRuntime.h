@@ -1,8 +1,8 @@
 #pragma once
 
+#include "msa/client/ClientController.h"
 #include "msa/core/ClientPreferences.h"
 #include "msa/desktop/AudioDevicesController.h"
-#include "msa/desktop/DesktopClientController.h"
 #include "msa/desktop/DesktopPreferencesController.h"
 #include "msa/desktop/MusicController.h"
 #include "msa/desktop/SpeechController.h"
@@ -71,7 +71,7 @@ private:
     infra::AudioDevices m_audioDevices;
     AudioDevicesController m_audioController;
     std::optional<infra::TcpClient> m_client{};
-    std::optional<DesktopClientController> m_controller{};
+    std::optional<client::ClientController> m_controller{};
     std::optional<core::ClientPreferences> m_activePreferences{};
     bool m_started{false};
     bool m_stopped{false};
