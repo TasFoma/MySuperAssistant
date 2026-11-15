@@ -27,10 +27,10 @@ struct NetworkBackend {
     explicit NetworkBackend(const ServerSettings& settings);
     QNetworkAccessManager manager{};
     infra::LlamaClient llama;
-    infra::NominatimGeocoder geocoder;
-    infra::OsrmRoutePlanner planner;
-    infra::OpenMeteoWeatherProvider weather;
-    infra::SearxngSearchProvider search;
+    std::optional<infra::NominatimGeocoder> geocoder{};
+    std::optional<infra::OsrmRoutePlanner> planner{};
+    std::optional<infra::OpenMeteoWeatherProvider> weather{};
+    std::optional<infra::SearxngSearchProvider> search{};
 };
 
 /// @brief Исполнитель HTTP без доступа к SQLite. Вызывается последовательно владельцем сервера.
@@ -42,7 +42,7 @@ public:
     explicit NetworkServices(const ServerSettings& settings);
     /// @brief Дожидается завершения работы и уничтожает адаптеры в их потоке.
     ~NetworkServices() override;
-    /// @brief Ключ постоянного кэша с endpoint и параметрами Nominatim.
+    /// @brief Ключ кэша Nominatim либо отдельный ключ отключённых сервисов.
     [[nodiscard]] std::string geocodingSourceKey();
 
 protected:

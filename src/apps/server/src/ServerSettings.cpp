@@ -89,7 +89,13 @@ ServerSettings readServerSettings(const QString& filePath)
     result.llama.apiKey = string(llama, "api_key", true).toUtf8();
     result.llama.timeout = std::chrono::milliseconds{integer(llama, "timeout_ms", 1, kMaximumTimeoutMs)};
     result.llama.maxResponseTokens = integer(llama, "max_response_tokens", 1, kMaximumBudget);
-    const auto services = root.value("services").toObject();
+    const auto servicesValue = root.value("services");
+    if (servicesValue.isNull()) {
+        result.servicesEnabled = false;
+        return result;
+    }
+    if (!servicesValue.isObject()) { invalidSettings(); }
+    const auto services = servicesValue.toObject();
     fields(services, {"timeout_ms", "user_agent", "nominatim", "osrm_foot", "osrm_bike", "osrm_driving",
         "weather", "search"});
     result.http.timeout = std::chrono::milliseconds{integer(services, "timeout_ms", 1, kMaximumTimeoutMs)};

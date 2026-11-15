@@ -1,0 +1,17 @@
+{
+  "listen_address": "<IP-интерфейса сервера в Tailscale>",
+  "port": 8765,
+  "token": "<длинный случайный токен>",
+  "time_zone": "<IANA-зона сервера>",
+  "database_path": "assistant.sqlite",
+  "context_max_chars": 12000,
+  "check_interval_ms": 1000,
+  "llama": {
+    "completion_url": "<http(s)://локальный-адрес-Ламы/v1/chat/completions>",
+    "model": "",
+    "api_key": "",
+    "timeout_ms": 120000,
+    "max_response_tokens": 1024
+  },
+  "services": null
+}

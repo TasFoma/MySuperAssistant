@@ -14,6 +14,7 @@
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTcpServer>
@@ -561,6 +562,7 @@ TEST(ServerSettingsTest, ResolvesDatabaseRelativeToConfigAndRejectsMissingUnknow
     const auto valid = settingsObject();
     write(valid);
     const auto parsed = readServerSettings(path);
+    EXPECT_TRUE(parsed.servicesEnabled);
     EXPECT_EQ(parsed.databasePath, directory.filePath("assistant.sqlite"));
     EXPECT_EQ(parsed.port, 0);
     for (const auto& field : valid.keys()) {
@@ -576,6 +578,152 @@ TEST(ServerSettingsTest, ResolvesDatabaseRelativeToConfigAndRejectsMissingUnknow
         write(invalid);
         EXPECT_THROW(static_cast<void>(readServerSettings(path)), std::invalid_argument);
     }
+}
+
+TEST(ServerSettingsTest, NullServicesDisableExternalAdaptersButMalformedObjectsAreRejected)
+{
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const auto path = directory.filePath("server.json");
+    auto object = settingsObject();
+    for (const auto& services : std::vector<QJsonValue>{QJsonValue::Null, false, 42, "disabled", QJsonArray{},
+                                                      QJsonObject{}, QJsonObject{{"timeout_ms", 1000}}})
+    {
+        object["services"] = services;
+        {
+            QFile file{path};
+            ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+            const auto bytes = QJsonDocument{object}.toJson();
+            ASSERT_EQ(file.write(bytes), bytes.size());
+        }
+        if (services.isNull())
+        {
+            const auto parsed = readServerSettings(path);
+            EXPECT_FALSE(parsed.servicesEnabled);
+            EXPECT_TRUE(parsed.nominatim.isEmpty());
+            EXPECT_EQ(parsed.llama.maxResponseTokens, 128);
+        }
+        else
+        {
+            EXPECT_THROW(static_cast<void>(readServerSettings(path)), std::invalid_argument);
+        }
+    }
+}
+
+TEST(ServerNetworkTest, DisabledAdaptersRejectValidRequestsWithoutNetworkConnections)
+{
+    QTcpServer trap;
+    ASSERT_TRUE(trap.listen(QHostAddress::LocalHost));
+    auto config = settings(QString{});
+    config.servicesEnabled = false;
+    const QUrl endpoint{QString{"http://127.0.0.1:%1/service"}.arg(trap.serverPort())};
+    config.nominatim = endpoint;
+    config.osrm = {endpoint, endpoint, endpoint};
+    config.weather = endpoint;
+    config.search = endpoint;
+    NetworkServices network{config};
+    EXPECT_FALSE(network.geocodingSourceKey().empty());
+    const auto places = static_cast<core::Geocoder&>(network).search("Москва");
+    const auto route = network.route({0, 0}, {1, 1}, core::TravelMode::Foot);
+    const auto weather = network.forecast({0, 0});
+    const auto search = static_cast<core::WebSearchProvider&>(network).search("погода");
+    const auto check = [](const auto& result)
+    {
+        ASSERT_TRUE(std::holds_alternative<core::ExternalServiceError>(result));
+        const auto& error = std::get<core::ExternalServiceError>(result);
+        EXPECT_EQ(error.kind, core::ExternalServiceErrorKind::Unavailable);
+        EXPECT_NE(error.reason.find("отключ"), std::string::npos);
+    };
+    check(places);
+    check(route);
+    check(weather);
+    check(search);
+    QCoreApplication::processEvents();
+    EXPECT_FALSE(trap.hasPendingConnections());
+}
+
+TEST(ServerNetworkTest, NullServicesKeepPlannerAndChatOperationalAndDoNotFallbackFromSearch)
+{
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    core::FakeClock clock{kNoon};
+    QTcpServer http;
+    ASSERT_TRUE(http.listen(QHostAddress::LocalHost));
+    int completions{0};
+    QObject::connect(&http, &QTcpServer::newConnection, &http,
+                     [&http, &completions]()
+                     {
+                         auto* socket = http.nextPendingConnection();
+                         auto bytes = std::make_shared<QByteArray>();
+                         auto handled = std::make_shared<bool>(false);
+                         QObject::connect(socket, &QTcpSocket::readyRead, socket,
+                                          [socket, bytes, handled, &completions]()
+                                          {
+                                              *bytes += socket->readAll();
+                                              if (*handled || !bytes->contains("\r\n\r\n") ||
+                                                  !bytes->contains("profile_facts"))
+                                              {
+                                                  return;
+                                              }
+                                              *handled = true;
+                                              ++completions;
+                                              const QJsonObject content{{"reply", "Ответ без внешних сервисов"},
+                                                                        {"tone", "Neutral"},
+                                                                        {"mood_recording", QJsonValue::Null},
+                                                                        {"profile_facts", QJsonArray{}}};
+                                              const QJsonObject envelope{
+                                                  {"choices", QJsonArray{QJsonObject{
+                                                      {"finish_reason", "stop"},
+                                                      {"message", QJsonObject{
+                                                          {"role", "assistant"},
+                                                          {"content", QString::fromUtf8(QJsonDocument{content}.toJson(
+                                                                          QJsonDocument::Compact))}}}}}}};
+                                              const auto body = QJsonDocument{envelope}.toJson(QJsonDocument::Compact);
+                                              socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " +
+                                                            QByteArray::number(body.size()) +
+                                                            "\r\nConnection: close\r\n\r\n" + body);
+                                              socket->disconnectFromHost();
+                                          });
+                         QObject::connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
+                     });
+    auto object = settingsObject();
+    object["services"] = QJsonValue::Null;
+    auto llama = object["llama"].toObject();
+    llama["completion_url"] = QString{"http://127.0.0.1:%1/v1/chat/completions"}.arg(http.serverPort());
+    object["llama"] = llama;
+    const auto path = directory.filePath("server.json");
+    {
+        QFile file{path};
+        ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+        const auto bytes = QJsonDocument{object}.toJson();
+        ASSERT_EQ(file.write(bytes), bytes.size());
+    }
+    const auto config = readServerSettings(path);
+    NetworkServices network{config};
+    ServerRuntime server{config, clock, {network, network, network, network, network, network.geocodingSourceKey()}};
+    ASSERT_TRUE(server.start());
+    QTcpSocket client;
+    connectClient(client, server.port());
+    send(client, infra::ProtocolRequest{"create", "chat.create", {}});
+    const auto chat = receive(client, "create").value("result").toObject().value("chat_id");
+    send(client, infra::ProtocolRequest{"task", "task.create", {{"title", "Проверить запуск"},
+         {"due_date", QJsonValue::Null}, {"priority", "Normal"}}});
+    EXPECT_TRUE(receive(client, "task").value("ok").toBool());
+    send(client, infra::ProtocolRequest{"chat", "chat.send", {{"chat_id", chat}, {"text", "Привет"},
+         {"search_query", QJsonValue::Null}}});
+    const auto reply = receive(client, "chat");
+    ASSERT_TRUE(reply.value("ok").toBool()) << QJsonDocument{reply}.toJson().toStdString();
+    EXPECT_EQ(reply.value("result").toObject().value("text"), "Ответ без внешних сервисов");
+    EXPECT_EQ(completions, 1);
+    send(client, infra::ProtocolRequest{"search", "chat.send", {{"chat_id", chat}, {"text", "Найди сведения"},
+         {"search_query", "сведения"}}});
+    const auto failure = receive(client, "search");
+    EXPECT_FALSE(failure.value("ok").toBool());
+    EXPECT_EQ(failure.value("error").toObject().value("effect"), "user_saved");
+    EXPECT_TRUE(failure.value("error").toObject().value("message").toString().contains("отключ"));
+    EXPECT_EQ(completions, 1);
+    send(client, infra::ProtocolRequest{"snapshot", "get_all", {}});
+    EXPECT_EQ(receive(client, "snapshot").value("result").toObject().value("tasks").toArray().size(), 1);
 }
 
 TEST(ServerNetworkTest, RealHttpWorkerKeepsReadRequestsAndReminderChecksAliveAndRejectsConcurrentWrites)

@@ -30,6 +30,8 @@ struct ServerSettings {
     int checkIntervalMs{};
     /// @brief Параметры одного полного запроса llama-server.
     infra::LlamaClientSettings llama{};
+    /// @brief false соответствует services: null; модель и планировщик остаются доступны.
+    bool servicesEnabled{true};
     /// @brief Общий срок GET и идентификация приложения.
     infra::HttpGetSettings http{};
     /// @brief Полный endpoint поиска кандидатов места.
