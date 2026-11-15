@@ -94,8 +94,34 @@ Android Debug сконфигурирован и собран, включая APK
 `out/build/android-debug-local/src/apps/mobile/android-build/build/outputs/apk/debug/android-build-debug.apk`.
 AAPT2 подтвердил minSdkVersion=28, targetSdkVersion=36 и arm64-v8a.
 Release-пресет подготовлен, но ещё не проверен сборкой. Установка и запуск
-на телефоне пока не проверены. Эти сведения об APK относятся к подготовке
-окружения; после добавления MobileRuntime Android нужно пересобрать.
+на телефоне пока не проверены. Android Debug пересобран 2026-11-15 уже с
+MobileWindow, MobileRuntime и общим ClientController; AAPT2 повторно подтвердил
+минимум API 28, target API 36 и единственный ABI arm64-v8a.
+
+Установка Debug APK на A55 из PowerShell в корне проекта:
+
+1. Подключите телефон по USB, разрешите отладку и проверьте статус `device`:
+
+   ```powershell
+   $adb = "$env:LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe"
+   & $adb devices -l
+   ```
+
+2. При единственном подключённом устройстве установите APK. Ожидается `Success`:
+
+   ```powershell
+   & $adb install -r "out/build/android-debug-local/src/apps/mobile/android-build/build/outputs/apk/debug/android-build-debug.apk"
+   ```
+
+3. Откройте `msa_mobile` на телефоне либо выполните:
+
+   ```powershell
+   & $adb shell am start -n "org.qtproject.example.msa_mobile/org.qtproject.qt.android.bindings.QtActivity"
+   ```
+
+Пакет — org.qtproject.example.msa_mobile, запускаемая Activity — QtActivity.
+При нескольких устройствах укажите A55 через `-s <serial>` перед командой ADB.
+Установка и запуск выполняются пользователем; сборка APK сама их не проверяет.
 
 При первом запуске mobile открывает настройки: укажите адрес сервера в Tailscale,
 порт и токен, нажмите «Сохранить», затем «Подключиться». Параметры хранятся
@@ -104,6 +130,10 @@ Release-пресет подготовлен, но ещё не проверен �
 После пяти неудачных попыток доступно ручное переподключение. Без связи остаются
 последние данные в памяти и черновик; очередь записей без сети не создаётся.
 Уведомления, фоновая служба, геолокация и голос Android пока не подключены.
+На A55 нужно проверить ввод при открытой клавиатуре, сохранение черновика при
+переходах, кнопку Назад, создание тестовой задачи и её появление на ПК.
+После отключения сети последние данные должны оставаться видимыми,
+а серверные действия — недоступными; запись автоматически не повторяется.
 Для offscreen-проверок тот же msa_mobile собирается на Windows; путь к отдельному
 файлу можно передать через `--config <path>`.
 

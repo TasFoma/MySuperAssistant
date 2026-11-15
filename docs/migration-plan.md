@@ -878,13 +878,31 @@ SpeechSynthesizer.md, DesktopRuntime.md, DesktopScreens.md, CommonQml.md и Musi
       Просмотрены mobile-startup-preview.png, mobile-startup-invalid-preview.png
       и mobile-runtime-preview.png. Android в этом шаге не пересобирался;
       установка, ввод/Назад на A55 и личный сервер/Tailscale пока не проверены.
+- [x] Android Debug APK с мобильным окном и клиентской связкой (2026-11-15).
+      cmake --preset android-debug-local и cmake --build --preset android-debug-local
+      успешны. Для FetchContent понадобилась сеть, для запуска NDK и упаковки —
+      расширенный доступ; изменения C++/CMake не требовались.
+      AAPT2 подтвердил minSdkVersion=28, targetSdkVersion=36, только arm64-v8a,
+      INTERNET, пакет org.qtproject.example.msa_mobile и запускаемую QtActivity.
+      В APK присутствуют libmsa_mobile_arm64-v8a.so и платформенный плагин Qt;
+      Vosk, voice_worker и TextToSpeech отсутствуют. Размер — 69 779 482 байта.
+      SHA-256: 28D25F1F6E3EC7D8A8F71C05F6AF1C4F7BFEAEB0EB89B04D169C63C2C7D9C754.
+      APK: out/build/android-debug-local/src/apps/mobile/android-build/build/outputs/apk/debug/android-build-debug.apk.
+      Установка и запуск на A55 оставлены пользователю по AGENTS.md; в README
+      добавлены точные команды и ручные проверки. Пункт работы с сервером
+      на телефоне остаётся невыполненным до подтверждения этой проверки.
+      Код не менялся; Windows-сборка и 530 тестов прошли в предыдущем шаге,
+      повторно в этом шаге не запускались. Сетевой протокол не менялся.
+      Обновлены README.md, docs/architecture.md, docs/modules/MobileRuntime.md,
+      docs/lessons.md и этот план.
 - [ ] Уведомления и планирование напоминаний (JNI) в `infra/platform/android`.
 - [ ] Геолокация (Qt Positioning), озвучка, распознавание речи.
 - [ ] Приложение ставится на телефон и работает с сервером.
 
 Связка apps/mobile завершена и проверена на Windows. Следующий пункт переноса —
 уведомления и планирование напоминаний Android; перед ним рекомендуется
-пересобрать Android и проверить установку, ввод, кнопку Назад и подключение на A55.
+проверить установку, ввод, кнопку Назад и подключение на A55: Android Debug
+уже пересобран с окном и связкой. Инструкция установки находится в README.
 Наличие APK само по себе не подтверждает работу клиента с сервером.
 Геолокация и голос остаются отдельными пунктами этапа 8.
 Документы завершения экранов: этот план и docs/modules/MobileScreens.md.
