@@ -18,15 +18,37 @@ Controls.ScrollView {
     ColumnLayout {
         width: root.availableWidth
         spacing: Theme.spaceLarge
-        SectionHeader { Layout.fillWidth: true; title: "Настройки"; description: "Подключение к серверу" }
+        SectionHeader {
+            prominent: true
+            Layout.fillWidth: true
+            title: "Настройки"
+            description: "Подключение к серверу"
+        }
         SurfaceCard {
             Layout.fillWidth: true
             ColumnLayout {
                 width: parent.width
                 spacing: Theme.spaceMedium
-                SectionHeader { Layout.fillWidth: true; title: "Сервер"; description: "Адрес без схемы URL, порт и токен авторизации" }
-                AppTextField { id: host; objectName: "settingsHost"; Layout.fillWidth: true; placeholderText: "Хост"; text: root.desktop.host }
-                AppTextField { id: port; objectName: "settingsPort"; Layout.fillWidth: true; placeholderText: "Порт"; text: root.desktop.port; inputMethodHints: Qt.ImhDigitsOnly }
+                SectionHeader {
+                    Layout.fillWidth: true
+                    title: "Сервер"
+                    description: "Адрес без схемы URL, порт и токен авторизации"
+                }
+                AppTextField {
+                    id: host
+                    objectName: "settingsHost"
+                    Layout.fillWidth: true
+                    placeholderText: "Хост"
+                    text: root.desktop.host
+                }
+                AppTextField {
+                    id: port
+                    objectName: "settingsPort"
+                    Layout.fillWidth: true
+                    placeholderText: "Порт"
+                    text: root.desktop.port
+                    inputMethodHints: Qt.ImhDigitsOnly
+                }
                 AppTextField {
                     id: token
                     objectName: "settingsToken"
@@ -76,8 +98,14 @@ Controls.ScrollView {
                         onClicked: root.desktop.connectToServer()
                     }
                 }
-                SectionHeader { Layout.fillWidth: true; description: "Подключение использует сохранённые параметры. Переключатель выше действует при следующем запуске." }
-                SectionHeader { Layout.fillWidth: true; description: root.desktop.settingsMessage }
+                SectionHeader {
+                    Layout.fillWidth: true
+                    description: "Подключение использует сохранённые параметры. Переключатель выше действует при следующем запуске."
+                }
+                SectionHeader {
+                    Layout.fillWidth: true
+                    description: root.desktop.settingsMessage
+                }
             }
         }
         SurfaceCard {
@@ -85,8 +113,15 @@ Controls.ScrollView {
             ColumnLayout {
                 width: parent.width
                 spacing: Theme.spaceMedium
-                SectionHeader { Layout.fillWidth: true; title: "Звук и голосовой ввод"; description: "Устройства сохраняются сразу. Запись включается только кнопкой в чате." }
-                SectionHeader { Layout.fillWidth: true; description: "Микрофон" }
+                SectionHeader {
+                    Layout.fillWidth: true
+                    title: "Звук и голосовой ввод"
+                    description: "Устройства сохраняются сразу. Запись включается только кнопкой в чате."
+                }
+                SectionHeader {
+                    Layout.fillWidth: true
+                    description: "Микрофон"
+                }
                 Controls.ComboBox {
                     objectName: "inputDeviceCombo"
                     Layout.fillWidth: true
@@ -104,23 +139,9 @@ Controls.ScrollView {
                     palette.highlightedText: Theme.accentText
                     Accessible.name: "Микрофон для диктовки"
                 }
-                SectionHeader { Layout.fillWidth: true; description: "Динамики или наушники — музыка и озвучка" }
-                Controls.ComboBox {
-                    objectName: "outputDeviceCombo"
+                AudioOutputSelector {
                     Layout.fillWidth: true
-                    implicitHeight: Theme.controlHeight
-                    model: root.desktop.audioDevices.outputNames
-                    currentIndex: root.desktop.audioDevices.outputIndex
-                    onActivated: index => root.desktop.audioDevices.selectOutput(index)
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontBody
-                    palette.button: Theme.raised
-                    palette.buttonText: Theme.text
-                    palette.text: Theme.text
-                    palette.base: Theme.surface
-                    palette.highlight: Theme.accent
-                    palette.highlightedText: Theme.accentText
-                    Accessible.name: "Устройство вывода музыки и речи"
+                    devices: root.desktop.audioDevices
                 }
                 AppButton {
                     objectName: "refreshAudioDevicesButton"
@@ -128,7 +149,10 @@ Controls.ScrollView {
                     tone: "secondary"
                     onClicked: root.desktop.audioDevices.refresh()
                 }
-                SectionHeader { Layout.fillWidth: true; description: root.desktop.audioDevices.errorText }
+                SectionHeader {
+                    Layout.fillWidth: true
+                    description: root.desktop.audioDevices.errorText
+                }
                 Text {
                     Layout.fillWidth: true
                     text: root.desktop.voice.modelPath
@@ -144,7 +168,10 @@ Controls.ScrollView {
                     tone: "secondary"
                     onClicked: voiceFolderDialog.open()
                 }
-                SectionHeader { Layout.fillWidth: true; description: root.desktop.voice.errorText }
+                SectionHeader {
+                    Layout.fillWidth: true
+                    description: root.desktop.voice.errorText
+                }
             }
         }
     }

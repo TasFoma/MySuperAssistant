@@ -4,6 +4,7 @@ import QtQuick.Layouts
 ColumnLayout {
     property string title: ""
     property string description: ""
+    property bool prominent: false
     spacing: Theme.spaceSmall
     Text {
         Layout.fillWidth: true
@@ -12,7 +13,7 @@ ColumnLayout {
         textFormat: Text.PlainText
         color: Theme.text
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontTitle
+        font.pixelSize: parent.prominent ? Theme.fontHeading : Theme.fontTitle
         font.weight: Theme.fontWeightStrong
         wrapMode: Text.Wrap
     }

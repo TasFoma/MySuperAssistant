@@ -58,7 +58,9 @@ apps/server связывает их в ServerRuntime; msa_server_support — п�
 Qt Multimedia, фоновый сканер и отдельный JSON параметров; сервер эту библиотеку
 не линкует. MusicModel/MusicPanel в ui/common получают снимки core; MusicController
 в apps/desktop соединяет модель и LocalMusicPlayer. DesktopState владеет моделью,
-DesktopShell показывает панель снизу во всех разделах. При запуске восстанавливается
+DesktopShell показывает компактный MusicPanel снизу во всех шести разделах.
+Полный режим той же панели находится на MusicScreen; обе панели используют одну
+MusicModel. AudioOutputSelector переиспользуется в музыке и настройках. При запуске восстанавливается
 папка без воспроизведения, auto_connect управляет только сетью.
 
 Голосовой ввод ПК отделён от сети по решению 57. SpeechRecognizer в core объявляет
@@ -110,6 +112,19 @@ NetworkServices владеет постоянным рабочим потоко�
 настроек. Личные значения отсутствуют в коде. Реальные модели/сервисы и качество
 ментора/памяти ещё предстоит проверить. Сетевые тесты используют локальный HTTP
 и TCP, файловые тесты — временные базы. Подробности — [ServerRuntime](modules/ServerRuntime.md).
+
+На Windows цель msa_desktop после сборки запускает windeployqt из выбранного
+Qt-кита. В каталог EXE копируются библиотеки Qt, платформенные и прочие плагины,
+импорты QML и Qt-зависимости msa_voice_worker; явно включён драйвер SQLite для
+общего каталога с сервером и тестами. Клиент запускается без Qt в PATH;
+runtime компилятора не упаковывается, Debug предназначен для среды разработки.
+
+Навигация Desktop задана именованными Page в DesktopState: Сегодня, Планы,
+Тренировки, Музыка, Ассистент, Настройки (решение 65). Внутри планов независимый
+PlanSection: задачи, календарь, привычки, напоминания. Новых слоёв/маршрутизатора
+нет; экраны остаются созданными при переключении. TodayScreen показывает местную
+дату и переход к планам, WorkoutsScreen — пустое состояние. Обе страницы не
+вводят новые предметные сущности. Мобильная навигация пока прежняя, до 1C.
 
 ## Организация исходников
 
@@ -313,8 +328,8 @@ sequenceDiagram
 | SqliteReminderRepository | SQLite-хранилище временных, повторяющихся и геонапоминаний с общими ID | `src/infra/include/msa/infra/SqliteReminderRepository.h`, `src/infra/src/SqliteReminderRepository.cpp` |
 | SqliteHabitRepository | SQLite-хранилище привычек и журнала с каскадным удалением | `src/infra/include/msa/infra/SqliteHabitRepository.h`, `src/infra/src/SqliteHabitRepository.cpp` |
 | Тесты инфраструктуры | QCoreApplication и временные файловые базы, откат схемы и операций | `tests/infra/` |
-| Общие QML-компоненты | Тёмная тема, элементы управления, карточки и состояния | `src/ui/common/UI/` |
-| Экраны ПК и настройки | Навигация, чат/планы/напоминания, форма JSON-параметров и связка apps | `src/ui/desktop/`, `src/apps/desktop/include/msa/desktop/DesktopPreferencesController.h` |
+| Общие QML-компоненты | Тёмная тема, иконки Canvas, Controls, карточки и состояния | `src/ui/common/UI/` |
+| Экраны ПК и настройки | Шесть разделов, четыре вкладки планов, мини-плеер и форма JSON-параметров | `src/ui/desktop/`, `src/apps/desktop/include/msa/desktop/DesktopPreferencesController.h` |
 | DesktopRuntime / DesktopWindow | Запуск окна, загрузка настроек, владение музыкой и смена сетевой сессии | `src/apps/desktop/include/msa/desktop/DesktopRuntime.h`, `src/ui/desktop/UI/DesktopWindow.qml` |
 | PlannerEditor | Общие формы, типизированные действия, подтверждение и черновик при отказе | `src/ui/common/Model/include/msa/ui/PlannerEditor.h`, `src/ui/common/UI/PlannerFormDialog.qml` |
 | ClientSettingsModel | Общая проверка параметров подключения и запросы к связке приложения | `src/ui/common/Model/include/msa/ui/ClientSettingsModel.h` |

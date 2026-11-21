@@ -19,7 +19,15 @@ Controls.Button {
         textFormat: Text.PlainText
         font: control.font
         color: !control.enabled ? Theme.disabledText : control.tone === "primary" ? Theme.accentText : control.tone === "danger" ? Theme.danger : Theme.text
-        horizontalAlignment: Text.AlignHCenter
+        leftPadding: control.icon.name.length > 0 ? Theme.iconSize + Theme.spaceSmall : 0
+        horizontalAlignment: control.icon.name.length > 0 ? Text.AlignLeft : Text.AlignHCenter
+        AppIcon {
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            name: control.icon.name
+            ink: parent.color
+            visible: name.length > 0
+        }
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
     }

@@ -1,4 +1,8 @@
 add_library(msa_ui_common STATIC
+    Model/include/msa/ui/PlannerEditor.h
+    Model/src/PlannerEditor.cpp
+    Model/include/msa/ui/ClientSettingsModel.h
+    Model/src/ClientSettingsModel.cpp
     Model/include/msa/ui/AudioDevicesModel.h
     Model/src/AudioDevicesModel.cpp
     Model/include/msa/ui/VoiceModel.h
@@ -17,10 +21,12 @@ target_link_libraries(msa_ui_common PUBLIC msa_core Qt6::Quick)
 msa_apply_warnings(msa_ui_common)
 
 set(msaCommonQmlFiles
+    UI/PlannerFormDialog.qml
     UI/MusicPanel.qml
     UI/Theme.qml
     UI/DetailsCard.qml
     UI/RecordActions.qml
+    UI/AppIcon.qml
     UI/AppButton.qml
     UI/AppTextField.qml
     UI/AppTextArea.qml

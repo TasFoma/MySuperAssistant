@@ -3,7 +3,6 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
-
 #include <exception>
 #include <utility>
 
@@ -11,7 +10,6 @@ namespace msa::desktop
 {
 namespace
 {
-constexpr int kSettingsPage = 3;
 QString voiceSettings(const DesktopRuntimeOptions& options)
 {
     return options.voiceSettingsPath.isEmpty()
@@ -105,7 +103,7 @@ void DesktopRuntime::connectSaved()
     }
     if (!m_state.canConnect())
     {
-        m_state.navigate(kSettingsPage);
+        m_state.navigate(ui::DesktopState::Page::Settings);
         m_state.setSettingsMessage("Сначала сохраните корректные параметры сервера.");
         return;
     }

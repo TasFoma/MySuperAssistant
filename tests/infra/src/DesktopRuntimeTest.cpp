@@ -26,7 +26,6 @@
 #include <QTemporaryDir>
 #include <QThread>
 #include <QVariant>
-
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -203,7 +202,7 @@ TEST_F(DesktopRuntimeTest, MissingAndCorruptSettingsKeepWindowAndMusicAvailableW
         auto engine = openWindow(runtime);
         ASSERT_EQ(engine->rootObjects().size(), 1);
         runtime.start();
-        EXPECT_EQ(runtime.state()->page(), 3);
+        EXPECT_EQ(runtime.state()->page(), msa::ui::DesktopState::Page::Settings);
         EXPECT_FALSE(runtime.state()->canConnect());
         EXPECT_EQ(runtime.models()->connectionState(), "Disconnected");
         EXPECT_EQ(runtime.state()->music()->volumePercent(), 42);
@@ -242,6 +241,7 @@ TEST_F(DesktopRuntimeTest, SaveDoesNotConnectAndExplicitActionUsesSavedParameter
     msa::desktop::DesktopRuntime runtime{config};
     runtime.start();
     settle();
+    EXPECT_EQ(runtime.state()->page(), msa::ui::DesktopState::Page::Today);
     EXPECT_EQ(server.m_reads, 0);
     ASSERT_TRUE(
         runtime.state()->savePreferences("127.0.0.1", QString::number(server.m_server.serverPort()), kToken, true));
@@ -379,7 +379,7 @@ TEST_F(DesktopRuntimeTest, WindowCreatesTaskThroughRealServerProcessAndRetainsDa
     ASSERT_EQ(engine->rootObjects().size(), 1);
     runtime.start();
     ASSERT_TRUE(waitFor([&runtime] { return runtime.models()->online() && runtime.models()->chats()->count() > 0; }));
-    runtime.state()->navigate(1);
+    runtime.state()->navigate(msa::ui::DesktopState::Page::Plans);
     auto* planner = runtime.state()->planner();
     planner->newTask();
     planner->setField("title", QString::fromUtf8("Проверить настоящее окно 🙂"));
@@ -410,6 +410,15 @@ TEST_F(DesktopRuntimeTest, MainExecutableLoadsBothPluginsAndConnectsWithoutVisib
     environment.insert("QT_QPA_PLATFORM", "offscreen");
     environment.insert("QT_QUICK_BACKEND", "software");
     environment.insert("QT_FORCE_STDERR_LOGGING", "1");
+    // Проверяем папку приложения без библиотек и плагинов из установленного Qt.
+    if (environment.contains("SystemRoot"))
+    {
+        environment.insert("PATH", environment.value("SystemRoot") + "/System32");
+    }
+    environment.remove("QT_PLUGIN_PATH");
+    environment.remove("QT_QPA_PLATFORM_PLUGIN_PATH");
+    environment.remove("QML_IMPORT_PATH");
+    environment.remove("QML2_IMPORT_PATH");
     process.setProcessEnvironment(environment);
     process.setProcessChannelMode(QProcess::MergedChannels);
     process.start(QString::fromUtf8(MSA_DESKTOP_EXECUTABLE),

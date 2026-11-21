@@ -53,8 +53,12 @@ QtObject {
     readonly property int desktopHeight: 800
     readonly property int desktopMinimumWidth: 1000
     readonly property int desktopMinimumHeight: 720
-    readonly property int navigationWidth: 184
+    readonly property int navigationWidth: 220
+    readonly property int iconSize: 20
+    readonly property int miniPlayerHeight: 72
+    readonly property int miniVolumeWidth: 100
     readonly property int musicVolumeWidth: 160
+    readonly property int chatMinimumHeight: 480
     readonly property int conversationWidth: 228
     readonly property int mobileWidth: 390
     readonly property int mobileHeight: 844

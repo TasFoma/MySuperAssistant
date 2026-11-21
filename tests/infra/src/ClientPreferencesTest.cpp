@@ -21,7 +21,7 @@ TEST(ClientPreferencesTest, MissingFileKeepsOfflineFirstConfigurationAndDefaultA
     msa::ui::DesktopState state{models};
     msa::desktop::DesktopPreferencesController controller{state, path};
     controller.load();
-    EXPECT_EQ(state.page(), 3);
+    EXPECT_EQ(state.page(), msa::ui::DesktopState::Page::Settings);
     EXPECT_TRUE(state.autoConnect());
     EXPECT_TRUE(state.host().isEmpty());
     EXPECT_FALSE(QFile::exists(path));
@@ -72,7 +72,7 @@ TEST(ClientPreferencesTest, RejectsMalformedSchemaAndDoesNotDiscloseSecretsOrOve
         msa::ui::DesktopState state{models};
         msa::desktop::DesktopPreferencesController controller{state, path};
         controller.load();
-        EXPECT_EQ(state.page(), 3);
+        EXPECT_EQ(state.page(), msa::ui::DesktopState::Page::Settings);
         EXPECT_FALSE(state.settingsMessage().contains("secret"));
         ASSERT_TRUE(file.open(QIODevice::ReadOnly));
         EXPECT_EQ(file.readAll(), bytes);

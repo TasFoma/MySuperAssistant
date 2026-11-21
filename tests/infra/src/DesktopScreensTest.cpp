@@ -12,12 +12,14 @@
 #include <QQuickItem>
 #include <QQuickView>
 #include <QThread>
-
 #include <algorithm>
 #include <optional>
 
 namespace
 {
+using DesktopPage = msa::ui::DesktopState::Page;
+using PlanSection = msa::ui::DesktopState::PlanSection;
+
 constexpr int kDesktopWidth = 1200;
 constexpr int kDesktopHeight = 900;
 constexpr int kWaitMilliseconds = 3000;
@@ -58,20 +60,25 @@ protected:
     {
         EXPECT_TRUE(m_warnings.isEmpty()) << m_warnings.join('\n').toStdString();
     }
-    [[nodiscard]] QQuickItem* item(const char* name)
+    [[nodiscard]] QQuickItem* item(const char* name, const char* scope = nullptr)
     {
-        QList<QQuickItem*> remaining{m_view.contentItem()};
+        QList<QQuickItem*> remaining{scope ? item(scope) : m_view.contentItem()};
+        QQuickItem* fallback{};
         const auto requested = QString::fromLatin1(name);
         while (!remaining.isEmpty())
         {
             auto* current = remaining.takeLast();
             if (current->objectName() == requested)
             {
-                return current;
+                if (current->isVisible())
+                {
+                    return current;
+                }
+                fallback = current;
             }
             remaining.append(current->childItems());
         }
-        return nullptr;
+        return fallback;
     }
     void activate(QQuickItem* target)
     {
@@ -91,21 +98,210 @@ protected:
 
 TEST_F(DesktopScreensTest, NavigatesAllPagesWithoutServer)
 {
-    for (int page{0}; page < 4; ++page)
+    EXPECT_EQ(m_state.page(), DesktopPage::Today);
+    EXPECT_FALSE(m_state.todayDate().isEmpty());
+    for (const auto& entry : m_state.sections())
     {
-        const auto name = QString{"navigation%1"}.arg(page).toLatin1();
+        const auto section = entry.toMap();
+        const auto name = (QStringLiteral("navigation_") + section.value("key").toString()).toLatin1();
         activate(item(name.constData()));
-        EXPECT_EQ(m_state.page(), page);
+        EXPECT_EQ(m_state.page(), section.value("section").value<DesktopPage>());
     }
-    m_state.navigate(-1);
-    m_state.navigate(4);
-    EXPECT_EQ(m_state.page(), 3);
+    m_state.navigate(static_cast<DesktopPage>(-1));
+    m_state.navigate(static_cast<DesktopPage>(99));
+    EXPECT_EQ(m_state.page(), DesktopPage::Settings);
     EXPECT_FALSE(item("sendMessageButton")->isEnabled());
+}
+
+TEST_F(DesktopScreensTest, TodayOpensPlansAndNestedTabsRetainChatDraft)
+{
+    auto* music = m_state.music();
+    auto* planner = m_state.planner();
+    activate(item("openPlansButton"));
+    EXPECT_EQ(m_state.page(), DesktopPage::Plans);
+    EXPECT_EQ(m_state.planSection(), PlanSection::Tasks);
+    m_state.voice()->setDraft(QString::fromUtf8("Не потерять черновик 🙂"));
+    item("chatSearchQuery")->setProperty("text", "Qt C++");
+    for (const auto& entry : m_state.planSections())
+    {
+        const auto section = entry.toMap();
+        const auto name = (QStringLiteral("planTab_") + section.value("key").toString()).toLatin1();
+        activate(item(name.constData()));
+        EXPECT_EQ(m_state.planSection(), section.value("section").value<PlanSection>());
+        for (const auto& candidate : m_state.planSections())
+        {
+            const auto other = candidate.toMap();
+            const auto target = (other.value("key").toString() + QStringLiteral("Section")).toLatin1();
+            ASSERT_NE(item(target.constData()), nullptr);
+            EXPECT_EQ(item(target.constData())->isVisible(), other.value("section") == section.value("section"));
+        }
+    }
+    for (const auto& entry : m_state.sections())
+    {
+        m_state.navigate(entry.toMap().value("section").value<DesktopPage>());
+        EXPECT_EQ(m_state.music(), music);
+        EXPECT_EQ(m_state.planner(), planner);
+    }
+    m_state.navigate(DesktopPage::Assistant);
+    EXPECT_EQ(item("chatComposer")->property("text").toString(), QString::fromUtf8("Не потерять черновик 🙂"));
+    EXPECT_EQ(item("chatSearchQuery")->property("text").toString(), "Qt C++");
+    m_state.navigate(DesktopPage::Plans);
+    EXPECT_EQ(m_state.planSection(), PlanSection::Reminders);
+    m_state.selectPlanSection(static_cast<PlanSection>(99));
+    EXPECT_EQ(m_state.planSection(), PlanSection::Reminders);
+}
+
+TEST_F(DesktopScreensTest, EachPlannerTabOpensExistingFormAndCancelNeverWrites)
+{
+    m_models.setConnectionState(msa::core::ClientConnectionState::Ready);
+    msa::core::ClientSnapshot snapshot;
+    snapshot.mainChatIdentifier = 1;
+    snapshot.timeZone = "Etc/UTC";
+    ASSERT_TRUE(m_models.applyResult(snapshot, m_models.sessionRevision(), m_models.viewRevision()));
+    m_state.navigate(DesktopPage::Plans);
+    m_view.resize(1000, 720);
+    int actions{};
+    QObject::connect(&m_models, &msa::ui::ClientModels::actionRequested, &m_view,
+                     [&actions](const msa::core::ClientAction&) { ++actions; });
+    struct TabCase
+    {
+        PlanSection section;
+        const char* key;
+        const char* button;
+    };
+    for (const auto& tab : {TabCase{PlanSection::Tasks, "tasks", "newTaskButton"},
+                            TabCase{PlanSection::Calendar, "calendar", "newEventButton"},
+                            TabCase{PlanSection::Habits, "habits", "newHabitButton"},
+                            TabCase{PlanSection::Reminders, "reminders", "newReminderButton"}})
+    {
+        m_state.selectPlanSection(tab.section);
+        QElapsedTimer timer;
+        timer.start();
+        while (timer.elapsed() < kLayoutSettleMilliseconds)
+        {
+            QGuiApplication::processEvents();
+            QThread::msleep(1);
+        }
+        EXPECT_TRUE(m_view.grabWindow().save(
+            QStringLiteral("desktop-plans-%1-1000x720-preview.png").arg(QString::fromLatin1(tab.key))));
+        auto* button = item(tab.button);
+        ASSERT_NE(button, nullptr);
+        EXPECT_TRUE(button->isVisible());
+        EXPECT_TRUE(button->isEnabled());
+        activate(button);
+        EXPECT_TRUE(m_state.planner()->active());
+        activate(item("plannerCancelButton"));
+        EXPECT_FALSE(m_state.planner()->active());
+        EXPECT_EQ(actions, 0);
+    }
+}
+
+TEST_F(DesktopScreensTest, DesktopSizesKeepChatAndMiniPlayerAccessible)
+{
+    msa::core::MusicState music;
+    music.title = std::string(300, 'W');
+    music.folder = "C:/Music";
+    music.count = 3;
+    music.position = 1;
+    m_state.music()->applyState(music);
+    m_models.setConnectionState(msa::core::ClientConnectionState::Exhausted, 5);
+    for (const auto size : {QSize{1000, 720}, QSize{1280, 800}, QSize{1600, 900}})
+    {
+        m_view.resize(size);
+        for (const auto& entry : m_state.sections())
+        {
+            const auto section = entry.toMap();
+            m_state.navigate(section.value("section").value<DesktopPage>());
+            QElapsedTimer timer;
+            timer.start();
+            while (timer.elapsed() < kLayoutSettleMilliseconds)
+            {
+                QGuiApplication::processEvents();
+                QThread::msleep(1);
+            }
+            const auto* mini = item("musicPanel");
+            ASSERT_NE(mini, nullptr);
+            EXPECT_DOUBLE_EQ(mini->height(), 72);
+            const auto miniTop = mini->mapToScene(QPointF{}).y();
+            EXPECT_LE(item("desktopPageArea")->mapToScene(QPointF{0, item("desktopPageArea")->height()}).y(), miniTop);
+            for (const auto* name : {"musicPlayButton", "musicNextButton", "musicVolumeSlider", "openMusicButton"})
+            {
+                const auto* control = item(name, "musicPanel");
+                ASSERT_NE(control, nullptr);
+                const auto bounds = control->mapRectToScene(QRectF{0, 0, control->width(), control->height()});
+                EXPECT_GE(bounds.left(), 0) << name;
+                EXPECT_LE(bounds.right(), size.width()) << name;
+                EXPECT_GE(bounds.top(), miniTop) << name;
+                EXPECT_LE(bounds.bottom(), size.height()) << name;
+            }
+            if (m_state.page() == DesktopPage::Assistant)
+            {
+                const auto* send = item("sendMessageButton");
+                EXPECT_LE(send->mapToScene(QPointF{0, send->height()}).y(), miniTop);
+                EXPECT_GE(item("chatComposer")->height(), 48);
+            }
+            const auto image = m_view.grabWindow();
+            ASSERT_FALSE(image.isNull());
+            EXPECT_TRUE(image.save(QStringLiteral("desktop-%1-%2x%3-preview.png")
+                                       .arg(section.value("key").toString())
+                                       .arg(size.width())
+                                       .arg(size.height())));
+        }
+    }
+    activate(item("openMusicButton"));
+    EXPECT_EQ(m_state.page(), DesktopPage::Music);
+    EXPECT_EQ(item("musicPanel")->property("music"), item("fullMusicPanel")->property("music"));
+}
+
+TEST_F(DesktopScreensTest, ChatErrorKeepsDraftAndRetryReachableAboveMiniPlayer)
+{
+    msa::core::ClientSnapshot snapshot;
+    snapshot.mainChatIdentifier = 1;
+    snapshot.timeZone = "Etc/UTC";
+    m_models.setConnectionState(msa::core::ClientConnectionState::Ready);
+    ASSERT_TRUE(m_models.applyResult(snapshot, m_models.sessionRevision(), m_models.viewRevision()));
+    ASSERT_TRUE(m_models.chats()->replaceRows({msa::core::Chat{1, "Основной"}}));
+    ASSERT_TRUE(m_models.selectChat("1"));
+    ASSERT_TRUE(
+        m_models.messages()->replaceRows({msa::core::ChatMessage{1, 1, msa::core::MessageRole::User, "Вопрос", {}}}));
+    m_models.invalidateSession();
+    m_models.setConnectionState(msa::core::ClientConnectionState::Exhausted, 5);
+    m_models.setError(
+        QString::fromUtf8("Ответ не получен. Сообщение сохранено. Подключитесь к серверу и повторите ответ явно."),
+        "user_saved", "1");
+    m_state.voice()->setDraft(QString::fromUtf8("Сохранённый черновик"));
+    m_state.navigate(DesktopPage::Assistant);
+    m_view.resize(1000, 720);
+    QElapsedTimer timer;
+    timer.start();
+    while (timer.elapsed() < kLayoutSettleMilliseconds)
+    {
+        QGuiApplication::processEvents();
+        QThread::msleep(1);
+    }
+    auto* flickable = item("chatScroll");
+    ASSERT_NE(flickable, nullptr);
+    const auto maximum = std::max(0.0, flickable->property("contentHeight").toDouble() - flickable->height());
+    EXPECT_GT(maximum, 0);
+    flickable->setProperty("contentY", maximum);
+    QGuiApplication::processEvents();
+    const auto* mini = item("musicPanel");
+    for (const auto* name : {"chatComposer", "sendMessageButton", "retryMessageButton"})
+    {
+        const auto* control = item(name);
+        ASSERT_NE(control, nullptr);
+        EXPECT_TRUE(control->isVisible());
+        EXPECT_GE(control->mapToScene(QPointF{}).y(), item("desktopPageArea")->mapToScene(QPointF{}).y());
+        EXPECT_LE(control->mapToScene(QPointF{0, control->height()}).y(), mini->mapToScene(QPointF{}).y());
+    }
+    EXPECT_EQ(m_state.voice()->draft(), QString::fromUtf8("Сохранённый черновик"));
+    EXPECT_FALSE(item("retryMessageButton")->isEnabled());
+    EXPECT_TRUE(m_view.grabWindow().save("desktop-assistant-error-1000x720-preview.png"));
 }
 
 TEST_F(DesktopScreensTest, SettingsMaskTokenAndDispatchValidatedPreferencesWhileOffline)
 {
-    m_state.navigate(3);
+    m_state.navigate(DesktopPage::Settings);
     item("settingsHost")->setProperty("text", "localhost");
     item("settingsPort")->setProperty("text", "43210");
     item("settingsToken")->setProperty("text", "private-test-token");
@@ -161,9 +357,10 @@ TEST_F(DesktopScreensTest, RendersPopulatedScreensAndRetainsRowsOffline)
     m_models.invalidateSession();
     m_models.setConnectionState(msa::core::ClientConnectionState::Exhausted, 5);
     m_state.applyPreferences({"localhost", 43210, "demo-token", false});
-    for (int page{0}; page < 4; ++page)
+    for (const auto& entry : m_state.sections())
     {
-        m_state.navigate(page);
+        const auto section = entry.toMap();
+        m_state.navigate(section.value("section").value<DesktopPage>());
         QElapsedTimer timer;
         timer.start();
         while (timer.elapsed() < kLayoutSettleMilliseconds)
@@ -173,7 +370,7 @@ TEST_F(DesktopScreensTest, RendersPopulatedScreensAndRetainsRowsOffline)
         }
         const auto preview = m_view.grabWindow();
         ASSERT_FALSE(preview.isNull());
-        EXPECT_TRUE(preview.save(QString{"desktop-screen-%1.png"}.arg(page)));
+        EXPECT_TRUE(preview.save(QString{"desktop-screen-%1.png"}.arg(section.value("key").toString())));
     }
     EXPECT_EQ(m_models.tasks()->count(), 1);
     EXPECT_EQ(m_models.messages()->count(), 1);
@@ -187,7 +384,7 @@ TEST_F(DesktopScreensTest, PlannerDialogUsesRealInputAndWaitsForAcknowledgement)
     msa::core::ClientSnapshot snapshot;
     snapshot.mainChatIdentifier = 1;
     ASSERT_TRUE(m_models.applyResult(snapshot, m_models.sessionRevision(), m_models.viewRevision()));
-    m_state.navigate(1);
+    m_state.navigate(DesktopPage::Plans);
     activate(item("newTaskButton"));
     auto* editor = m_state.planner();
     ASSERT_TRUE(editor->active());
@@ -226,7 +423,8 @@ TEST_F(DesktopScreensTest, PlannerDialogChangesReminderFieldsAndCancelsDestructi
     snapshot.mainChatIdentifier = 1;
     snapshot.tasks.push_back({17, "Не удалять без подтверждения", {}, msa::core::TaskPriority::Normal, false, {}});
     ASSERT_TRUE(m_models.applyResult(snapshot, m_models.sessionRevision(), m_models.viewRevision()));
-    m_state.navigate(2);
+    m_state.navigate(DesktopPage::Plans);
+    m_state.selectPlanSection(PlanSection::Reminders);
     activate(item("newReminderButton"));
     auto* editor = m_state.planner();
     auto* title = item("plannerField_title");
@@ -283,6 +481,7 @@ TEST_F(DesktopScreensTest, CalendarRejectsInvalidDateWithoutReadRequest)
 
 TEST_F(DesktopScreensTest, DispatchesExactChatAndTaskActionsOnlyWhileOnline)
 {
+    m_state.navigate(DesktopPage::Assistant);
     m_models.setConnectionState(msa::core::ClientConnectionState::Ready);
     msa::core::ClientSnapshot snapshot;
     snapshot.mainChatIdentifier = 1;
@@ -302,7 +501,7 @@ TEST_F(DesktopScreensTest, DispatchesExactChatAndTaskActionsOnlyWhileOnline)
     EXPECT_EQ(message->text, "Текст <b>🙂</b>\nвторая строка");
     EXPECT_EQ(message->searchQuery, "C++ & Qt");
     EXPECT_FALSE(item("chatComposer")->property("text").toString().isEmpty());
-    m_state.navigate(1);
+    m_state.navigate(DesktopPage::Plans);
     QGuiApplication::processEvents();
     activate(item("taskCheckBox"));
     ASSERT_EQ(actions.size(), 2U);
@@ -334,9 +533,10 @@ TEST_F(DesktopScreensTest, MusicRemainsUsableAcrossAllPagesAndDisconnectedSessio
     EXPECT_TRUE(commands.empty());
     m_models.invalidateSession();
     m_models.setConnectionState(msa::core::ClientConnectionState::Exhausted, 5);
-    for (int page{0}; page < 4; ++page)
+    for (const auto& entry : m_state.sections())
     {
-        m_state.navigate(page);
+        const auto section = entry.toMap();
+        m_state.navigate(section.value("section").value<DesktopPage>());
         QGuiApplication::processEvents();
         ASSERT_NE(item("musicPanel"), nullptr);
         EXPECT_TRUE(item("musicPanel")->isVisible());
@@ -344,6 +544,7 @@ TEST_F(DesktopScreensTest, MusicRemainsUsableAcrossAllPagesAndDisconnectedSessio
         activate(item("musicNextButton"));
         EXPECT_EQ(commands.back().kind, msa::core::MusicCommandKind::Next);
     }
+    m_state.navigate(DesktopPage::Music);
     activate(item("musicPlayButton"));
     EXPECT_EQ(commands.back().kind, msa::core::MusicCommandKind::PlayPause);
     activate(item("musicPreviousButton"));
@@ -362,7 +563,7 @@ TEST_F(DesktopScreensTest, MusicRemainsUsableAcrossAllPagesAndDisconnectedSessio
     EXPECT_DOUBLE_EQ(commands.back().volume, 0.43);
     EXPECT_TRUE(music->playing());
     EXPECT_EQ(music->positionText(), "2 / 7");
-    m_state.navigate(0);
+    m_state.navigate(DesktopPage::Assistant);
     QElapsedTimer timer;
     timer.start();
     while (timer.elapsed() < kLayoutSettleMilliseconds)
@@ -373,6 +574,7 @@ TEST_F(DesktopScreensTest, MusicRemainsUsableAcrossAllPagesAndDisconnectedSessio
     const auto image = m_view.grabWindow();
     ASSERT_FALSE(image.isNull());
     ASSERT_TRUE(image.save("music-panel-preview.png"));
+    m_state.navigate(DesktopPage::Music);
     state.scanning = true;
     music->applyState(state);
     EXPECT_FALSE(item("musicNextButton")->isEnabled());
@@ -399,7 +601,7 @@ TEST_F(DesktopScreensTest, AudioDeviceControlsChooseIdsOnlyOnUserActivationAndRe
                      [&selections](bool, const QString& identifier) { selections.push_back(identifier); });
     QObject::connect(devices, &msa::ui::AudioDevicesModel::refreshRequested, &m_view, [&refreshes] { ++refreshes; });
     devices->applyState(state);
-    m_state.navigate(3);
+    m_state.navigate(DesktopPage::Settings);
     QGuiApplication::processEvents();
     ASSERT_TRUE(selections.empty());
     auto* input = item("inputDeviceCombo");
@@ -423,6 +625,21 @@ TEST_F(DesktopScreensTest, AudioDeviceControlsChooseIdsOnlyOnUserActivationAndRe
     state.preferences = {"YQ==", "Yg=="};
     devices->applyState(state);
     EXPECT_EQ(selections.size(), count);
+    m_state.navigate(DesktopPage::Music);
+    auto* musicOutput = item("outputDeviceCombo");
+    ASSERT_NE(musicOutput, nullptr);
+    EXPECT_EQ(musicOutput->property("currentIndex").toInt(), 1);
+    musicOutput->forceActiveFocus(Qt::TabFocusReason);
+    QKeyEvent previousPress{QEvent::KeyPress, Qt::Key_Up, Qt::NoModifier};
+    QKeyEvent previousRelease{QEvent::KeyRelease, Qt::Key_Up, Qt::NoModifier};
+    QGuiApplication::sendEvent(&m_view, &previousPress);
+    QGuiApplication::sendEvent(&m_view, &previousRelease);
+    ASSERT_EQ(selections.size(), count + 1);
+    EXPECT_TRUE(selections.back().isEmpty());
+    state.preferences.output.clear();
+    devices->applyState(state);
+    m_state.navigate(DesktopPage::Settings);
+    EXPECT_EQ(output->property("currentIndex").toInt(), 0);
     auto* scroll = item("settingsScroll");
     ASSERT_NE(scroll, nullptr);
     auto* flickable = scroll->property("contentItem").value<QQuickItem*>();
@@ -441,6 +658,7 @@ TEST_F(DesktopScreensTest, AudioDeviceControlsChooseIdsOnlyOnUserActivationAndRe
 }
 TEST_F(DesktopScreensTest, MessageSpeechIsExplicitWorksOfflineAndCanBeStopped)
 {
+    m_state.navigate(DesktopPage::Assistant);
     msa::core::ClientSnapshot snapshot;
     snapshot.mainChatIdentifier = 1;
     snapshot.timeZone = "Etc/UTC";
@@ -497,6 +715,7 @@ TEST_F(DesktopScreensTest, MessageSpeechIsExplicitWorksOfflineAndCanBeStopped)
 }
 TEST_F(DesktopScreensTest, DictationChangesDraftOfflineAndNeverSendsServerAction)
 {
+    m_state.navigate(DesktopPage::Assistant);
     auto* voice = m_state.voice();
     voice->applyModelPath("C:/Models/Russian");
     std::vector<msa::core::RecognitionCommand> commands;
@@ -531,8 +750,8 @@ TEST_F(DesktopScreensTest, DictationChangesDraftOfflineAndNeverSendsServerAction
     EXPECT_EQ(item("chatComposer")->property("text").toString(),
               QString::fromUtf8("Проверить список\nДобавить встречу 🙂"));
     EXPECT_FALSE(item("sendMessageButton")->isEnabled());
-    m_state.navigate(3);
-    m_state.navigate(0);
+    m_state.navigate(DesktopPage::Settings);
+    m_state.navigate(DesktopPage::Assistant);
     EXPECT_EQ(voice->draft(), QString::fromUtf8("Проверить список\nДобавить встречу 🙂"));
     voice->applyEvent(
         {msa::core::RecognitionEvent::Kind::Error, msa::core::RecognitionState::Failed, "Микрофон недоступен"});

@@ -10,10 +10,6 @@
 
 namespace msa::desktop
 {
-namespace
-{
-constexpr int kSettingsPage = 3;
-}
 DesktopPreferencesController::DesktopPreferencesController(ui::DesktopState& state, QString path, QObject* parent) :
     QObject{parent}, m_state{state}, m_path{std::move(path)}
 {
@@ -58,6 +54,6 @@ void DesktopPreferencesController::load()
     {
         m_state.setSettingsMessage("Не удалось прочитать настройки. Проверьте файл или сохраните новые параметры.");
     }
-    m_state.navigate(kSettingsPage);
+    m_state.navigate(ui::DesktopState::Page::Settings);
 }
 } // namespace msa::desktop

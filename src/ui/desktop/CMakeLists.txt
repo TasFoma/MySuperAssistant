@@ -2,17 +2,19 @@ add_library(msa_ui_desktop STATIC
     Model/src/placeholder.cpp
     Model/include/msa/ui/DesktopState.h
     Model/src/DesktopState.cpp
-    Model/include/msa/ui/PlannerEditor.h
-    Model/src/PlannerEditor.cpp
 )
 
 target_compile_features(msa_ui_desktop PUBLIC cxx_std_20)
-target_include_directories(msa_ui_desktop PUBLIC Model/include)
+target_include_directories(msa_ui_desktop PUBLIC Model/include PRIVATE Model/include/msa/ui)
 target_link_libraries(msa_ui_desktop PUBLIC msa_ui_common Qt6::Quick)
 msa_apply_warnings(msa_ui_desktop)
 
 set(msaDesktopQmlFiles
     UI/DesktopWindow.qml
+    UI/TodayScreen.qml
+    UI/WorkoutsScreen.qml
+    UI/MusicScreen.qml
+    UI/AudioOutputSelector.qml
     UI/DesktopShell.qml
     UI/PlannerDialog.qml
     UI/EventRecord.qml

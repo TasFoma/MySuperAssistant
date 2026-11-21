@@ -3,19 +3,31 @@ import QtQuick.Controls.Basic as Controls
 import QtQuick.Layouts
 import Msa.Ui.Common 1.0
 
-Item {
+Flickable {
     id: root
     required property var client
     required property var voice
+    objectName: "chatScroll"
+    clip: true
+    contentWidth: width
+    contentHeight: chatLayout.height
+    boundsBehavior: Flickable.StopAtBounds
+    flickableDirection: Flickable.VerticalFlick
+    Controls.ScrollBar.vertical: Controls.ScrollBar {}
     RowLayout {
-        anchors.fill: parent
+        id: chatLayout
+        width: root.width
+        height: Math.max(root.height, Theme.chatMinimumHeight)
         spacing: Theme.spaceLarge
         ColumnLayout {
             Layout.preferredWidth: Theme.conversationWidth
             Layout.minimumWidth: Theme.conversationWidth
             Layout.maximumWidth: Theme.conversationWidth
             Layout.fillHeight: true
-            SectionHeader { Layout.fillWidth: true; title: "Беседы" }
+            SectionHeader {
+                Layout.fillWidth: true
+                title: "Беседы"
+            }
             AppButton {
                 Layout.fillWidth: true
                 text: "Новая беседа"
@@ -30,7 +42,7 @@ Item {
                 clip: true
                 spacing: Theme.spaceSmall
                 model: root.client.chats
-                Controls.ScrollBar.vertical: Controls.ScrollBar { }
+                Controls.ScrollBar.vertical: Controls.ScrollBar {}
                 delegate: AppButton {
                     required property string identifier
                     required property string title
@@ -45,7 +57,12 @@ Item {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
             Layout.fillHeight: true
-            SectionHeader { Layout.fillWidth: true; title: "Чат"; description: "Сообщения и текстовые команды ассистенту" }
+            SectionHeader {
+                Layout.fillWidth: true
+                title: "Ассистент"
+                prominent: true
+                description: "Сообщения и текстовые команды ассистенту"
+            }
             EmptyState {
                 Layout.fillWidth: true
                 visible: root.client.selectedChatIdentifier.length === 0
@@ -61,7 +78,7 @@ Item {
                 clip: true
                 spacing: Theme.spaceMedium
                 model: root.client.messages
-                Controls.ScrollBar.vertical: Controls.ScrollBar { }
+                Controls.ScrollBar.vertical: Controls.ScrollBar {}
                 delegate: MessageBubble {
                     required property string text
                     required property string role
@@ -163,7 +180,9 @@ Item {
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontBody
                 color: Theme.danger
-                HoverHandler { id: voiceErrorHover }
+                HoverHandler {
+                    id: voiceErrorHover
+                }
                 Controls.ToolTip {
                     id: voiceErrorTip
                     visible: voiceErrorHover.hovered
@@ -191,6 +210,7 @@ Item {
                     onClicked: root.client.sendMessage(composer.text, search.text)
                 }
                 AppButton {
+                    objectName: "retryMessageButton"
                     text: "Повторить ответ"
                     tone: "secondary"
                     visible: root.client.errorEffect === "user_saved"
