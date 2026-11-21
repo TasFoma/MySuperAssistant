@@ -10,6 +10,7 @@
       "name": "windows-debug-local",
       "displayName": "Windows Debug (local Qt)",
       "inherits": "windows-debug",
+      "binaryDir": "${sourceDir}/out/build/windows-debug-local",
       "cacheVariables": {
         "CMAKE_PREFIX_PATH": "C:/Qt/6.10.3/msvc2022_64"
       }
@@ -18,6 +19,7 @@
       "name": "windows-release-local",
       "displayName": "Windows Release (local Qt)",
       "inherits": "windows-release",
+      "binaryDir": "${sourceDir}/out/build/windows-release-local",
       "cacheVariables": {
         "CMAKE_PREFIX_PATH": "C:/Qt/6.10.3/msvc2022_64"
       }
@@ -26,6 +28,7 @@
       "name": "android-debug-local",
       "displayName": "Android arm64 debug (local Qt)",
       "inherits": "android-debug",
+      "binaryDir": "${sourceDir}/out/build/android-debug-local",
       "toolchainFile": "C:/Qt/6.10.3/android_arm64_v8a/lib/cmake/Qt6/qt.toolchain.cmake",
       "cacheVariables": {
         "QT_HOST_PATH": "C:/Qt/6.10.3/msvc2022_64",
@@ -41,6 +44,7 @@
       "name": "android-release-local",
       "displayName": "Android arm64 release (local Qt)",
       "inherits": "android-release",
+      "binaryDir": "${sourceDir}/out/build/android-release-local",
       "toolchainFile": "C:/Qt/6.10.3/android_arm64_v8a/lib/cmake/Qt6/qt.toolchain.cmake",
       "cacheVariables": {
         "QT_HOST_PATH": "C:/Qt/6.10.3/msvc2022_64",

@@ -7,6 +7,7 @@
 
 Q_IMPORT_QML_PLUGIN(MsaUiCommonPlugin)
 Q_IMPORT_QML_PLUGIN(MsaUiDesktopPlugin)
+Q_IMPORT_QML_PLUGIN(MsaUiMobilePlugin)
 
 int main(int argc, char* argv[])
 {

@@ -32,3 +32,16 @@ msa_apply_warnings(msa_desktop)
 if(TARGET msa_voice_worker)
     add_dependencies(msa_desktop msa_voice_worker)
 endif()
+
+if(WIN32)
+    # EXE должен запускаться из Проводника без окружения Qt Creator или CTest.
+    add_custom_command(TARGET msa_desktop POST_BUILD
+        COMMAND "$<TARGET_FILE_DIR:Qt6::qmake>/windeployqt.exe"
+            "$<IF:$<CONFIG:Debug>,--debug,--release>"
+            --no-compiler-runtime --no-translations --verbose 0
+            --include-plugins qsqlite,qoffscreen
+            --qmldir "${PROJECT_SOURCE_DIR}/src/ui"
+            "$<TARGET_FILE:msa_desktop>" "$<TARGET_FILE:msa_voice_worker>"
+        VERBATIM
+    )
+endif()

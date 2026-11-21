@@ -58,7 +58,8 @@ Vosk, музыкальный плеер или Windows-озвучку.
 
 Рендеры: mobile-startup-preview.png, mobile-startup-invalid-preview.png и
 mobile-runtime-preview.png в out/build/windows-debug-local.
-Настоящие Tailscale/LLM, установка APK, системная клавиатура и кнопка Назад
+Установка APK на A55 подтверждена пользователем сообщением ADB Success.
+Настоящие Tailscale/LLM, запуск, системная клавиатура и кнопка Назад
 на A55 требуют проверки на устройстве. Android Debug APK с этой связкой
 собран 2026-11-15: AAPT2 подтвердил минимум API 28, target API 36, arm64-v8a
 и INTERNET; проверено наличие libmsa_mobile_arm64-v8a.so и платформенного
