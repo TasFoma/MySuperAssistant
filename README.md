@@ -159,6 +159,18 @@ Quick, Sql, Network, Multimedia, TextToSpeech, Qt Quick Dialogs и драйве�
    ```
 
 Результат — Debug-сборка в `out/build/windows-debug-local` и зелёные тесты.
+
+В VS Code выбирайте windows-debug-local и как configure preset, и как build
+preset. Общий windows-debug не содержит личного пути к Qt. В каждом личном
+configure preset явно задан binaryDir, например
+`${sourceDir}/out/build/windows-debug-local`. Сохраняйте это поле при настройке
+личных путей по CMakeUserPresets.json.example: оно обходит
+[ошибку наследования CMake Tools #5124](https://github.com/microsoft/vscode-cmake-tools/issues/5124),
+из-за которой расширение иногда выбирает каталог родительского пресета при
+правильно выбранном local-пресете. Одного повторного выбора пресетов может
+быть недостаточно. После исправления существующего личного файла дождитесь
+перечитывания пресетов; если расширение держит старое состояние, выполните
+Developer: Reload Window. Удалять каталоги сборки для этого не требуется.
 FetchContent загружает закреплённые PCRE2 10.47 и GoogleTest v1.18.0 с GitHub;
 сеть может требоваться и при повторной конфигурации.
 На Windows также загружается пакет Vosk 0.3.45 x64 с проверкой SHA256; его DLL
@@ -345,7 +357,18 @@ Windows на доступ к микрофону для классических 
    Expand-Archive -LiteralPath "$env:USERPROFILE/Downloads/msa-server-debug.zip" -DestinationPath "$env:USERPROFILE/MySuperAssistantServer"
    ```
 
-2. Запустите одну выбранную модель Ламы привычной командой. В другом окне:
+2. Подключите Tailscale на рабочем ноутбуке и проверьте его IPv4:
+
+   ```powershell
+   Get-NetIPAddress -InterfaceAlias Tailscale -AddressFamily IPv4 | Select-Object IPAddress
+   ```
+
+   Он должен совпадать с listen_address в server.local.json. Link-local адрес
+   169.254.x.x не заменяет адрес Tailscale. Если адрес из JSON не назначен
+   интерфейсу, сервер не сможет открыть порт даже при свободном номере.
+   Телефон также должен быть подключён к той же сети Tailscale.
+
+3. Запустите одну выбранную модель Ламы привычной командой. В другом окне:
 
    ```powershell
    & "$env:USERPROFILE/MySuperAssistantServer/StartServer.cmd"
@@ -354,7 +377,7 @@ Windows на доступ к микрофону для классических 
    Ожидается «Сервер запущен, TCP-порт: 8765». Оставьте консоль открытой.
    Ctrl+C останавливает сервер. При ошибке скопируйте сообщение из консоли.
 
-3. На телефоне укажите listen_address, port и token из server.local.json
+4. На телефоне укажите listen_address, port и token из server.local.json
    рабочего комплекта, затем «Сохранить» и «Подключиться». Откройте беседу
    и отправьте сообщение без поисковой фразы; создайте тестовую задачу.
    Личный JSON и токен не нужно отправлять в чат.
