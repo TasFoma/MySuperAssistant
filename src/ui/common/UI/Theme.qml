@@ -2,23 +2,27 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    readonly property color background: "#15151e"
+    readonly property color background: "#14141c"
     readonly property color surface: "#20202c"
-    readonly property color raised: "#292937"
+    readonly property color raised: "#2a2a38"
     readonly property color hover: "#323243"
     readonly property color pressed: "#3b3b50"
-    readonly property color border: "#48485f"
-    readonly property color text: "#f3f0fa"
-    readonly property color secondaryText: "#c0bbd0"
-    readonly property color disabledText: "#9791a8"
-    readonly property color accent: "#b7a2ff"
+    readonly property color border: "#555369"
+    readonly property color surfaceBorder: "#30303f"
+    readonly property color focusBorder: "#edebf4"
+    readonly property color text: "#edebf4"
+    readonly property color secondaryText: "#a5a2b3"
+    readonly property color disabledText: "#9d9aab"
+    readonly property color disabledSurface: "#242431"
+    readonly property color accent: "#b39bff"
     readonly property color accentHover: "#c8b8ff"
     readonly property color accentPressed: "#a28be9"
     readonly property color accentText: "#20172f"
+    readonly property color progressAccent: "#35c9e8"
     readonly property color userBubble: "#302a43"
-    readonly property color danger: "#ffb0b8"
+    readonly property color danger: "#f2a6b0"
     readonly property color dangerSurface: "#382a34"
-    readonly property color success: "#b0dec3"
+    readonly property color success: "#56bda2"
     readonly property color warning: "#ead09b"
     readonly property string fontFamily: Qt.application.font.family
     readonly property int fontSmall: 12
@@ -32,16 +36,16 @@ QtObject {
     readonly property int spaceLarge: 16
     readonly property int spaceSection: 24
     readonly property int spacePage: 32
-    readonly property int radiusControl: 8
-    readonly property int radiusCard: 12
+    readonly property int radiusControl: 12
+    readonly property int radiusCard: 16
     readonly property int borderWidth: 1
     readonly property int focusWidth: 2
-    readonly property int controlHeight: 44
+    readonly property int controlHeight: 48
     readonly property int multilineHeight: 112
     readonly property int indicatorSize: 22
     readonly property int statusDotSize: 8
     readonly property int progressHeight: 6
-    readonly property int shortMotion: 90
+    readonly property int shortMotion: 140
     readonly property int inputWidth: 260
     readonly property int cardWidth: 380
     readonly property int desktopWidth: 1200
@@ -52,5 +56,9 @@ QtObject {
     readonly property int navigationWidth: 184
     readonly property int musicVolumeWidth: 160
     readonly property int conversationWidth: 228
+    readonly property int mobileWidth: 390
+    readonly property int mobileHeight: 844
+    readonly property int mobileMinimumWidth: 320
+    readonly property int calendarColumns: 7
 }
 

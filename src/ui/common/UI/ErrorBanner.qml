@@ -14,6 +14,15 @@ SurfaceCard {
         spacing: Theme.spaceMedium
         Text {
             Layout.fillWidth: true
+            text: "Ошибка"
+            textFormat: Text.PlainText
+            color: Theme.danger
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontBody
+            font.weight: Theme.fontWeightStrong
+        }
+        Text {
+            Layout.fillWidth: true
             text: root.message
             textFormat: Text.PlainText
             color: Theme.danger

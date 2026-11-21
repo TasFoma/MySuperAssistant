@@ -25,7 +25,7 @@ Rectangle {
         SectionHeader {
             Layout.fillWidth: true
             title: "Общие компоненты"
-            description: "MySuperAssistant · тёмная тема · тестовая галерея"
+            description: "MySuperAssistant · дизайн-система 1A · тестовая галерея"
         }
         GridLayout {
             Layout.fillWidth: true
@@ -51,11 +51,13 @@ Rectangle {
                             text: "Прочитать главу"
                         }
                         AppTextField {
+                            objectName: "disabledField"
                             Layout.fillWidth: true
                             placeholderText: "Поле недоступно"
                             enabled: false
                         }
                         AppTextArea {
+                            objectName: "inputArea"
                             Layout.fillWidth: true
                             placeholderText: "Заметка"
                             text: "Небольшой шаг каждый день.\nПодробности можно записать здесь."
@@ -68,13 +70,35 @@ Rectangle {
                                 text: "Сохранить"
                                 onClicked: gallery.primaryClicks++
                             }
-                            AppButton { text: "Отмена"; tone: "secondary" }
+                            AppButton { objectName: "secondaryButton"; text: "Отмена"; tone: "secondary" }
+                            AppButton { objectName: "dangerButton"; text: "Удалить"; tone: "danger" }
                             AppButton {
                                 objectName: "disabledButton"
                                 text: "Недоступно"
                                 enabled: false
                                 onClicked: gallery.disabledClicks++
                             }
+                        }
+                        AppTextField {
+                            objectName: "errorField"
+                            Layout.fillWidth: true
+                            placeholderText: "Название"
+                            hasError: true
+                            errorText: "Введите название, чтобы продолжить."
+                        }
+                        AppTextArea {
+                            objectName: "errorArea"
+                            Layout.fillWidth: true
+                            placeholderText: "Описание"
+                            text: "Черновик сохранён в форме."
+                            hasError: true
+                            errorText: "Проверьте описание перед отправкой."
+                        }
+                        AppTextArea {
+                            objectName: "disabledArea"
+                            Layout.fillWidth: true
+                            text: "Недоступное поле: текст остаётся читаемым."
+                            enabled: false
                         }
                     }
                 }
@@ -129,6 +153,19 @@ Rectangle {
                     timeText: "19:11"
                 }
                 ConnectionBanner {
+                    objectName: "readyBanner"
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    statusText: "Подключено"
+                    online: true
+                }
+                ConnectionBanner {
+                    objectName: "connectingBanner"
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    statusText: "Подключение к серверу…"
+                }
+                ConnectionBanner {
                     objectName: "connectionBanner"
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
@@ -145,6 +182,7 @@ Rectangle {
                     message: "Связь прервалась. Результат действия неизвестен. Обновите данные после подключения."
                 }
                 EmptyState {
+                    objectName: "emptyState"
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     title: "Здесь пока пусто"

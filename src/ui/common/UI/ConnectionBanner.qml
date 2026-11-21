@@ -8,9 +8,11 @@ SurfaceCard {
     property bool reconnectAvailable: false
     property bool staleData: false
     signal reconnectRequested()
+    topPadding: Theme.spaceSmall
+    bottomPadding: Theme.spaceSmall
     ColumnLayout {
         width: parent.width
-        spacing: Theme.spaceMedium
+        spacing: Theme.spaceTiny
         RowLayout {
             Layout.fillWidth: true
             spacing: Theme.spaceSmall

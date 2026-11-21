@@ -9,7 +9,7 @@ Controls.Pane {
     background: Rectangle {
         color: control.surfaceColor
         radius: Theme.radiusCard
-        border.color: Theme.border
+        border.color: Theme.surfaceBorder
         border.width: Theme.borderWidth
     }
 }

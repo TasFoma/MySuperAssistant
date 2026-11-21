@@ -4,7 +4,7 @@ import QtQuick.Layouts
 ColumnLayout {
     property string title: ""
     property string description: ""
-    spacing: Theme.spaceTiny
+    spacing: Theme.spaceSmall
     Text {
         Layout.fillWidth: true
         text: parent.title

@@ -5,6 +5,7 @@ SurfaceCard {
     id: root
     property string title: ""
     property string description: ""
+    padding: Theme.spaceSection
     ColumnLayout {
         width: parent.width
         spacing: Theme.spaceSmall
@@ -14,7 +15,7 @@ SurfaceCard {
             textFormat: Text.PlainText
             color: Theme.text
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontBody
+            font.pixelSize: Theme.fontTitle
             font.weight: Theme.fontWeightStrong
             wrapMode: Text.Wrap
         }

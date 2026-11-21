@@ -21,7 +21,8 @@ namespace
 constexpr int kDesktopWidth = 1200;
 constexpr int kDesktopHeight = 900;
 constexpr int kWaitMilliseconds = 3000;
-constexpr int kLayoutSettleMilliseconds = 150;
+// Ждём переход цвета 140 мс и следующий кадр программного рендеринга.
+constexpr int kLayoutSettleMilliseconds = 220;
 
 class DesktopScreensTest : public ::testing::Test
 {

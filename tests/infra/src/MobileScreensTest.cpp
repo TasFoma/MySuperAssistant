@@ -18,7 +18,8 @@
 namespace
 {
 constexpr int kWaitMilliseconds = 3000;
-constexpr int kSettleMilliseconds = 120;
+// Ждём переход цвета 140 мс и следующий кадр программного рендеринга.
+constexpr int kSettleMilliseconds = 220;
 constexpr int kPhoneWidth = 390;
 constexpr int kPhoneHeight = 844;
 constexpr int kNarrowWidth = 320;
