@@ -5,11 +5,14 @@ add_library(msa_ui_mobile STATIC
 )
 
 target_compile_features(msa_ui_mobile PUBLIC cxx_std_20)
-target_include_directories(msa_ui_mobile PUBLIC Model/include)
+target_include_directories(msa_ui_mobile PUBLIC Model/include PRIVATE Model/include/msa/ui)
 target_link_libraries(msa_ui_mobile PUBLIC msa_ui_common Qt6::Quick)
 msa_apply_warnings(msa_ui_mobile)
 
 set(msaMobileQmlFiles
+    UI/MobileTodayScreen.qml
+    UI/MobileSportScreen.qml
+    UI/MobileMoreScreen.qml
     UI/MobileWindow.qml
     UI/MobileShell.qml
     UI/MobileChatScreen.qml

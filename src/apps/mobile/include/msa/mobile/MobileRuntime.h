@@ -1,6 +1,7 @@
 #pragma once
 
 #include "msa/client/ClientController.h"
+#include "msa/client/SportController.h"
 #include "msa/core/ClientPreferences.h"
 #include "msa/infra/TcpClient.h"
 #include "msa/ui/ClientModels.h"
@@ -22,6 +23,7 @@ struct MobileRuntimeOptions
     std::chrono::milliseconds responseTimeout{std::chrono::seconds{180}};
     std::chrono::milliseconds initialReconnectDelay{std::chrono::seconds{1}};
     std::chrono::milliseconds maximumReconnectDelay{std::chrono::seconds{15}};
+    QString sportDatabasePath{};
 };
 /// @brief Соединяет мобильные модели, постоянные настройки и заменяемую TCP-сессию.
 class MobileRuntime final : public QObject
@@ -53,6 +55,7 @@ private:
     std::optional<infra::TcpClient> m_client{};
     std::optional<client::ClientController> m_controller{};
     std::optional<core::ClientPreferences> m_activePreferences{};
+    client::SportController m_sport{*m_state.sport(), m_options.sportDatabasePath, this};
     bool m_started{false};
     bool m_stopped{false};
 };

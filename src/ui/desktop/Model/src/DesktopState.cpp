@@ -16,6 +16,10 @@ constexpr int kDateRefreshMilliseconds = 30000;
     return QLocale{QLocale::Russian}.toString(QDate::currentDate(), QStringLiteral("dddd, d MMMM yyyy"));
 }
 } // namespace
+SportLibraryModel* DesktopState::sport()
+{
+    return &m_sport;
+}
 DesktopState::DesktopState(ClientModels& models, QObject* parent) : QObject{parent}, m_models{models}
 {
     m_todayDate = currentDateText();

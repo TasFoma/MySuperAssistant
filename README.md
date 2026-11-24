@@ -19,7 +19,9 @@ HTTP llama-server, явный поиск — SearXNG; геокодинг — Nom
 [Мобильные экраны](docs/modules/MobileScreens.md): нижние
 «Сегодня / Планы / Спорт / Ещё»; чат и настройки внутри «Ещё», задачи,
 календарь, привычки и напоминания переключаются внутри планов.
-«Сегодня» минимальный, «Спорт» пока пустое состояние.
+«Сегодня» минимальный. «Спорт» содержит [офлайн-библиотеку](docs/modules/SportLibrary.md):
+6 подготовленных карточек из 22, поиск/фильтры, избранное и «Хочу прогрессировать».
+Запись тренировок и редактор собственных программ в UI ещё не подключены.
 Формы, проверка параметров и TCP-контроллер общие с ПК.
 На ПК добавлен [голосовой ввод Vosk на C++](docs/modules/SpeechRecognizer.md).
 Озвучка сообщений доступна через Qt TextToSpeech; мобильные уведомления ещё не подключены.
@@ -240,6 +242,12 @@ mobile-startup-invalid-preview.png и mobile-runtime-preview.png.
 
 ## Запуск клиента ПК
 
+Спортивные данные хранятся отдельно от сервера, в
+`QStandardPaths::AppLocalDataLocation/sport/sport-local.sqlite` каждого клиента.
+Обе точки входа поддерживают `--sport-data <path>` для отдельной тестовой базы.
+Драйвер QSQLITE проверяется при открытии, ошибки показываются в разделе спорта.
+
+
 Из корня проекта после сборки:
 
 ```powershell
@@ -427,3 +435,24 @@ Windows на доступ к микрофону для классических 
 - [Связка чата](docs/modules/ConversationService.md), [LLM](docs/modules/LlmClient.md).
 - [Навигация](docs/modules/NavigationService.md), [поиск](docs/modules/WebSearchProvider.md).
 - [Решения](docs/decisions.md), [уроки](docs/lessons.md), [план переноса](docs/migration-plan.md).
+
+
+## Проверка спорта — 2026-11-24
+
+H1 core, H2 клиентская SQLite и офлайн-библиотека включены в существующие цели.
+Windows: штатные configure/build успешны, полный CTest **586/586**, 205,44 с.
+Миграции/ошибки хранения проверены только на временных тестовых базах.
+Desktop и мобильные QML-оболочки проверены offscreen, снимки —
+`out/build/windows-debug-local/sport-*.png`.
+
+Android Debug собран командами `cmake --preset android-debug-local` и
+`cmake --build --preset android-debug-local`. APK:
+`out/build/android-debug-local/src/apps/mobile/android-build/build/outputs/apk/debug/android-build-debug.apk`.
+В пакете присутствуют Qt6Sql и QSQLITE, manifest сохраняет adjustResize.
+Устройства ADB не обнаружены: новый спорт, исполнение QSQLITE и реальная IME
+на телефоне в этом шаге не проверены. Установка/запуск — по инструкции выше.
+
+Опубликованы 6 из 22 карточек; P1/P3 ещё не готовы. Экран ввода занятия,
+редактор программ, история/исправление/динамика в UI остаются следующими частями.
+Фактические функции и файлы: [SportCore](docs/modules/SportCore.md),
+[SportStorage](docs/modules/SportStorage.md), [SportLibrary](docs/modules/SportLibrary.md).

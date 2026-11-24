@@ -104,6 +104,7 @@ Rectangle {
                         desktop: root.desktop
                     }
                     WorkoutsScreen {
+                        desktop: root.desktop
                         anchors.fill: parent
                         visible: root.desktop.page === DesktopState.Workouts
                     }

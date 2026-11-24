@@ -61,6 +61,7 @@ void DesktopRuntime::start()
         return;
     }
     m_started = true;
+    m_sport.start();
     m_preferences.load();
     m_audioDevices.restore();
     m_music.restore();

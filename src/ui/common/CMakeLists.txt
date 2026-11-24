@@ -1,4 +1,6 @@
 add_library(msa_ui_common STATIC
+    Model/include/msa/ui/SportLibraryModel.h
+    Model/src/SportLibraryModel.cpp
     Model/include/msa/ui/PlannerEditor.h
     Model/src/PlannerEditor.cpp
     Model/include/msa/ui/ClientSettingsModel.h
@@ -21,11 +23,14 @@ target_link_libraries(msa_ui_common PUBLIC msa_core Qt6::Quick)
 msa_apply_warnings(msa_ui_common)
 
 set(msaCommonQmlFiles
+    UI/SportFilterBox.qml
+    UI/SportLibraryPanel.qml
     UI/PlannerFormDialog.qml
     UI/MusicPanel.qml
     UI/Theme.qml
     UI/DetailsCard.qml
     UI/RecordActions.qml
+    UI/AppBottomNavigation.qml
     UI/AppIcon.qml
     UI/AppButton.qml
     UI/AppTextField.qml

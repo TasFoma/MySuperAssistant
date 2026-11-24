@@ -18,6 +18,8 @@ namespace msa::ui
 class PlannerEditor final : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool dirty READ dirty NOTIFY statusChanged)
+    Q_PROPERTY(bool discardRequested READ discardRequested NOTIFY statusChanged)
     Q_PROPERTY(bool active READ active NOTIFY formChanged)
     Q_PROPERTY(QString heading READ heading NOTIFY formChanged)
     Q_PROPERTY(QString explanation READ explanation NOTIFY formChanged)
@@ -32,6 +34,14 @@ public:
     /// @brief Использует общие модели; они должны жить дольше формы.
     explicit PlannerEditor(ClientModels& models, QObject* parent = nullptr);
     [[nodiscard]] bool active() const;
+    /// @brief Есть изменения относительно первоначальных полей формы.
+    [[nodiscard]] bool dirty() const;
+    [[nodiscard]] bool discardRequested() const;
+    /// @brief Запрашивает отмену с необязательным подтверждением потери ввода.
+    Q_INVOKABLE void requestCancel(bool confirmChanges);
+    /// @brief Продолжает редактирование либо явно отбрасывает ввод без записи.
+    Q_INVOKABLE void keepEditing();
+    Q_INVOKABLE void discardChanges();
     [[nodiscard]] QString heading() const;
     [[nodiscard]] QString explanation() const;
     [[nodiscard]] QVariantList fields() const;
@@ -103,6 +113,7 @@ private:
     FormKind m_kind{FormKind::NewTask};
     bool m_active{false};
     bool m_requiresReopen{false};
+    bool m_discardRequested{false};
     std::uint64_t m_session{};
     QString m_identifier{};
     QString m_heading{};
@@ -110,6 +121,7 @@ private:
     QString m_error{};
     std::vector<Field> m_fields{};
     std::map<QString, QString> m_values{};
+    std::map<QString, QString> m_initialValues{};
     std::optional<core::ClientPlannerAction> m_pending{};
 };
 } // namespace msa::ui

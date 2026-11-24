@@ -30,6 +30,45 @@ QVariantMap field(const msa::ui::PlannerEditor& editor, const QString& key)
     return {};
 }
 
+TEST(PlannerDiscardTest, ConfirmedDiscardTracksActualChangesAndNeverCancelsPendingWrite)
+{
+    msa::ui::ClientModels models;
+    msa::ui::PlannerEditor editor{models};
+    editor.newTask();
+    EXPECT_FALSE(editor.dirty());
+    editor.setField("title", "Черновик");
+    EXPECT_TRUE(editor.dirty());
+    editor.requestCancel(true);
+    EXPECT_TRUE(editor.active());
+    EXPECT_TRUE(editor.discardRequested());
+    EXPECT_FALSE(editor.editable());
+    editor.keepEditing();
+    EXPECT_TRUE(editor.editable());
+    EXPECT_TRUE(editor.dirty());
+    editor.setField("title", "");
+    EXPECT_FALSE(editor.dirty());
+    editor.requestCancel(true);
+    EXPECT_FALSE(editor.active());
+    editor.newReminder();
+    editor.setChoice("kind", 2);
+    EXPECT_TRUE(editor.dirty());
+    editor.requestCancel(true);
+    editor.discardChanges();
+    EXPECT_FALSE(editor.active());
+    models.setConnectionState(msa::core::ClientConnectionState::Ready);
+    msa::core::ClientSnapshot snapshot;
+    snapshot.mainChatIdentifier = 1;
+    ASSERT_TRUE(models.applyResult(snapshot, models.sessionRevision(), models.viewRevision()));
+    editor.newTask();
+    editor.setField("title", "Сохранить");
+    ASSERT_TRUE(editor.submit());
+    editor.requestCancel(true);
+    editor.discardChanges();
+    EXPECT_TRUE(editor.active());
+    EXPECT_TRUE(editor.pending());
+    EXPECT_FALSE(editor.discardRequested());
+}
+
 TEST(PlannerProtocolTest, EncodesEveryFormAndChecksExactAcknowledgement)
 {
     using namespace msa::core;

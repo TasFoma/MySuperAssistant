@@ -26,7 +26,8 @@ QML-экраны находятся в `src/ui/desktop/UI/`; DesktopState — в
 - TodayScreen: местная дата устройства, приветствие и переход к планам.
   Дату готовит DesktopState и обновляет при смене дня; сервер для этого не нужен.
   Это минимальная стартовая страница без сводок и вымышленных данных.
-- WorkoutsScreen: пустое состояние будущего раздела тренировок без действий.
+- WorkoutsScreen: общий SportLibraryPanel, локальные поиск/фильтры/карточки и
+  подтверждённые предпочтения через DesktopState.sport. Подробнее — [библиотека спорта](SportLibrary.md).
 - MusicScreen: полный MusicPanel и AudioOutputSelector; последний также встроен
   в SettingsScreen и использует ту же AudioDevicesModel.
 - ChatScreen: библиотека бесед, загруженные сообщения, следующая страница,

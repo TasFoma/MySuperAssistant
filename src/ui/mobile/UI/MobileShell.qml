@@ -1,27 +1,37 @@
 import QtQuick
 import QtQuick.Layouts
 import Msa.Ui.Common 1.0
+import Msa.Ui.Mobile 1.0
 
 Rectangle {
     id: root
     required property var client
     required property var mobile
     property bool keyboardVisible: Qt.inputMethod.visible
+    property real safeTop: root.SafeArea.margins.top
+    property real safeBottom: root.SafeArea.margins.bottom
+    property real safeLeft: root.SafeArea.margins.left
+    property real safeRight: root.SafeArea.margins.right
     width: Theme.mobileWidth
     height: Theme.mobileHeight
     color: Theme.background
     focus: true
-    Keys.onReleased: function(event) {
+    Keys.onReleased: function (event) {
         if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
-            event.accepted = root.mobile.goBack()
+            if (Qt.inputMethod.visible) {
+                Qt.inputMethod.hide();
+                event.accepted = true;
+            } else {
+                event.accepted = root.mobile.goBack();
+            }
         }
     }
     ColumnLayout {
         anchors.fill: parent
-        anchors.leftMargin: Theme.spaceSmall + root.SafeArea.margins.left
-        anchors.rightMargin: Theme.spaceSmall + root.SafeArea.margins.right
-        anchors.topMargin: Theme.spaceSmall + root.SafeArea.margins.top
-        anchors.bottomMargin: Theme.spaceSmall + root.SafeArea.margins.bottom
+        anchors.leftMargin: Theme.spaceSmall + root.safeLeft
+        anchors.rightMargin: Theme.spaceSmall + root.safeRight
+        anchors.topMargin: Theme.spaceSmall + root.safeTop
+        anchors.bottomMargin: Theme.spaceSmall + root.safeBottom
         spacing: Theme.spaceSmall
         ConnectionBanner {
             objectName: "mobileConnectionBanner"
@@ -42,48 +52,55 @@ Rectangle {
             actionEnabled: true
             onActionRequested: root.client.clearError()
         }
-        StackLayout {
+        Item {
             objectName: "mobilePageArea"
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: Theme.controlHeight
-            currentIndex: root.mobile.page
             clip: true
-            MobileChatScreen { client: root.client; mobile: root.mobile }
-            MobilePlansScreen { client: root.client; mobile: root.mobile }
-            MobileRemindersScreen { client: root.client; editor: root.mobile.planner }
-            MobileSettingsScreen { settings: root.mobile.settings }
+            MobileTodayScreen {
+                anchors.fill: parent
+                visible: root.mobile.page === MobileState.Today
+                mobile: root.mobile
+            }
+            MobilePlansScreen {
+                anchors.fill: parent
+                visible: root.mobile.page === MobileState.Plans
+                client: root.client
+                mobile: root.mobile
+            }
+            MobileSportScreen {
+                mobile: root.mobile
+                anchors.fill: parent
+                visible: root.mobile.page === MobileState.Sport
+            }
+            MobileMoreScreen {
+                keyboardVisible: root.keyboardVisible
+                anchors.fill: parent
+                visible: root.mobile.page === MobileState.More
+                client: root.client
+                mobile: root.mobile
+            }
         }
-        RowLayout {
+        AppBottomNavigation {
+            objectName: "mobileBottomNavigation"
             Layout.fillWidth: true
+            Layout.minimumHeight: Theme.bottomNavigationHeight
+            Layout.maximumHeight: Theme.bottomNavigationHeight
             visible: !root.keyboardVisible
-            spacing: Theme.spaceTiny
-            Repeater {
-                model: root.mobile.pages
-                AppButton {
-                    required property int index
-                    required property string modelData
-                    objectName: "mobileNavigation" + index
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 0
-                    Layout.minimumWidth: 0
-                    padding: Theme.spaceTiny
-                    text: modelData
-                    tone: root.mobile.page === index ? "primary" : "secondary"
-                    contentItem: Text {
-                        text: parent.text
-                        color: root.mobile.page === parent.index ? Theme.accentText : Theme.text
-                        textFormat: Text.PlainText
-                        wrapMode: Text.Wrap
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSmall
-                    }
-                    onClicked: root.mobile.navigate(index)
-                }
+            sections: root.mobile.sections
+            selectedSection: root.mobile.page
+            onNavigationRequested: function (section) {
+                root.mobile.navigate(section);
             }
         }
     }
-    PlannerFormDialog { editor: root.mobile.planner }
+    PlannerFormDialog {
+        editor: root.mobile.planner
+        confirmDiscard: true
+        safeTop: root.safeTop
+        safeBottom: root.safeBottom
+        safeLeft: root.safeLeft
+        safeRight: root.safeRight
+    }
 }

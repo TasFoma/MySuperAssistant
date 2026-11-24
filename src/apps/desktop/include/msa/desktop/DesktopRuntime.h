@@ -1,6 +1,7 @@
 #pragma once
 
 #include "msa/client/ClientController.h"
+#include "msa/client/SportController.h"
 #include "msa/core/ClientPreferences.h"
 #include "msa/desktop/AudioDevicesController.h"
 #include "msa/desktop/DesktopPreferencesController.h"
@@ -37,6 +38,7 @@ struct DesktopRuntimeOptions
     QString voiceSettingsPath{};
     QString voiceWorkerPath{};
     QString audioSettingsPath{};
+    QString sportDatabasePath{};
 };
 /// @brief Владеет моделями и локальной музыкой, создаёт сетевую сессию по сохранённым параметрам.
 class DesktopRuntime final : public QObject
@@ -73,6 +75,7 @@ private:
     std::optional<infra::TcpClient> m_client{};
     std::optional<client::ClientController> m_controller{};
     std::optional<core::ClientPreferences> m_activePreferences{};
+    client::SportController m_sport{*m_state.sport(), m_options.sportDatabasePath, this};
     bool m_started{false};
     bool m_stopped{false};
 };

@@ -126,6 +126,41 @@ PlannerEditor::PlannerEditor(ClientModels& models, QObject* parent) : QObject{pa
                 emit statusChanged();
             });
 }
+bool PlannerEditor::dirty() const
+{
+    return m_active && m_values != m_initialValues;
+}
+bool PlannerEditor::discardRequested() const
+{
+    return m_active && m_discardRequested;
+}
+void PlannerEditor::requestCancel(bool confirmChanges)
+{
+    if (!m_active || pending())
+    {
+        return;
+    }
+    if (confirmChanges && dirty())
+    {
+        m_discardRequested = true;
+        emit statusChanged();
+        return;
+    }
+    cancel();
+}
+void PlannerEditor::keepEditing()
+{
+    m_discardRequested = false;
+    emit statusChanged();
+}
+void PlannerEditor::discardChanges()
+{
+    if (!discardRequested() || pending())
+    {
+        return;
+    }
+    cancel();
+}
 bool PlannerEditor::active() const
 {
     return m_active;
@@ -144,7 +179,7 @@ bool PlannerEditor::pending() const
 }
 bool PlannerEditor::editable() const
 {
-    return !pending() && !m_requiresReopen;
+    return !pending() && !m_requiresReopen && !m_discardRequested;
 }
 bool PlannerEditor::canSubmit() const
 {
@@ -244,6 +279,7 @@ void PlannerEditor::open(FormKind kind, const QString& identifier)
     m_error.clear();
     m_explanation.clear();
     m_requiresReopen = false;
+    m_discardRequested = false;
     m_active = true;
     if (kind == FormKind::NewTask || kind == FormKind::EditTask)
     {
@@ -303,6 +339,7 @@ void PlannerEditor::open(FormKind kind, const QString& identifier)
             m_explanation += " Будет удалён и журнал привычки.";
         }
     }
+    m_initialValues = m_values;
     emit formChanged();
     emit statusChanged();
 }
@@ -481,6 +518,8 @@ void PlannerEditor::cancel()
         return;
     }
     m_active = false;
+    m_discardRequested = false;
     emit formChanged();
+    emit statusChanged();
 }
 } // namespace msa::ui

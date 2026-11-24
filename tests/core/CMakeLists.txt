@@ -1,4 +1,11 @@
 add_executable(msa_core_tests
+    src/SportTestData.cpp
+    src/SportLoadTest.cpp
+    src/SportProgramTest.cpp
+    src/SportWellbeingTest.cpp
+    src/SportTimerTest.cpp
+    src/SportWorkoutServiceTest.cpp
+    src/SportProgressTest.cpp
     src/MusicPlaylistTest.cpp
     src/FakeWebSearchProvider.cpp
     src/WebSearchProviderTest.cpp

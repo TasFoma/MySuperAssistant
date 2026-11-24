@@ -1,4 +1,10 @@
 add_library(msa_infra STATIC
+    include/msa/infra/SportCatalog.h
+    src/SportCatalog.cpp
+    include/msa/infra/SportDocumentCodec.h
+    src/SportDocumentCodec.cpp
+    include/msa/infra/SqliteSportStore.h
+    src/SqliteSportStore.cpp
     include/msa/infra/detail/ClientPlannerProtocol.h
     src/ClientPlannerProtocol.cpp
     include/msa/infra/JsonClientPreferences.h
@@ -61,3 +67,9 @@ target_compile_features(msa_infra PUBLIC cxx_std_20)
 target_include_directories(msa_infra PUBLIC include)
 target_link_libraries(msa_infra PUBLIC msa_core Qt6::Sql Qt6::Network)
 msa_apply_warnings(msa_infra)
+
+qt_add_resources(msa_infra "sport_content"
+    PREFIX "/msa/sport"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+    FILES resources/SportExercises.json
+)

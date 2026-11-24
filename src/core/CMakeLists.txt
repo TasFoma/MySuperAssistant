@@ -1,6 +1,28 @@
 include(${PROJECT_SOURCE_DIR}/cmake/Pcre2.cmake)
 
 add_library(msa_core STATIC
+    include/msa/core/SportWorkoutRepository.h
+    src/SportWorkoutRepository.cpp
+    include/msa/core/SportProgramRepository.h
+    src/SportProgramRepository.cpp
+    include/msa/core/SportPreferencesRepository.h
+    src/SportPreferencesRepository.cpp
+    include/msa/core/SportExercise.h
+    include/msa/core/SportLoad.h
+    include/msa/core/SportProgram.h
+    include/msa/core/SportProgress.h
+    include/msa/core/SportRejection.h
+    include/msa/core/SportTimer.h
+    include/msa/core/SportWellbeing.h
+    include/msa/core/SportWorkout.h
+    include/msa/core/SportWorkoutService.h
+    src/SportExercise.cpp
+    src/SportLoad.cpp
+    src/SportProgram.cpp
+    src/SportProgress.cpp
+    src/SportTimer.cpp
+    src/SportWellbeing.cpp
+    src/SportWorkoutService.cpp
     include/msa/core/AudioDeviceData.h
     include/msa/core/SpeechSynthesizer.h
     src/SpeechSynthesizer.cpp

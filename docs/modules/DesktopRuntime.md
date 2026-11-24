@@ -121,3 +121,12 @@ AudioDevices и AudioDevicesController восстанавливают выбра
 audio.settings.json рядом с клиентскими настройками. Перечисление и восстановление
 не начинают запись/озвучку; смена сервера не меняет устройства. Контроллер применяет
 каталог к AudioDevicesModel и маршруты к трём backend; подробности — [AudioDevices](AudioDevices.md).
+
+## Локальный спорт
+
+Runtime владеет SportController, связывающим модель состояния и отдельную
+SqliteSportStore. start загружает каталог/предпочтения независимо от TCP;
+смена серверных параметров не удаляет спортивные данные. Опция sportDatabasePath
+задаётся main через AppLocalDataLocation или --sport-data; пустой путь в
+изолированных проверках оставляет каталог без записи. Подробнее —
+[SportLibrary](SportLibrary.md), [SportStorage](SportStorage.md).

@@ -6,43 +6,80 @@ import Msa.Ui.Common 1.0
 Controls.Popup {
     id: plannerPopup
     required property var editor
+    property bool confirmDiscard: false
+    property real safeTop: 0
+    property real safeBottom: 0
+    property real safeLeft: 0
+    property real safeRight: 0
     objectName: "plannerDialog"
     parent: Controls.Overlay.overlay
-    anchors.centerIn: parent
+    x: parent ? (parent.width - width + safeLeft - safeRight) / 2 : 0
+    y: parent ? (parent.height - height + safeTop - safeBottom) / 2 : 0
     modal: true
     focus: true
     closePolicy: Controls.Popup.NoAutoClose
     padding: Theme.spaceLarge
-    width: Math.min(Theme.formWidth, parent ? parent.width - Theme.spacePage : Theme.formWidth)
-    height: Math.min(contents.implicitHeight + topPadding + bottomPadding,
-                     parent ? parent.height - Theme.spacePage : Theme.desktopHeight)
-    background: Rectangle { color: Theme.surface; border.color: Theme.border; radius: Theme.radiusCard }
+    width: Math.min(Theme.formWidth, parent ? parent.width - Theme.spacePage - safeLeft - safeRight : Theme.formWidth)
+    height: Math.min(contents.implicitHeight + topPadding + bottomPadding, parent ? parent.height - Theme.spacePage - safeTop - safeBottom : Theme.desktopHeight)
+    background: Rectangle {
+        color: Theme.surface
+        border.color: Theme.border
+        radius: Theme.radiusCard
+    }
     Connections {
         target: plannerPopup.editor
         function onFormChanged() {
-            if (plannerPopup.editor.active) { plannerPopup.open() }
-            else { plannerPopup.close() }
+            if (plannerPopup.editor.active) {
+                plannerPopup.open();
+            } else {
+                plannerPopup.close();
+            }
         }
     }
-    Component.onCompleted: { if (editor.active) open() }
+    Component.onCompleted: {
+        if (editor.active)
+            open();
+    }
     contentItem: Controls.ScrollView {
         id: scroll
+        objectName: "plannerFormScroll"
+        Keys.onReleased: function (event) {
+            if (plannerPopup.confirmDiscard && (event.key === Qt.Key_Back || event.key === Qt.Key_Escape)) {
+                if (Qt.inputMethod.visible) {
+                    Qt.inputMethod.hide();
+                } else if (plannerPopup.editor.discardRequested) {
+                    plannerPopup.editor.keepEditing();
+                } else {
+                    plannerPopup.editor.requestCancel(plannerPopup.confirmDiscard);
+                }
+                event.accepted = true;
+            }
+        }
+
         clip: true
         contentWidth: availableWidth
         ColumnLayout {
             id: contents
             width: scroll.availableWidth
             spacing: Theme.spaceMedium
-            SectionHeader { Layout.fillWidth: true; title: plannerPopup.editor.heading; description: plannerPopup.editor.explanation }
+            SectionHeader {
+                visible: !plannerPopup.editor.discardRequested
+                Layout.fillWidth: true
+                title: plannerPopup.editor.heading
+                description: plannerPopup.editor.explanation
+            }
             Repeater {
                 model: plannerPopup.editor.fields
                 ColumnLayout {
                     id: field
                     required property var modelData
-                    visible: plannerPopup.editor.fieldVisibility[modelData.key]
+                    visible: !plannerPopup.editor.discardRequested && plannerPopup.editor.fieldVisibility[modelData.key]
                     Layout.fillWidth: true
                     spacing: Theme.spaceTiny
-                    SectionHeader { Layout.fillWidth: true; description: field.modelData.label }
+                    SectionHeader {
+                        Layout.fillWidth: true
+                        description: field.modelData.label
+                    }
                     AppTextField {
                         Layout.fillWidth: true
                         objectName: "plannerField_" + field.modelData.key
@@ -58,7 +95,10 @@ Controls.Popup {
                         text: field.modelData.value
                         readOnly: !plannerPopup.editor.editable
                         Accessible.name: field.modelData.label
-                        onTextChanged: { if (visible) plannerPopup.editor.setField(field.modelData.key, text) }
+                        onTextChanged: {
+                            if (visible)
+                                plannerPopup.editor.setField(field.modelData.key, text);
+                        }
                     }
                     Controls.ComboBox {
                         id: choice
@@ -86,8 +126,7 @@ Controls.Popup {
                         palette.disabled.text: Theme.disabledText
                         background: Rectangle {
                             radius: Theme.radiusControl
-                            color: !choice.enabled ? Theme.disabledSurface
-                                   : choice.down ? Theme.pressed : choice.hovered ? Theme.hover : Theme.raised
+                            color: !choice.enabled ? Theme.disabledSurface : choice.down ? Theme.pressed : choice.hovered ? Theme.hover : Theme.raised
                             border.width: Theme.borderWidth
                             border.color: choice.visualFocus ? Theme.accent : Theme.border
                             Rectangle {
@@ -100,13 +139,50 @@ Controls.Popup {
                                 border.color: Theme.focusBorder
                             }
                         }
-                        onActivated: function(index) { plannerPopup.editor.setChoice(field.modelData.key, index) }
+                        onActivated: function (index) {
+                            plannerPopup.editor.setChoice(field.modelData.key, index);
+                        }
                     }
                 }
             }
-            ErrorBanner { Layout.fillWidth: true; message: plannerPopup.editor.errorText }
-            SectionHeader { Layout.fillWidth: true; visible: plannerPopup.editor.pending; description: "Ждём подтверждения сервера…" }
+            ErrorBanner {
+                Layout.fillWidth: true
+                message: plannerPopup.editor.errorText
+            }
+            SectionHeader {
+                Layout.fillWidth: true
+                visible: plannerPopup.editor.pending
+                description: "Ждём подтверждения сервера…"
+            }
+            SurfaceCard {
+                objectName: "discardConfirmation"
+                Layout.fillWidth: true
+                visible: plannerPopup.editor.discardRequested
+                ColumnLayout {
+                    width: parent.width
+                    spacing: Theme.spaceSmall
+                    SectionHeader {
+                        Layout.fillWidth: true
+                        title: "Отбросить изменения?"
+                        description: "Введённые данные не будут сохранены."
+                    }
+                    AppButton {
+                        objectName: "keepEditingButton"
+                        Layout.fillWidth: true
+                        text: "Продолжить"
+                        onClicked: plannerPopup.editor.keepEditing()
+                    }
+                    AppButton {
+                        objectName: "discardChangesButton"
+                        Layout.fillWidth: true
+                        text: "Отбросить изменения"
+                        tone: "danger"
+                        onClicked: plannerPopup.editor.discardChanges()
+                    }
+                }
+            }
             RowLayout {
+                visible: !plannerPopup.editor.discardRequested
                 AppButton {
                     objectName: "plannerSubmitButton"
                     text: plannerPopup.editor.destructive ? "Удалить" : "Подтвердить"
@@ -119,7 +195,7 @@ Controls.Popup {
                     text: "Отмена"
                     tone: "secondary"
                     enabled: !plannerPopup.editor.pending
-                    onClicked: plannerPopup.editor.cancel()
+                    onClicked: plannerPopup.editor.requestCancel(plannerPopup.confirmDiscard)
                 }
             }
         }

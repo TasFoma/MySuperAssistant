@@ -88,3 +88,12 @@ Android Debug APK с этой связкой
 Актуальные результаты сборки, CTest и Android APK подэтапа 1C находятся
 в [журнале Stage 1](../new_tz/stage-1-log.md). Тесты первого запуска проверяют
 именованный раздел и подраздел настроек, а не числовой индекс страницы.
+
+## Локальный спорт
+
+Runtime владеет SportController, связывающим модель состояния и отдельную
+SqliteSportStore. start загружает каталог/предпочтения независимо от TCP;
+смена серверных параметров не удаляет спортивные данные. Опция sportDatabasePath
+задаётся main через AppLocalDataLocation или --sport-data; пустой путь в
+изолированных проверках оставляет каталог без записи. Подробнее —
+[SportLibrary](SportLibrary.md), [SportStorage](SportStorage.md).

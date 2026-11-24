@@ -75,6 +75,13 @@ Canvas {
             painter.lineTo(16, 9);
             painter.moveTo(8, 13);
             painter.lineTo(13, 13);
+        } else if (name === "more") {
+            painter.moveTo(5, 12);
+            painter.arc(4, 12, 1, 0, Math.PI * 2);
+            painter.moveTo(13, 12);
+            painter.arc(12, 12, 1, 0, Math.PI * 2);
+            painter.moveTo(21, 12);
+            painter.arc(20, 12, 1, 0, Math.PI * 2);
         } else if (name === "settings") {
             painter.ellipse(4, 4, 16, 16);
             painter.moveTo(16, 12);

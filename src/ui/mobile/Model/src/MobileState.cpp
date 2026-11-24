@@ -2,19 +2,41 @@
 
 #include <QLocale>
 #include <QVariantMap>
+#include <algorithm>
 
 namespace msa::ui
 {
 namespace
 {
-constexpr int kPageCount = 4;
+constexpr int kDateRefreshMilliseconds = 30000;
+[[nodiscard]] QString currentDateText()
+{
+    return QLocale{QLocale::Russian}.toString(QDate::currentDate(), QStringLiteral("dddd, d MMMM yyyy"));
+}
 constexpr int kDaysPerWeek = 7;
 constexpr int kMinimumYear = 1;
 constexpr int kMaximumYear = 9999;
 constexpr int kIsoDateLength = 10;
 } // namespace
+SportLibraryModel* MobileState::sport()
+{
+    return &m_sport;
+}
 MobileState::MobileState(ClientModels& models, QObject* parent) : QObject{parent}, m_models{models}
 {
+    m_todayDate = currentDateText();
+    m_dateTimer.setInterval(kDateRefreshMilliseconds);
+    connect(&m_dateTimer, &QTimer::timeout, this,
+            [this]
+            {
+                const auto date = currentDateText();
+                if (date != m_todayDate)
+                {
+                    m_todayDate = date;
+                    emit todayDateChanged();
+                }
+            });
+    m_dateTimer.start();
     connect(&models, &ClientModels::metadataChanged, this, &MobileState::updateServerDate);
     connect(&models, &ClientModels::connectionChanged, this, &MobileState::refreshCalendar);
     connect(&models, &ClientModels::calendarChanged, this,
@@ -25,13 +47,73 @@ MobileState::MobileState(ClientModels& models, QObject* parent) : QObject{parent
             });
     updateServerDate();
 }
-int MobileState::page() const
+MobileState::Page MobileState::page() const
 {
     return m_page;
 }
 QStringList MobileState::pages() const
 {
-    return {"Чат", "Планы", "Напоминания", "Настройки"};
+    return {"Сегодня", "Планы", "Спорт", "Ещё"};
+}
+QVariantList MobileState::sections() const
+{
+    return {
+        QVariantMap{
+            {"section", QVariant::fromValue(Page::Today)}, {"key", "today"}, {"title", "Сегодня"}, {"icon", "today"}},
+        QVariantMap{
+            {"section", QVariant::fromValue(Page::Plans)}, {"key", "plans"}, {"title", "Планы"}, {"icon", "plans"}},
+        QVariantMap{
+            {"section", QVariant::fromValue(Page::Sport)}, {"key", "sport"}, {"title", "Спорт"}, {"icon", "workouts"}},
+        QVariantMap{{"section", QVariant::fromValue(Page::More)}, {"key", "more"}, {"title", "Ещё"}, {"icon", "more"}}};
+}
+QVariantList MobileState::planSections() const
+{
+    return {
+        QVariantMap{{"section", QVariant::fromValue(PlanSection::Tasks)}, {"key", "tasks"}, {"title", "Задачи"}},
+        QVariantMap{
+            {"section", QVariant::fromValue(PlanSection::Calendar)}, {"key", "calendar"}, {"title", "Календарь"}},
+        QVariantMap{{"section", QVariant::fromValue(PlanSection::Habits)}, {"key", "habits"}, {"title", "Привычки"}},
+        QVariantMap{
+            {"section", QVariant::fromValue(PlanSection::Reminders)}, {"key", "reminders"}, {"title", "Напоминания"}}};
+}
+MobileState::PlanSection MobileState::planSection() const
+{
+    return m_planSection;
+}
+MobileState::MoreSection MobileState::moreSection() const
+{
+    return m_moreSection;
+}
+QString MobileState::todayDate() const
+{
+    return m_todayDate;
+}
+void MobileState::selectPlanSection(PlanSection section)
+{
+    const auto choices = planSections();
+    if (m_planSection == section ||
+        !std::ranges::any_of(choices, [section](const QVariant& value)
+                             { return value.toMap().value("section").value<PlanSection>() == section; }))
+    {
+        return;
+    }
+    m_planSection = section;
+    emit navigationChanged();
+}
+void MobileState::showMore(MoreSection section)
+{
+    switch (section)
+    {
+    case MoreSection::Menu:
+    case MoreSection::Assistant:
+    case MoreSection::Settings:
+        break;
+    default:
+        return;
+    }
+    m_page = Page::More;
+    m_moreSection = section;
+    emit navigationChanged();
 }
 bool MobileState::conversationsVisible() const
 {
@@ -79,9 +161,11 @@ void MobileState::setSearchQuery(const QString& text)
     m_searchQuery = text;
     emit draftChanged();
 }
-void MobileState::navigate(int page)
+void MobileState::navigate(Page page)
 {
-    if (page < 0 || page >= kPageCount || page == m_page)
+    const auto choices = sections();
+    if (page == m_page || !std::ranges::any_of(choices, [page](const QVariant& value)
+                                               { return value.toMap().value("section").value<Page>() == page; }))
     {
         return;
     }
@@ -108,22 +192,44 @@ bool MobileState::goBack()
 {
     if (m_planner.active())
     {
-        m_planner.cancel();
+        if (m_planner.discardRequested())
+        {
+            m_planner.keepEditing();
+        }
+        else
+        {
+            m_planner.requestCancel(true);
+        }
         return true;
     }
-    if (m_page != 0)
+    if (m_page == Page::Sport && m_sport.hasSelection())
     {
-        navigate(0);
+        m_sport.clearSelection();
         return true;
     }
-    if (!m_conversationsVisible)
+    if (m_page == Page::Sport && m_sport.section() != "overview")
     {
-        return false;
+        m_sport.navigate("overview");
+        return true;
     }
-    m_conversationsVisible = false;
-    emit navigationChanged();
+    if (m_page == Page::More && m_moreSection == MoreSection::Assistant && m_conversationsVisible)
+    {
+        m_conversationsVisible = false;
+        emit navigationChanged();
+        return true;
+    }
+    if (m_page == Page::More && m_moreSection != MoreSection::Menu)
+    {
+        showMore(MoreSection::Menu);
+        return true;
+    }
+    if (m_page != Page::Today)
+    {
+        navigate(Page::Today);
+        return true;
+    }
 
-    return true;
+    return false;
 }
 bool MobileState::sendMessage()
 {

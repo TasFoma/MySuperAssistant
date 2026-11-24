@@ -422,7 +422,7 @@ TEST_F(DesktopRuntimeTest, MainExecutableLoadsBothPluginsAndConnectsWithoutVisib
     process.setProcessEnvironment(environment);
     process.setProcessChannelMode(QProcess::MergedChannels);
     process.start(QString::fromUtf8(MSA_DESKTOP_EXECUTABLE),
-                  {"--config", config.clientSettingsPath, "--music-config", config.musicSettingsPath});
+                  {"--config", config.clientSettingsPath, "--music-config", config.musicSettingsPath, "--sport-data", m_directory.filePath("sport.sqlite")});
     ASSERT_TRUE(process.waitForStarted(kWaitMilliseconds));
     const auto ready = waitFor([&server] { return server.m_reads >= 2; });
     const auto output = QString::fromUtf8(process.readAll());

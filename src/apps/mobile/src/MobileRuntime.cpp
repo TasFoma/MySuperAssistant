@@ -5,7 +5,6 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QStandardPaths>
-
 #include <exception>
 #include <utility>
 
@@ -13,7 +12,6 @@ namespace msa::mobile
 {
 namespace
 {
-constexpr int kSettingsPage = 3;
 bool sameEndpoint(const core::ClientPreferences& first, const core::ClientPreferences& second)
 {
     return first.host == second.host && first.port == second.port && first.token == second.token;
@@ -53,13 +51,15 @@ void MobileRuntime::loadPreferences()
             m_state.settings()->applyPreferences(*preferences);
             return;
         }
-        m_state.settings()->setSettingsMessage("Заполните параметры сервера. До подключения приложение работает без связи.");
+        m_state.settings()->setSettingsMessage(
+            "Заполните параметры сервера. До подключения приложение работает без связи.");
     }
     catch (const std::exception&)
     {
-        m_state.settings()->setSettingsMessage("Не удалось прочитать настройки. Проверьте файл или сохраните новые параметры.");
+        m_state.settings()->setSettingsMessage(
+            "Не удалось прочитать настройки. Проверьте файл или сохраните новые параметры.");
     }
-    m_state.navigate(kSettingsPage);
+    m_state.showMore(ui::MobileState::MoreSection::Settings);
 }
 void MobileRuntime::savePreferences(const core::ClientPreferences& preferences)
 {
@@ -72,7 +72,8 @@ void MobileRuntime::savePreferences(const core::ClientPreferences& preferences)
         }
         infra::JsonClientPreferences::save(m_options.clientSettingsPath, preferences);
         m_state.settings()->applyPreferences(preferences);
-        m_state.settings()->setSettingsMessage("Настройки сохранены. Нажмите «Подключиться», чтобы применить их сейчас.");
+        m_state.settings()->setSettingsMessage(
+            "Настройки сохранены. Нажмите «Подключиться», чтобы применить их сейчас.");
     }
     catch (const std::exception&)
     {
@@ -86,6 +87,7 @@ void MobileRuntime::start()
         return;
     }
     m_started = true;
+    m_sport.start();
     loadPreferences();
     if (m_state.settings()->canConnect() && m_state.settings()->autoConnect())
     {
@@ -124,7 +126,7 @@ void MobileRuntime::connectSaved()
     auto* settings = m_state.settings();
     if (!settings->canConnect())
     {
-        m_state.navigate(kSettingsPage);
+        m_state.showMore(ui::MobileState::MoreSection::Settings);
         settings->setSettingsMessage("Сначала сохраните корректные параметры сервера.");
         return;
     }

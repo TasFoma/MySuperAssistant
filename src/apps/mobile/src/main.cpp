@@ -3,6 +3,8 @@
 #include <QCommandLineOption>
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QDir>
+#include <QStandardPaths>
 #include <QDebug>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -25,6 +27,8 @@ int main(int argc, char* argv[])
     parser.addHelpOption();
     const QCommandLineOption config{"config", "Файл параметров подключения.", "path"};
     parser.addOption(config);
+    const QCommandLineOption sportData{"sport-data", "Отдельный файл локальных данных спорта.", "path"};
+    parser.addOption(sportData);
     parser.process(application);
     if (!parser.positionalArguments().isEmpty())
     {
@@ -33,8 +37,11 @@ int main(int argc, char* argv[])
     }
     try
     {
-        msa::mobile::MobileRuntime runtime{
-            {parser.isSet(config) ? parser.value(config) : msa::mobile::MobileRuntime::defaultSettingsPath()}};
+        msa::mobile::MobileRuntimeOptions options{
+            parser.isSet(config) ? parser.value(config) : msa::mobile::MobileRuntime::defaultSettingsPath()};
+        options.sportDatabasePath = parser.isSet(sportData) ? parser.value(sportData) :
+            QDir{QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)}.filePath("sport/sport-local.sqlite");
+        msa::mobile::MobileRuntime runtime{options};
         QQmlApplicationEngine engine;
         engine.setInitialProperties(
             {{"client", QVariant::fromValue(runtime.models())}, {"mobile", QVariant::fromValue(runtime.state())}});

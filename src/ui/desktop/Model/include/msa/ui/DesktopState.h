@@ -6,6 +6,7 @@
 #include "msa/ui/ClientSettingsModel.h"
 #include "msa/ui/MusicModel.h"
 #include "msa/ui/PlannerEditor.h"
+#include "msa/ui/SportLibraryModel.h"
 #include "msa/ui/VoiceModel.h"
 
 #include <QObject>
@@ -21,6 +22,7 @@ namespace msa::ui
 class DesktopState final : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(msa::ui::SportLibraryModel* sport READ sport CONSTANT)
     QML_ELEMENT
     QML_UNCREATABLE("Created by the application runtime")
     Q_PROPERTY(msa::ui::AudioDevicesModel* audioDevices READ audioDevices CONSTANT)
@@ -40,6 +42,8 @@ class DesktopState final : public QObject
     Q_PROPERTY(msa::ui::MusicModel* music READ music CONSTANT)
     Q_PROPERTY(msa::ui::VoiceModel* voice READ voice CONSTANT)
 public:
+    /// @brief Офлайн-карточки и локальные предпочтения спорта.
+    [[nodiscard]] SportLibraryModel* sport();
     /// @brief Разделы Desktop; значения не являются индексами экранов.
     enum class Page
     {
@@ -113,6 +117,7 @@ signals:
     void saveRequested(msa::core::ClientPreferences preferences); ///< @brief Проверенные параметры для записи.
     void connectRequested();                                      ///< @brief Явное применение сохранённых параметров.
 private:
+    SportLibraryModel m_sport{this};
     ClientModels& m_models;
     PlannerEditor m_planner{m_models, this};
     MusicModel m_music{this};

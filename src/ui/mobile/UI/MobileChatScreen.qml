@@ -3,20 +3,36 @@ import QtQuick.Controls.Basic as Controls
 import QtQuick.Layouts
 import Msa.Ui.Common 1.0
 
-Item {
+Flickable {
     id: root
     required property var client
     required property var mobile
+    objectName: "mobileChatScroll"
+    clip: true
+    contentWidth: width
+    contentHeight: Math.max(height, Theme.mobileChatMinimumHeight)
+    boundsBehavior: Flickable.StopAtBounds
+    flickableDirection: Flickable.VerticalFlick
+    Controls.ScrollBar.vertical: Controls.ScrollBar {}
     ColumnLayout {
-        anchors.fill: parent
+        width: root.width
+        height: root.contentHeight
         visible: root.mobile.conversationsVisible
         spacing: Theme.spaceSmall
         RowLayout {
             Layout.fillWidth: true
-            AppButton { text: "Назад"; tone: "secondary"; onClicked: root.mobile.goBack() }
-            AppButton { Layout.fillWidth: true; text: "Новая беседа"; enabled: root.client.serverActionsEnabled; onClicked: root.client.createChat() }
+            AppButton {
+                Layout.fillWidth: true
+                text: "Новая беседа"
+                enabled: root.client.serverActionsEnabled
+                onClicked: root.client.createChat()
+            }
         }
-        EmptyState { Layout.fillWidth: true; visible: root.client.chats.count === 0; title: "Нет загруженных бесед" }
+        EmptyState {
+            Layout.fillWidth: true
+            visible: root.client.chats.count === 0
+            title: "Нет загруженных бесед"
+        }
         ListView {
             id: conversations
             objectName: "mobileConversationList"
@@ -25,7 +41,7 @@ Item {
             clip: true
             spacing: Theme.spaceSmall
             model: root.client.chats
-            Controls.ScrollBar.vertical: Controls.ScrollBar { }
+            Controls.ScrollBar.vertical: Controls.ScrollBar {}
             delegate: AppButton {
                 required property string identifier
                 required property string title
@@ -37,14 +53,30 @@ Item {
         }
     }
     ColumnLayout {
-        anchors.fill: parent
+        width: root.width
+        height: root.contentHeight
         visible: !root.mobile.conversationsVisible
         spacing: Theme.spaceSmall
         RowLayout {
             Layout.fillWidth: true
-            AppButton { objectName: "mobileConversationsButton"; Layout.fillWidth: true; text: "Беседы"; tone: "secondary"; onClicked: root.mobile.showConversations() }
-            AppButton { text: search.visible ? "Скрыть поиск" : "Поиск"; tone: "secondary"; onClicked: search.visible = !search.visible }
-            AppButton { text: "Ещё"; visible: root.client.messageHasMore && root.client.selectedChatIdentifier.length > 0; enabled: root.client.serverActionsEnabled; onClicked: root.client.loadMoreMessages() }
+            AppButton {
+                objectName: "mobileConversationsButton"
+                Layout.fillWidth: true
+                text: "Беседы"
+                tone: "secondary"
+                onClicked: root.mobile.showConversations()
+            }
+            AppButton {
+                text: search.visible ? "Скрыть поиск" : "Поиск"
+                tone: "secondary"
+                onClicked: search.visible = !search.visible
+            }
+            AppButton {
+                text: "Ранее"
+                visible: root.client.messageHasMore && root.client.selectedChatIdentifier.length > 0
+                enabled: root.client.serverActionsEnabled
+                onClicked: root.client.loadMoreMessages()
+            }
         }
         SectionHeader {
             Layout.fillWidth: true
@@ -60,7 +92,7 @@ Item {
             clip: true
             spacing: Theme.spaceSmall
             model: root.client.messages
-            Controls.ScrollBar.vertical: Controls.ScrollBar { }
+            Controls.ScrollBar.vertical: Controls.ScrollBar {}
             delegate: MessageBubble {
                 required property string text
                 required property string role

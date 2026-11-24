@@ -60,6 +60,8 @@ QtObject {
     readonly property int musicVolumeWidth: 160
     readonly property int chatMinimumHeight: 480
     readonly property int conversationWidth: 228
+    readonly property int bottomNavigationHeight: 64
+    readonly property int mobileChatMinimumHeight: 352
     readonly property int mobileWidth: 390
     readonly property int mobileHeight: 844
     readonly property int mobileMinimumWidth: 320

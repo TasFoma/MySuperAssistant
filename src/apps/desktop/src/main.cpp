@@ -3,6 +3,8 @@
 #include <QCommandLineOption>
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QDir>
+#include <QStandardPaths>
 #include <QDebug>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -27,6 +29,8 @@ int main(int argc, char* argv[])
     const QCommandLineOption config{"config", "Файл параметров подключения.", "path"};
     const QCommandLineOption musicConfig{"music-config", "Отдельный файл параметров музыки.", "path"};
     parser.addOptions({config, musicConfig});
+    const QCommandLineOption sportData{"sport-data", "Отдельный файл локальных данных спорта.", "path"};
+    parser.addOption(sportData);
     parser.process(application);
     if (!parser.positionalArguments().isEmpty())
     {
@@ -35,11 +39,13 @@ int main(int argc, char* argv[])
     }
     try
     {
-        msa::desktop::DesktopRuntime runtime{
-            {parser.isSet(config) ? parser.value(config) : msa::desktop::DesktopPreferencesController::defaultPath(),
-             parser.isSet(musicConfig) ? parser.value(musicConfig)
-                                       : msa::desktop::MusicController::defaultSettingsPath(),
-             std::random_device{}()}};
+        msa::desktop::DesktopRuntimeOptions options{
+            parser.isSet(config) ? parser.value(config) : msa::desktop::DesktopPreferencesController::defaultPath(),
+            parser.isSet(musicConfig) ? parser.value(musicConfig) : msa::desktop::MusicController::defaultSettingsPath(),
+            std::random_device{}()};
+        options.sportDatabasePath = parser.isSet(sportData) ? parser.value(sportData) :
+            QDir{QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)}.filePath("sport/sport-local.sqlite");
+        msa::desktop::DesktopRuntime runtime{options};
         QQmlApplicationEngine engine;
         engine.setInitialProperties(
             {{"client", QVariant::fromValue(runtime.models())}, {"desktop", QVariant::fromValue(runtime.state())}});

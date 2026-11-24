@@ -131,8 +131,8 @@ runtime компилятора не упаковывается, Debug предн
 Тренировки, Музыка, Ассистент, Настройки (решение 65). Внутри планов независимый
 PlanSection: задачи, календарь, привычки, напоминания. Новых слоёв/маршрутизатора
 нет; экраны остаются созданными при переключении. TodayScreen показывает местную
-дату и переход к планам, WorkoutsScreen — пустое состояние. Обе страницы не
-вводят новые предметные сущности. MobileState использует Page «Сегодня / Планы /
+дату и переход к планам, WorkoutsScreen — офлайн-библиотеку спорта через
+общую модель и SportController. Предметные правила остаются в core. MobileState использует Page «Сегодня / Планы /
 Спорт / Ещё», вложенные MoreSection «Меню / Ассистент / Настройки» и PlanSection
 для четырёх разделов планов (решение 66). Общий AppBottomNavigation отображает
 описания разделов, не хранит маршруты. Черновик остаётся в MobileState,
@@ -169,7 +169,7 @@ flowchart TD
     mobile --> plugin
     plugin --> common
     desktopSupport --> infra
-    desktopSupport --> clientSupport[msa_client_support: ClientController в apps/common]
+    desktopSupport --> clientSupport[msa_client_support: ClientController и SportController в apps/common]
     clientSupport --> common
     clientSupport --> infra
     clientSupport --> core
@@ -255,6 +255,17 @@ sequenceDiagram
 ```
 
 ## Модули
+
+Офлайн-библиотека спорта: общий браузер/карточки, модель и локальная связка —
+`src/ui/common/Model/include/msa/ui/SportLibraryModel.h`,
+[описание](modules/SportLibrary.md).
+
+Локальное хранилище спорта: отдельная клиентская SQLite, редакции, checkpoint
+и предпочтения — `src/infra/include/msa/infra/SqliteSportStore.h`,
+[описание](modules/SportStorage.md).
+
+Спортивная модель core: нагрузка, условия, план/факт, таймер, редакции и проекция
+прогресса — `src/core/include/msa/core/Sport*.h`, [описание](modules/SportCore.md).
 
 | Модуль | Что есть сейчас | Путь |
 | --- | --- | --- |
@@ -418,3 +429,9 @@ ServerProcessTest дополнительно запускает собранны
 не ждут LLM. Транзакции не охватывают HTTP. События не имеют постоянной очереди
 доставки, журнал идемпотентности после переподключения отсутствует. Полные снимки
 и большие отдельные сообщения ограничены пределом кадра; сообщения не обрезаются.
+
+Спорт работает локально независимо от серверной сессии: SportController связывает
+SportLibraryModel и SqliteSportStore. База клиента использует отдельную идентичность,
+миграции и AppLocalDataLocation; серверные контракты не менялись. Подробности —
+[SportCore](modules/SportCore.md), [SportStorage](modules/SportStorage.md),
+[SportLibrary](modules/SportLibrary.md). Полный UI записи тренировки ещё не подключён.

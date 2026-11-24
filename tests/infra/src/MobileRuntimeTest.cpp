@@ -1,8 +1,8 @@
 #include "FakeClock.h"
-#include "msa/mobile/MobileRuntime.h"
 #include "msa/infra/JsonClientPreferences.h"
 #include "msa/infra/ProtocolPayload.h"
 #include "msa/infra/TcpServer.h"
+#include "msa/mobile/MobileRuntime.h"
 
 #include <gtest/gtest.h>
 
@@ -25,7 +25,6 @@
 #include <QTemporaryDir>
 #include <QThread>
 #include <QVariant>
-
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -130,8 +129,7 @@ LocalServer::LocalServer(QString title) : m_taskTitle{std::move(title)}
             }
             else if (request.method == "calendar.month")
             {
-                result = {{"year", request.params["year"]}, {"month", request.params["month"]},
-                          {"days", QJsonArray{}}};
+                result = {{"year", request.params["year"]}, {"month", request.params["month"]}, {"days", QJsonArray{}}};
             }
             else if (request.method == "calendar.day")
             {
@@ -209,7 +207,8 @@ TEST_F(MobileRuntimeTest, MissingAndCorruptSettingsKeepWindowAvailableWithoutNet
         auto engine = openWindow(runtime);
         ASSERT_EQ(engine->rootObjects().size(), 1);
         runtime.start();
-        EXPECT_EQ(runtime.state()->page(), 3);
+        EXPECT_EQ(runtime.state()->page(), msa::ui::MobileState::Page::More);
+        EXPECT_EQ(runtime.state()->moreSection(), msa::ui::MobileState::MoreSection::Settings);
         EXPECT_FALSE(runtime.state()->settings()->canConnect());
         EXPECT_EQ(runtime.models()->connectionState(), "Disconnected");
         runtime.models()->reconnect();
@@ -246,9 +245,10 @@ TEST_F(MobileRuntimeTest, SaveDoesNotConnectAndExplicitActionUsesSavedParameters
     msa::mobile::MobileRuntime runtime{config};
     runtime.start();
     settle();
+    EXPECT_EQ(runtime.state()->page(), msa::ui::MobileState::Page::Today);
     EXPECT_EQ(server.m_reads, 0);
-    ASSERT_TRUE(
-        runtime.state()->settings()->savePreferences("127.0.0.1", QString::number(server.m_server.serverPort()), kToken, true));
+    ASSERT_TRUE(runtime.state()->settings()->savePreferences("127.0.0.1", QString::number(server.m_server.serverPort()),
+                                                             kToken, true));
     settle();
     EXPECT_EQ(server.m_reads, 0);
     runtime.state()->settings()->connectToServer();
@@ -297,8 +297,8 @@ TEST_F(MobileRuntimeTest, SwitchingServerDropsOldIdsAndPreservesUnknownWithoutRe
     first.m_holdWrite = true;
     ASSERT_TRUE(runtime.models()->setTaskDone("1", true));
     ASSERT_TRUE(waitFor([&first] { return first.m_held.has_value(); }));
-    ASSERT_TRUE(
-        runtime.state()->settings()->savePreferences("127.0.0.1", QString::number(second.m_server.serverPort()), kToken, false));
+    ASSERT_TRUE(runtime.state()->settings()->savePreferences("127.0.0.1", QString::number(second.m_server.serverPort()),
+                                                             kToken, false));
     EXPECT_TRUE(runtime.models()->online());
     EXPECT_EQ(second.m_reads, 0);
     runtime.state()->settings()->connectToServer();
@@ -401,7 +401,7 @@ TEST_F(MobileRuntimeTest, WindowCreatesTaskThroughRealServerProcessAndRetainsDat
     ASSERT_EQ(engine->rootObjects().size(), 1);
     runtime.start();
     ASSERT_TRUE(waitFor([&runtime] { return runtime.models()->online() && runtime.models()->chats()->count() > 0; }));
-    runtime.state()->navigate(1);
+    runtime.state()->navigate(msa::ui::MobileState::Page::Plans);
     auto* planner = runtime.state()->planner();
     planner->newTask();
     planner->setField("title", QString::fromUtf8("Проверить настоящее окно 🙂"));
@@ -434,8 +434,7 @@ TEST_F(MobileRuntimeTest, MainExecutableLoadsBothPluginsAndConnectsWithoutVisibl
     environment.insert("QT_FORCE_STDERR_LOGGING", "1");
     process.setProcessEnvironment(environment);
     process.setProcessChannelMode(QProcess::MergedChannels);
-    process.start(QString::fromUtf8(MSA_MOBILE_EXECUTABLE),
-                  {"--config", config.clientSettingsPath});
+    process.start(QString::fromUtf8(MSA_MOBILE_EXECUTABLE), {"--config", config.clientSettingsPath, "--sport-data", m_directory.filePath("sport.sqlite")});
     ASSERT_TRUE(process.waitForStarted(kWaitMilliseconds));
     const auto ready = waitFor([&server] { return server.m_reads >= 2; });
     const auto output = QString::fromUtf8(process.readAll());

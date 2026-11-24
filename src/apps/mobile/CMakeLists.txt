@@ -20,3 +20,10 @@ set_property(TARGET msa_mobile APPEND PROPERTY QT_QML_IMPORT_PATH
     "${PROJECT_BINARY_DIR}/src/ui/mobile"
 )
 msa_apply_warnings(msa_mobile)
+
+if(ANDROID)
+    configure_file(AndroidManifest.xml
+        "${CMAKE_CURRENT_BINARY_DIR}/android-package/AndroidManifest.xml" COPYONLY)
+    set_property(TARGET msa_mobile PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
+        "${CMAKE_CURRENT_BINARY_DIR}/android-package")
+endif()
