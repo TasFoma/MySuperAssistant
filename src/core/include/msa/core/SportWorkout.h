@@ -44,6 +44,8 @@ struct SportWorkoutDraft
     SportWellbeing before{};
     SportWellbeing after{};
     std::string notes{};
+    /// @brief Неизменяемые индивидуальные ограничения на момент начала занятия.
+    std::string restrictionsSnapshot{};
 };
 /// @brief Кандидат редакции результата. Успех подготовки ещё не подтверждает commit.
 struct SportWorkoutRevision

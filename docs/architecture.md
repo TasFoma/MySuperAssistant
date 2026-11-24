@@ -256,6 +256,10 @@ sequenceDiagram
 
 ## Модули
 
+Локальный сценарий спорта: формы программ/занятий и представление истории/динамики —
+`src/ui/common/Model/include/msa/ui/SportJournalModel.h`,
+[описание](modules/SportJournal.md).
+
 Офлайн-библиотека спорта: общий браузер/карточки, модель и локальная связка —
 `src/ui/common/Model/include/msa/ui/SportLibraryModel.h`,
 [описание](modules/SportLibrary.md).
@@ -434,4 +438,18 @@ ServerProcessTest дополнительно запускает собранны
 SportLibraryModel и SqliteSportStore. База клиента использует отдельную идентичность,
 миграции и AppLocalDataLocation; серверные контракты не менялись. Подробности —
 [SportCore](modules/SportCore.md), [SportStorage](modules/SportStorage.md),
-[SportLibrary](modules/SportLibrary.md). Полный UI записи тренировки ещё не подключён.
+[SportLibrary](modules/SportLibrary.md). Подключён локальный UI программ, записи, истории/исправления и динамики;
+[сценарий и ограничения](modules/SportJournal.md).
+
+
+Локальный путь спорта не проходит через TCP:
+
+```mermaid
+flowchart LR
+    QML[Общие спортивные формы] --> Editors[SportJournalModel и редакторы]
+    Editors -- команды --> Controller[SportController в apps/common]
+    Controller --> Rules[Чистые правила core]
+    Controller -- транзакции --> Store[SqliteSportStore в infra]
+    Store --> LocalDB[(Клиентская SQLite спорта)]
+    Controller -- подтверждение commit --> Editors
+```

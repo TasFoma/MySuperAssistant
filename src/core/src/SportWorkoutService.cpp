@@ -35,6 +35,12 @@ constexpr auto kMaximumDuration = std::chrono::hours{24 * 7};
     {
         return SportRejection{"set", "Проверьте сторону и режим нагрузки."};
     }
+    if (const auto* dumbbells = std::get_if<DumbbellLoad>(&actual.load);
+        dumbbells && exercise.requirements.dumbbellQuantity &&
+        dumbbells->quantity != *exercise.requirements.dumbbellQuantity)
+    {
+        return SportRejection{"equipment", "Количество гантелей не соответствует карточке упражнения."};
+    }
     if (actual.state == SportSetState::Performed)
     {
         if (!actual.repetitions || *actual.repetitions < 1 || *actual.repetitions > kMaximumRepetitions)
@@ -286,6 +292,10 @@ SportResult<SportWorkoutRevision> SportWorkoutService::correct(const SportWorkou
     }
     auto corrected = edited;
     corrected.originalPlan = current.workout.originalPlan;
+    corrected.programIdentifier = current.workout.programIdentifier;
+    corrected.programRevision = current.workout.programRevision;
+    corrected.utcOffsetMinutes = current.workout.utcOffsetMinutes;
+    corrected.restrictionsSnapshot = current.workout.restrictionsSnapshot;
     corrected.timer = current.workout.timer;
     corrected.timer.manualDuration = edited.timer.manualDuration;
     auto result = prepare(corrected, revisionIdentifier);

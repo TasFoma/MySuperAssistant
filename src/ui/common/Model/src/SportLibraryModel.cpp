@@ -27,6 +27,7 @@ namespace
 }
 } // namespace
 SportLibraryModel::SportLibraryModel(QObject* parent) : QObject{parent} {}
+SportJournalModel* SportLibraryModel::journal() { return &m_journal; }
 void SportLibraryModel::applyData(std::vector<core::SportExerciseRevision> catalog,
                                   std::map<std::string, core::SportExercisePreference> preferences, bool ready)
 {
@@ -228,12 +229,12 @@ bool SportLibraryModel::noPalmSupport() const
 }
 bool SportLibraryModel::hasSelection() const
 {
-    const auto* exercise = find(m_selected.toStdString());
+    const auto* exercise = m_snapshot ? &*m_snapshot : find(m_selected.toStdString());
     return exercise != nullptr && exercise->published;
 }
 QVariantMap SportLibraryModel::selected() const
 {
-    const auto* exercise = find(m_selected.toStdString());
+    const auto* exercise = m_snapshot ? &*m_snapshot : find(m_selected.toStdString());
     if (exercise == nullptr || !exercise->published)
     {
         return {};
@@ -367,6 +368,7 @@ void SportLibraryModel::openPrograms()
 }
 void SportLibraryModel::selectExercise(const QString& identifier)
 {
+    m_snapshot.reset();
     const auto* exercise = find(identifier.toStdString());
     if (exercise == nullptr || !exercise->published)
     {
@@ -376,8 +378,15 @@ void SportLibraryModel::selectExercise(const QString& identifier)
     m_selected = identifier;
     emit changed();
 }
+void SportLibraryModel::selectSnapshot(core::SportExerciseRevision exercise)
+{
+    m_selected = QString::fromStdString(exercise.identifier);
+    m_snapshot = std::move(exercise);
+    emit changed();
+}
 void SportLibraryModel::clearSelection()
 {
+    m_snapshot.reset();
     m_selected.clear();
     emit changed();
 }

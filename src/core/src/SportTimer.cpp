@@ -25,7 +25,18 @@ SportResult<SportTimerState> observeSportTimer(const SportTimerState& timer, Spo
     }
     auto result = timer;
     result.clockWarning = result.clockWarning || observation.instant < timer.observed;
-    result.segments.push_back({timer.observed, observation.instant, observation.elapsed, !timer.paused});
+    // Последовательные наблюдения одной фазы не раздувают checkpoint при каждом символе ввода.
+    if (!result.clockWarning && !result.segments.empty() && result.segments.back().end == timer.observed &&
+        result.segments.back().active == !timer.paused)
+    {
+        auto& segment = result.segments.back();
+        segment.end = observation.instant;
+        segment.elapsed += observation.elapsed;
+    }
+    else
+    {
+        result.segments.push_back({timer.observed, observation.instant, observation.elapsed, !timer.paused});
+    }
     result.observed = observation.instant;
 
     return result;
@@ -60,8 +71,8 @@ SportResult<SportTimerState> registerSportAbsence(const SportTimerState& timer, 
             }
             return timer;
         }
-        if (existing.end >= existing.begin && interval.end >= interval.begin && interval.begin < existing.end &&
-            existing.begin < interval.end)
+        if (!timer.clockWarning && existing.end >= existing.begin && interval.end >= interval.begin &&
+            interval.begin < existing.end && existing.begin < interval.end)
         {
             return SportRejection{"interval", "Интервалы отсутствия пересекаются."};
         }

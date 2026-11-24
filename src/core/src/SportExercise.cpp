@@ -12,6 +12,12 @@ std::optional<SportRejection> validateSportExercise(const SportExerciseRevision&
     {
         return SportRejection{"exercise", "Укажите вариант упражнения и редакцию."};
     }
+    if (exercise.requirements.dumbbellQuantity &&
+        (exercise.loadKind != 1 || *exercise.requirements.dumbbellQuantity < 1 ||
+         *exercise.requirements.dumbbellQuantity > 2))
+    {
+        return SportRejection{"equipment", "Проверьте требуемое количество гантелей варианта."};
+    }
     std::set<SportSide> sides;
     for (const auto side : exercise.sides)
     {

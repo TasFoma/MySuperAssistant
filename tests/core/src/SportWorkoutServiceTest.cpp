@@ -59,3 +59,24 @@ TEST(SportWorkoutServiceTest, MidnightDoesNotChangeExplicitWorkoutDate)
     const auto result = std::get<SportWorkoutRevision>(SportWorkoutService{}.finish(draft, "late"));
     EXPECT_EQ(result.workout.date, std::chrono::year{2026} / 11 / 24);
 }
+
+TEST(SportWorkoutServiceTest, CorrectionPreservesStartMetadataAndRestrictionSnapshot)
+{
+    auto current = msa::test::sportResult();
+    current.workout.programIdentifier = "original-program";
+    current.workout.programRevision = "original-program-revision";
+    current.workout.utcOffsetMinutes = 180;
+    current.workout.restrictionsSnapshot = "Исходные ограничения";
+    auto edited = current.workout;
+    edited.programIdentifier = "other-program";
+    edited.programRevision = "other-revision";
+    edited.utcOffsetMinutes = 0;
+    edited.restrictionsSnapshot = "Поздние ограничения";
+    const auto result = SportWorkoutService{}.correct(current, current.identifier, edited, "corrected-metadata");
+    ASSERT_TRUE(std::holds_alternative<SportWorkoutRevision>(result));
+    const auto& corrected = std::get<SportWorkoutRevision>(result).workout;
+    EXPECT_EQ(corrected.programIdentifier, current.workout.programIdentifier);
+    EXPECT_EQ(corrected.programRevision, current.workout.programRevision);
+    EXPECT_EQ(corrected.utcOffsetMinutes, 180);
+    EXPECT_EQ(corrected.restrictionsSnapshot, "Исходные ограничения");
+}

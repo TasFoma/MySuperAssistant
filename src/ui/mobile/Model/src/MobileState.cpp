@@ -207,6 +207,17 @@ bool MobileState::goBack()
         m_sport.clearSelection();
         return true;
     }
+    if (m_page == Page::Sport && m_sport.journal()->workoutEditor()->visible())
+    {
+        if (m_sport.journal()->workoutEditor()->discardRequested()) m_sport.journal()->workoutEditor()->keepEditing();
+        else m_sport.journal()->workoutEditor()->close();
+        return true;
+    }
+    if (m_page == Page::Sport && m_sport.journal()->programEditor()->active())
+    {
+        m_sport.journal()->programEditor()->close();
+        return true;
+    }
     if (m_page == Page::Sport && m_sport.section() != "overview")
     {
         m_sport.navigate("overview");

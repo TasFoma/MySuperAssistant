@@ -46,6 +46,12 @@ std::optional<SportRejection> validateSportSession(const SportSessionTemplate& s
             {
                 return SportRejection{"set", "Проверьте повторения, сторону и режим подхода."};
             }
+            if (const auto* dumbbells = std::get_if<DumbbellLoad>(&planned.load);
+                dumbbells && item.exercise.requirements.dumbbellQuantity &&
+                dumbbells->quantity != *item.exercise.requirements.dumbbellQuantity)
+            {
+                return SportRejection{"equipment", "Количество гантелей не соответствует карточке упражнения."};
+            }
             if (const auto error = validateSportLoad(planned.load))
             {
                 return error;

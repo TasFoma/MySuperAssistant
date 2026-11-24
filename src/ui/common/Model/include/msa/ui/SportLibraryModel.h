@@ -1,6 +1,7 @@
 #pragma once
 
 #include "msa/core/SportExercise.h"
+#include "msa/ui/SportJournalModel.h"
 
 #include <QObject>
 #include <QStringList>
@@ -14,6 +15,7 @@ namespace msa::ui
 class SportLibraryModel final : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(msa::ui::SportJournalModel* journal READ journal CONSTANT)
     Q_PROPERTY(QVariantList sections READ sections CONSTANT)
     Q_PROPERTY(QString section READ section NOTIFY changed)
     Q_PROPERTY(bool showExercises READ showExercises NOTIFY changed)
@@ -33,6 +35,7 @@ class SportLibraryModel final : public QObject
     Q_PROPERTY(QString errorText READ errorText NOTIFY changed)
     Q_PROPERTY(bool storageReady READ storageReady NOTIFY changed)
 public:
+    [[nodiscard]] SportJournalModel* journal();
     explicit SportLibraryModel(QObject* parent = nullptr);
     /// @brief Применяет каталог и только подтверждённые локальные предпочтения.
     void applyData(std::vector<core::SportExerciseRevision> catalog,
@@ -41,6 +44,8 @@ public:
     void applyCatalog(std::vector<core::SportExerciseRevision> catalog);
     /// @brief Отмечает недоступность хранения без очистки последних данных.
     void reportStorageError(const QString& text);
+    /// @brief Показывает историческую карточку без замены её текущей редакцией.
+    void selectSnapshot(core::SportExerciseRevision exercise);
     void applyPreference(const std::string& identifier, core::SportExercisePreference preference);
     void reportError(const QString& text);
     [[nodiscard]] QVariantList sections() const;
@@ -88,6 +93,7 @@ private:
     [[nodiscard]] bool matches(const core::SportExerciseRevision& exercise) const;
 
 private:
+    SportJournalModel m_journal{};
     std::vector<core::SportExerciseRevision> m_catalog{};
     std::map<std::string, core::SportExercisePreference> m_preferences{};
     QString m_section{"overview"};
@@ -96,6 +102,7 @@ private:
     QString m_equipment{};
     QString m_muscle{};
     QString m_selected{};
+    std::optional<core::SportExerciseRevision> m_snapshot{};
     QString m_error{};
     bool m_favoritesOnly{false};
     bool m_progressionOnly{false};

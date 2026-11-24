@@ -19,6 +19,7 @@
 #include <QTemporaryDir>
 #include <QThread>
 #include <QUuid>
+#include <algorithm>
 #include <functional>
 
 namespace
@@ -271,5 +272,136 @@ TEST(SportLibraryTest, MobileLibraryRendersAndBackKeepsFiltersAndMarks)
     EXPECT_TRUE(mobile.goBack());
     EXPECT_EQ(mobile.sport()->section(), "overview");
     EXPECT_EQ(mobile.page(), msa::ui::MobileState::Page::Sport);
+    EXPECT_TRUE(warnings.empty()) << warnings.join('\n').toStdString();
+}
+
+TEST(SportLibraryTest, OwnProgramRestoresIncompleteInputAndPublishesIndependentCopy)
+{
+    QTemporaryDir directory;
+    const auto path = directory.filePath("sport.sqlite");
+    QString programIdentifier;
+    {
+        msa::ui::SportLibraryModel library;
+        msa::client::SportController controller{library, path};
+        controller.start();
+        auto* journal = library.journal();
+        journal->createProgram();
+        auto* editor = journal->programEditor();
+        ASSERT_TRUE(editor->active());
+        const auto& program = editor->checkpoint().program;
+        programIdentifier = QString::fromStdString(program.identifier);
+        editor->setField("title", "Домашняя программа");
+        editor->setField(QString::fromStdString(program.sessions.front().identifier + "/title"), "Моё занятие");
+        editor->requestExercise("sport-03");
+        const auto setIdentifier = editor->checkpoint().program.sessions.front().items.front().sets.front().identifier;
+        editor->setField(QString::fromStdString(setIdentifier + "/reps"), "1,");
+        EXPECT_TRUE(editor->saved());
+        EXPECT_TRUE(std::holds_alternative<msa::core::SportRejection>(editor->candidate()));
+    }
+    msa::ui::SportLibraryModel library;
+    msa::client::SportController controller{library, path};
+    controller.start();
+    auto* journal = library.journal();
+    ASSERT_EQ(journal->drafts().size(), 1);
+    journal->resumeProgram(programIdentifier);
+    auto* editor = journal->programEditor();
+    const auto program = editor->checkpoint().program;
+    const auto setIdentifier = program.sessions.front().items.front().sets.front().identifier;
+    EXPECT_EQ(msa::ui::sportForm::text(editor->checkpoint().editorText, setIdentifier + "/reps"), "1,");
+    editor->setField(QString::fromStdString(setIdentifier + "/reps"), "8");
+    editor->save();
+    EXPECT_FALSE(editor->active());
+    ASSERT_EQ(journal->programs().size(), 1);
+    EXPECT_TRUE(journal->drafts().empty());
+    const auto original = journal->savedPrograms().front();
+    journal->copyProgram(programIdentifier);
+    ASSERT_TRUE(editor->active());
+    const auto copy = std::get<msa::core::SportProgramRevision>(editor->candidate());
+    EXPECT_NE(copy.identifier, original.identifier);
+    EXPECT_EQ(copy.sourceRevision, original.revision);
+    EXPECT_NE(copy.sessions.front().items.front().sets.front().identifier, setIdentifier);
+    editor->setField("title", "Отдельная копия");
+    editor->save();
+    ASSERT_EQ(journal->savedPrograms().size(), 2);
+    const auto stored =
+        std::ranges::find(journal->savedPrograms(), original.identifier, &msa::core::SportProgramRevision::identifier);
+    ASSERT_NE(stored, journal->savedPrograms().end());
+    EXPECT_EQ(stored->title, "Домашняя программа");
+}
+TEST(SportLibraryTest, ProgramWriteFailureRetainsRawInputAndPreventsLeavingUnsavedEditor)
+{
+    QTemporaryDir directory;
+    const auto path = directory.filePath("sport.sqlite");
+    msa::ui::SportLibraryModel library;
+    msa::client::SportController controller{library, path};
+    controller.start();
+    library.journal()->createProgram();
+    const auto name = QString{"sport_failure_"} + QUuid::createUuid().toString(QUuid::WithoutBraces);
+    {
+        auto database = QSqlDatabase::addDatabase("QSQLITE", name);
+        database.setDatabaseName(path);
+        ASSERT_TRUE(database.open());
+        QSqlQuery query{database};
+        ASSERT_TRUE(query.exec(
+            "CREATE TRIGGER fail_program BEFORE UPDATE ON program_drafts BEGIN SELECT RAISE(ABORT,'test'); END"));
+        auto* editor = library.journal()->programEditor();
+        editor->setField("title", "Не потерять");
+        EXPECT_FALSE(editor->saved());
+        EXPECT_TRUE(editor->status().contains("не сохранён"));
+        editor->close();
+        EXPECT_TRUE(editor->active());
+        EXPECT_EQ(editor->checkpoint().editorText.at("title"), "Не потерять");
+        ASSERT_TRUE(query.exec("DROP TRIGGER fail_program"));
+        editor->retry();
+        EXPECT_TRUE(editor->saved());
+        editor->close();
+        EXPECT_FALSE(editor->active());
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(name);
+}
+TEST(SportLibraryTest, ProgramEditorRendersInMobileShellAndKeepsFocusWhileSaving)
+{
+    QTemporaryDir directory;
+    msa::ui::ClientModels client;
+    msa::ui::MobileState mobile{client};
+    msa::client::SportController controller{*mobile.sport(), directory.filePath("sport.sqlite")};
+    controller.start();
+    mobile.navigate(msa::ui::MobileState::Page::Sport);
+    mobile.sport()->journal()->createProgram();
+    auto* editor = mobile.sport()->journal()->programEditor();
+    editor->requestExercise("sport-03");
+    QQuickView view;
+    QStringList warnings;
+    QObject::connect(view.engine(), &QQmlEngine::warnings, &view,
+                     [&warnings](const QList<QQmlError>& errors)
+                     {
+                         for (const auto& error : errors)
+                         {
+                             warnings.append(error.toString());
+                         }
+                     });
+    view.setInitialProperties({{"client", QVariant::fromValue(&client)}, {"mobile", QVariant::fromValue(&mobile)}});
+    view.setResizeMode(QQuickView::SizeRootObjectToView);
+    view.setSource(QUrl{"qrc:/qt/qml/Msa/Ui/Mobile/MobileShell.qml"});
+    ASSERT_EQ(view.status(), QQuickView::Ready);
+    view.show();
+    for (const auto width : {320, 360, 412})
+    {
+        view.resize(width, 844);
+        settle();
+        auto* title = findItem(view.contentItem(), "sportField_title");
+        ASSERT_NE(title, nullptr);
+        title->forceActiveFocus();
+        ASSERT_TRUE(title->setProperty("text", "Черновик"));
+        ASSERT_TRUE(QMetaObject::invokeMethod(title, "textEdited"));
+        EXPECT_EQ(editor->checkpoint().editorText.at("title"), "Черновик");
+        settle();
+        EXPECT_EQ(findItem(view.contentItem(), "sportField_title"), title);
+        EXPECT_TRUE(title->hasActiveFocus());
+        EXPECT_TRUE(saveFrame(view, QString{"sport-mobile-program-%1.png"}.arg(width)));
+    }
+    EXPECT_TRUE(mobile.goBack());
+    EXPECT_FALSE(editor->active());
     EXPECT_TRUE(warnings.empty()) << warnings.join('\n').toStdString();
 }

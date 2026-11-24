@@ -54,3 +54,23 @@ TEST(SportProgramTest, UnpublishedMetadataCannotBecomeReadyTrainingPlan)
     session.items.front().exercise.published = false;
     EXPECT_TRUE(validateSportSession(session));
 }
+
+TEST(SportProgramTest, DumbbellQuantityMustMatchSpecifiedExerciseVariant)
+{
+    auto session = msa::test::sportSession();
+    auto& item = session.items.front();
+    item.exercise.loadKind = 1;
+    item.exercise.requirements.dumbbellQuantity = 2;
+    item.sets.front().load = DumbbellLoad{500, 1};
+    EXPECT_TRUE(validateSportSession(session));
+    item.sets.front().load = DumbbellLoad{500, 2};
+    EXPECT_FALSE(validateSportSession(session));
+    auto draft = std::get<SportWorkoutDraft>(SportWorkoutService{}.start(
+        std::nullopt, session, "quantity", std::chrono::year{2026} / 11 / 24, SportInstant{}));
+    auto actual = draft.items.front().actual.front();
+    actual.state = SportSetState::Performed;
+    actual.repetitions = 8;
+    actual.load = DumbbellLoad{500, 1};
+    EXPECT_TRUE(
+        std::holds_alternative<SportRejection>(SportWorkoutService{}.recordSet(draft, item.identifier, actual)));
+}

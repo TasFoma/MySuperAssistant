@@ -142,3 +142,7 @@ QGuiApplication, offscreen и программный рендеринг; сущ�
 `common-components-360-preview.png`, `common-components-412-preview.png`,
 `common-focus-primaryButton-preview.png`, `common-focus-errorField-preview.png`.
 Команды сборки и CTest — в [README](../../README.md).
+
+Спортивные формы SportFormField/SportProgramPanel/SportProgramsList,
+SportWorkoutPanel/SportResultsPanel используют существующие Theme/Controls.
+Их модели и локальная связка описаны в [SportJournal](SportJournal.md).

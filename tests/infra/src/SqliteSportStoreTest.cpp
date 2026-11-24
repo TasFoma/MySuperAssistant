@@ -379,3 +379,55 @@ TEST(SqliteSportStoreTest, IncompleteProgramDraftRestoresWithoutPretendingReady)
     EXPECT_EQ(reopened.programDrafts().front().editorText.at("repetitions"), "1,");
     EXPECT_TRUE(msa::core::validateSportProgram(reopened.programDrafts().front().program));
 }
+
+TEST(SqliteSportStoreTest, SchemaThreeUpgradePreservesLegacyDocumentsMarksAndNewContentHead)
+{
+    QTemporaryDir directory;
+    const auto path = directory.filePath("sport.sqlite");
+    auto legacy = msa::test::sportSession().items.front().exercise;
+    legacy.loadKind = 1;
+    legacy.revision = "legacy";
+    const auto oldBytes = msa::infra::SportDocumentCodec::encodeExercise(legacy);
+    EXPECT_FALSE(oldBytes.contains("dumbbellQuantity"));
+    {
+        msa::infra::SqliteSportStore store{path};
+        store.importExercises({legacy});
+        store.savePreference(legacy.identifier, {true, false});
+        const auto result = msa::test::sportResult();
+        EXPECT_FALSE(msa::infra::SportDocumentCodec::encodeRevision(result).contains("restrictionsSnapshot"));
+        const auto sequence = store.checkpoint({result.workout, {}, 0}, 0);
+        store.finishWorkout(result, sequence);
+    }
+    executeFileSql(path, "PRAGMA user_version=3");
+    {
+        msa::infra::SqliteSportStore store{path};
+        ASSERT_FALSE(store.lastBackupPath().isEmpty());
+        EXPECT_TRUE(QFileInfo::exists(store.lastBackupPath()));
+        ASSERT_EQ(store.workoutHistory().size(), 1);
+        EXPECT_TRUE(store.workoutHistory().front().current.workout.restrictionsSnapshot.empty());
+        auto updated = legacy;
+        updated.revision = "new";
+        updated.requirements.dumbbellQuantity = 2;
+        store.importExercises({updated});
+        EXPECT_EQ(store.exercises().front().revision, "new");
+        store.importExercises({legacy});
+        EXPECT_EQ(store.exercises().front().revision, "new");
+        EXPECT_TRUE(store.preferences().at(legacy.identifier).favorite);
+        EXPECT_EQ(msa::infra::SportDocumentCodec::encodeExercise(legacy), oldBytes);
+    }
+}
+TEST(SqliteSportStoreTest, RestrictionSnapshotRoundTripsInCheckpointAndCompletedRevision)
+{
+    QTemporaryDir directory;
+    const auto path = directory.filePath("sport.sqlite");
+    auto result = msa::test::sportResult();
+    result.workout.restrictionsSnapshot = "Индивидуальные условия на момент старта";
+    {
+        msa::infra::SqliteSportStore store{path};
+        const auto sequence = store.checkpoint({result.workout, {}, 0}, 0);
+        EXPECT_EQ(store.activeWorkout()->draft.restrictionsSnapshot, result.workout.restrictionsSnapshot);
+        store.finishWorkout(result, sequence);
+    }
+    msa::infra::SqliteSportStore store{path};
+    EXPECT_EQ(store.workoutHistory().front().current.workout.restrictionsSnapshot, result.workout.restrictionsSnapshot);
+}

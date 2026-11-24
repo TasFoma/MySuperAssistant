@@ -124,9 +124,13 @@ audio.settings.json рядом с клиентскими настройками.
 
 ## Локальный спорт
 
-Runtime владеет SportController, связывающим модель состояния и отдельную
+Runtime владеет SportController, связывающим библиотеку/программы/занятие/результаты и отдельную
 SqliteSportStore. start загружает каталог/предпочтения независимо от TCP;
 смена серверных параметров не удаляет спортивные данные. Опция sportDatabasePath
 задаётся main через AppLocalDataLocation или --sport-data; пустой путь в
 изолированных проверках оставляет каталог без записи. Подробнее —
 [SportLibrary](SportLibrary.md), [SportStorage](SportStorage.md).
+
+SportController также измеряет активные интервалы QElapsedTimer, фиксирует
+checkpoint и обрабатывает Qt applicationStateChanged/aboutToQuit. Детали —
+[SportJournal](SportJournal.md). Эти операции не зависят от подключения TCP.

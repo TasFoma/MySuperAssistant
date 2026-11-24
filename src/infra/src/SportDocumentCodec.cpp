@@ -310,23 +310,36 @@ core::BodyweightLoad decodeBodyweightLoad(const QJsonValue& value)
 }
 QJsonValue encodeSportExecutionRequirements(const core::SportExecutionRequirements& value)
 {
-    return QJsonObject{{"palmSupport", (value.palmSupport ? QJsonValue{*value.palmSupport} : QJsonValue{})},
+    QJsonObject result{{"palmSupport", (value.palmSupport ? QJsonValue{*value.palmSupport} : QJsonValue{})},
                        {"floorTransition", (value.floorTransition ? QJsonValue{*value.floorTransition} : QJsonValue{})},
                        {"kneeSupport", (value.kneeSupport ? QJsonValue{*value.kneeSupport} : QJsonValue{})},
                        {"stableSupport", (value.stableSupport ? QJsonValue{*value.stableSupport} : QJsonValue{})},
                        {"supportType", encodeText(value.supportType)}};
+    // Не добавляем пустое поле в старые редакции: их канонические байты остаются прежними.
+    if (value.dumbbellQuantity)
+    {
+        result.insert("dumbbellQuantity", *value.dumbbellQuantity);
+    }
+    return result;
 }
 core::SportExecutionRequirements decodeSportExecutionRequirements(const QJsonValue& value)
 {
-    const auto fields =
-        object(value, {"palmSupport", "floorTransition", "kneeSupport", "stableSupport", "supportType"});
+    QStringList keys{"palmSupport", "floorTransition", "kneeSupport", "stableSupport", "supportType"};
+    if (value.toObject().contains("dumbbellQuantity"))
+    {
+        keys.append("dumbbellQuantity");
+    }
+    const auto fields = object(value, keys);
     core::SportExecutionRequirements result;
     result.palmSupport = optionalValue<bool>(fields.value("palmSupport"), boolean);
     result.floorTransition = optionalValue<bool>(fields.value("floorTransition"), boolean);
     result.kneeSupport = optionalValue<bool>(fields.value("kneeSupport"), boolean);
     result.stableSupport = optionalValue<bool>(fields.value("stableSupport"), boolean);
     result.supportType = textValue(fields.value("supportType"));
-
+    if (fields.contains("dumbbellQuantity"))
+    {
+        result.dumbbellQuantity = integer(fields.value("dumbbellQuantity"));
+    }
     return result;
 }
 QJsonValue encodeSportExecutionConditions(const core::SportExecutionConditions& value)
@@ -641,7 +654,7 @@ core::SportWorkoutItem decodeSportWorkoutItem(const QJsonValue& value)
 }
 QJsonValue encodeSportWorkoutDraft(const core::SportWorkoutDraft& value)
 {
-    return QJsonObject{
+    QJsonObject result{
         {"identifier", encodeText(value.identifier)},
         {"programIdentifier", encodeText(value.programIdentifier)},
         {"programRevision", encodeText(value.programRevision)},
@@ -655,11 +668,30 @@ QJsonValue encodeSportWorkoutDraft(const core::SportWorkoutDraft& value)
         {"before", encodeSportWellbeing(value.before)},
         {"after", encodeSportWellbeing(value.after)},
         {"notes", encodeText(value.notes)}};
+    if (!value.restrictionsSnapshot.empty())
+    {
+        result.insert("restrictionsSnapshot", encodeText(value.restrictionsSnapshot));
+    }
+    return result;
 }
 core::SportWorkoutDraft decodeSportWorkoutDraft(const QJsonValue& value)
 {
-    const auto fields = object(value, {"identifier", "programIdentifier", "programRevision", "date", "utcOffsetMinutes",
-                                       "originalPlan", "items", "timer", "before", "after", "notes"});
+    QStringList keys{"identifier",
+                     "programIdentifier",
+                     "programRevision",
+                     "date",
+                     "utcOffsetMinutes",
+                     "originalPlan",
+                     "items",
+                     "timer",
+                     "before",
+                     "after",
+                     "notes"};
+    if (value.toObject().contains("restrictionsSnapshot"))
+    {
+        keys.append("restrictionsSnapshot");
+    }
+    const auto fields = object(value, keys);
     core::SportWorkoutDraft result;
     result.identifier = textValue(fields.value("identifier"));
     result.programIdentifier = textValue(fields.value("programIdentifier"));
@@ -672,6 +704,10 @@ core::SportWorkoutDraft decodeSportWorkoutDraft(const QJsonValue& value)
     result.before = decodeSportWellbeing(fields.value("before"));
     result.after = decodeSportWellbeing(fields.value("after"));
     result.notes = textValue(fields.value("notes"));
+    if (fields.contains("restrictionsSnapshot"))
+    {
+        result.restrictionsSnapshot = textValue(fields.value("restrictionsSnapshot"));
+    }
 
     return result;
 }

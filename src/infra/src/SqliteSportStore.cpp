@@ -19,7 +19,8 @@ namespace msa::infra
 namespace
 {
 constexpr int kSportApplicationId = 0x4d535350;
-constexpr int kSportSchemaVersion = 3;
+// Версия 4 также ограждает новые поля документов от записи старым клиентом версии 3.
+constexpr int kSportSchemaVersion = 4;
 void require(bool condition, const char* message)
 {
     if (!condition)
@@ -233,7 +234,8 @@ void SqliteSportStore::importExercises(const std::vector<core::SportExerciseRevi
                 const auto& bytes = documents.at(position++);
                 auto previous = query(m_database, "SELECT payload FROM exercise_revisions WHERE id=? AND revision=?",
                                       {string(exercise.identifier), string(exercise.revision)});
-                if (previous.next())
+                const auto knownRevision = previous.next();
+                if (knownRevision)
                 {
                     require(previous.value(0).toByteArray() == bytes,
                             "Содержимое существующей редакции упражнения изменено.");
@@ -243,10 +245,17 @@ void SqliteSportStore::importExercises(const std::vector<core::SportExerciseRevi
                     static_cast<void>(query(m_database, "INSERT INTO exercise_revisions VALUES(?,?,?)",
                                             {string(exercise.identifier), string(exercise.revision), bytes}));
                 }
-                static_cast<void>(
-                    query(m_database,
-                          "INSERT INTO exercises VALUES(?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision",
-                          {string(exercise.identifier), string(exercise.revision)}));
+                // Уже встречавшаяся старая редакция не откатывает голову каталога при повторном импорте.
+                auto head =
+                    query(m_database, "SELECT revision FROM exercises WHERE id=?", {string(exercise.identifier)});
+                const auto hasHead = head.next();
+                if (!hasHead || !knownRevision || head.value(0).toString() == string(exercise.revision))
+                {
+                    static_cast<void>(query(
+                        m_database,
+                        "INSERT INTO exercises VALUES(?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision",
+                        {string(exercise.identifier), string(exercise.revision)}));
+                }
             }
         });
 }

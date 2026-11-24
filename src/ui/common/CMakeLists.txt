@@ -1,4 +1,12 @@
 add_library(msa_ui_common STATIC
+    Model/include/msa/ui/SportWorkoutEditor.h
+    Model/src/SportWorkoutEditor.cpp
+    Model/include/msa/ui/SportFormData.h
+    Model/src/SportFormData.cpp
+    Model/include/msa/ui/SportProgramEditor.h
+    Model/src/SportProgramEditor.cpp
+    Model/include/msa/ui/SportJournalModel.h
+    Model/src/SportJournalModel.cpp
     Model/include/msa/ui/SportLibraryModel.h
     Model/src/SportLibraryModel.cpp
     Model/include/msa/ui/PlannerEditor.h
@@ -23,6 +31,11 @@ target_link_libraries(msa_ui_common PUBLIC msa_core Qt6::Quick)
 msa_apply_warnings(msa_ui_common)
 
 set(msaCommonQmlFiles
+    UI/SportWorkoutPanel.qml
+    UI/SportResultsPanel.qml
+    UI/SportFormField.qml
+    UI/SportProgramPanel.qml
+    UI/SportProgramsList.qml
     UI/SportFilterBox.qml
     UI/SportLibraryPanel.qml
     UI/PlannerFormDialog.qml

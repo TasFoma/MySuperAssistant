@@ -25,6 +25,8 @@ struct SportExecutionRequirements
     std::optional<bool> kneeSupport{};
     std::optional<bool> stableSupport{};
     std::string supportType{};
+    /// @brief Число гантелей конкретного варианта; отсутствие означает, что оно не уточнено.
+    std::optional<int> dumbbellQuantity{};
 };
 /// @brief Фактические условия, необходимые для сопоставления результатов.
 struct SportExecutionConditions

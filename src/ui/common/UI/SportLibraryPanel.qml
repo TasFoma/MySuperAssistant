@@ -14,7 +14,18 @@ Item {
         if (detailScroll.contentItem) detailScroll.contentItem.contentY = 0;
     })
     objectName: "sportLibraryPanel"
+    SportWorkoutPanel {
+        anchors.fill: parent
+        sport: root.sport
+        visible: root.sport.journal.workoutEditor.visible && !root.sport.hasSelection
+    }
+    SportProgramPanel {
+        anchors.fill: parent
+        sport: root.sport
+        visible: root.sport.journal.programEditor.active && !root.sport.hasSelection
+    }
     ColumnLayout {
+        visible: (!root.sport.journal.programEditor.active && !root.sport.journal.workoutEditor.visible) || root.sport.hasSelection
         anchors.fill: parent
         spacing: Theme.spaceMedium
         SectionHeader {
@@ -22,6 +33,18 @@ Item {
             prominent: true
             title: "Тренировки"
             description: root.sport.summary
+        }
+        AppButton {
+            visible: (root.sport.journal.programEditor.active || root.sport.journal.workoutEditor.visible) && root.sport.hasSelection
+            text: root.sport.journal.programEditor.active ? "К программе" : "К занятию"
+            onClicked: root.sport.clearSelection()
+        }
+        AppButton {
+            visible: root.sport.journal.workoutEditor.active && !root.sport.journal.workoutEditor.visible && !root.sport.hasSelection
+            Layout.fillWidth: true
+            text: "Продолжить занятие"
+            objectName: "sportResumeWorkout"
+            onClicked: root.sport.journal.workoutEditor.resume()
         }
         ErrorBanner {
             Layout.fillWidth: true
@@ -80,8 +103,25 @@ Item {
                 }
                 EmptyState {
                     Layout.fillWidth: true
-                    title: "Следующий шаг — запись занятия"
-                    description: "Экран ввода тренировки ещё готовится. Здесь нет вымышленных результатов или показателей."
+                    title: "Программа → занятие → результат"
+                    description: "Выберите собственную программу, запишите подходы и сохраните занятие на устройстве."
+                }
+                AppButton { text: "Мои программы"; Layout.fillWidth: true; onClicked: root.sport.openPrograms() }
+                SurfaceCard {
+                    Layout.fillWidth: true
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: Theme.spaceSmall
+                        SectionHeader { Layout.fillWidth: true; title: "Индивидуальные ограничения"; description: "Ваши заметки. Они не используются для автоматического назначения нагрузки." }
+                        AppTextArea {
+                            Layout.fillWidth: true
+                            placeholderText: "Что учитывать во время занятий"
+                            text: root.sport.journal.restrictions
+                            onTextChanged: if (activeFocus) root.sport.journal.restrictions = text
+                        }
+                        AppButton { text: "Сохранить ограничения"; tone: "secondary"; enabled: root.sport.storageReady; onClicked: root.sport.journal.saveRestrictions() }
+                        SectionHeader { Layout.fillWidth: true; description: root.sport.journal.errorText }
+                    }
                 }
             }
         }
@@ -99,17 +139,17 @@ Item {
                     onClicked: root.sport.openExercises()
                 }
                 AppButton {
-                    text: "Готовые"
-                    Accessible.name: "Готовые программы"
+                    text: "Мои программы"
+                    Accessible.name: "Мои программы"
                     tone: !root.sport.showExercises ? "primary" : "secondary"
                     onClicked: root.sport.openPrograms()
                 }
             }
-            EmptyState {
+            SportProgramsList {
                 Layout.fillWidth: true
+                Layout.fillHeight: true
                 visible: !root.sport.showExercises
-                title: "P1 и P3 готовятся"
-                description: "Выбраны занятия с опорой и занятия с гантелями. Полные карточки, состав и плановые подходы ещё проверяются. Индивидуальные веса приложение не назначает."
+                sport: root.sport
             }
             ColumnLayout {
                 Layout.fillWidth: true
@@ -368,11 +408,12 @@ Item {
                 }
             }
         }
-        EmptyState {
+        SportResultsPanel {
             Layout.fillWidth: true
+            Layout.fillHeight: true
             visible: root.sport.section === "history" || root.sport.section === "progress"
-            title: root.sport.section === "history" ? "История занятий появится после записи тренировки" : "Динамика будет строиться по сохранённым занятиям"
-            description: "Экран записи ещё готовится. Пропуски не превращаются в нули, а разные условия выполнения не объединяются молча."
+            sport: root.sport
+            progress: root.sport.section === "progress"
         }
     }
 }

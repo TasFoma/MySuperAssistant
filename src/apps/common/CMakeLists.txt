@@ -1,6 +1,7 @@
 add_library(msa_client_support STATIC
     include/msa/client/SportController.h
     src/SportController.cpp
+    src/SportWorkoutFlow.cpp
     include/msa/client/ClientController.h
     src/ClientController.cpp
 )

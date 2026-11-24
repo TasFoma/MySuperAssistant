@@ -179,7 +179,7 @@
       "kind": "Exercise",
       "data": {
         "identifier": "sport-05",
-        "revision": "2026-11-24-v1",
+        "revision": "2026-11-24-v2",
         "title": "Фронтальное приседание с двумя гантелями",
         "aliases": [],
         "muscles": [
@@ -219,7 +219,8 @@
           "floorTransition": false,
           "kneeSupport": false,
           "stableSupport": false,
-          "supportType": ""
+          "supportType": "",
+          "dumbbellQuantity": 2
         },
         "sources": [
           {
@@ -299,7 +300,7 @@
       "kind": "Exercise",
       "data": {
         "identifier": "sport-07",
-        "revision": "2026-11-24-v1",
+        "revision": "2026-11-24-v2",
         "title": "Румынская тяга с двумя гантелями",
         "aliases": [],
         "muscles": [
@@ -338,7 +339,8 @@
           "floorTransition": false,
           "kneeSupport": false,
           "stableSupport": false,
-          "supportType": ""
+          "supportType": "",
+          "dumbbellQuantity": 2
         },
         "sources": [
           {

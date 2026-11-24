@@ -75,7 +75,7 @@ if(WIN32)
     )
 endif()
 
-add_executable(msa_ui_tests src/SportLibraryTest.cpp src/UiTestMain.cpp src/CommonComponentsTest.cpp src/DesktopScreensTest.cpp
+add_executable(msa_ui_tests src/SportWorkoutFlowTest.cpp src/SportLibraryTest.cpp src/UiTestMain.cpp src/CommonComponentsTest.cpp src/DesktopScreensTest.cpp
     src/DesktopRuntimeTest.cpp src/MobileRuntimeTest.cpp src/MobileScreensTest.cpp ../core/src/FakeClock.cpp)
 target_compile_features(msa_ui_tests PRIVATE cxx_std_20)
 target_link_libraries(msa_ui_tests PRIVATE msa_desktop_support msa_mobile_support msa_ui_desktopplugin msa_ui_commonplugin msa_ui_mobile msa_ui_mobileplugin GTest::gtest)
@@ -88,7 +88,7 @@ qt_add_resources(msa_ui_tests "common_component_tests"
     PREFIX /tests
     FILES qml/CommonComponentsGallery.qml
 )
-gtest_add_tests(TARGET msa_ui_tests SOURCES src/SportLibraryTest.cpp src/CommonComponentsTest.cpp src/DesktopScreensTest.cpp src/DesktopRuntimeTest.cpp src/MobileRuntimeTest.cpp src/MobileScreensTest.cpp TEST_LIST msaUiTests)
+gtest_add_tests(TARGET msa_ui_tests SOURCES src/SportWorkoutFlowTest.cpp src/SportLibraryTest.cpp src/CommonComponentsTest.cpp src/DesktopScreensTest.cpp src/DesktopRuntimeTest.cpp src/MobileRuntimeTest.cpp src/MobileScreensTest.cpp TEST_LIST msaUiTests)
 set_tests_properties(${msaUiTests} PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QT_FORCE_STDERR_LOGGING=1"
     WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
