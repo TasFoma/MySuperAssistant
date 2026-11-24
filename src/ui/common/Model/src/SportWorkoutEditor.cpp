@@ -105,6 +105,7 @@ void SportWorkoutEditor::openDraft(core::SportCheckpoint checkpoint)
     m_liveElapsed = {};
     m_checkpoint = std::move(checkpoint);
     m_original.reset();
+    m_correctionIdentifier.clear();
     m_correcting = false;
     m_visible = true;
     m_saved = m_checkpoint.sequence > 0;
@@ -120,6 +121,8 @@ void SportWorkoutEditor::openResult(core::SportWorkoutRevision revision)
     m_liveElapsed = {};
     m_checkpoint = {revision.workout, {}, 0};
     m_original = std::move(revision);
+    m_correctionIdentifier.clear();
+    m_checkpoint.sequence = 0;
     m_correcting = false;
     m_visible = true;
     m_saved = true;
@@ -211,6 +214,21 @@ QVariantList SportWorkoutEditor::items() const
                                   : state(actual.state);
             auto fields = sportForm::setFields(actual.identifier, actual.load, m_checkpoint.editorText,
                                                number(actual.repetitions));
+            if (item.plan.exercise.requirements.dumbbellQuantity)
+            {
+                const auto required = *item.plan.exercise.requirements.dumbbellQuantity;
+                for (auto& entry : fields)
+                {
+                    auto descriptor = entry.toMap();
+                    if (!descriptor.value("key").toString().endsWith("/quantity"))
+                    {
+                        continue;
+                    }
+                    descriptor["label"] = QString{"Количество гантелей по карточке: %1"}.arg(required);
+                    descriptor["readOnly"] = descriptor.value("value").toString() == QString::number(required);
+                    entry = descriptor;
+                }
+            }
             if (item.plan.exercise.sides.size() > 1)
             {
                 fields.append(sportForm::sideField(actual.identifier, actual.side, item.plan.exercise.sides,
@@ -389,7 +407,8 @@ void SportWorkoutEditor::acknowledge(std::uint64_t sequence)
 {
     m_checkpoint.sequence = sequence;
     m_saved = true;
-    m_status = "Черновик сохранён на устройстве";
+    m_status = correcting() ? "Черновик исправления сохранён на устройстве. Результат ещё не изменён."
+                            : "Черновик сохранён на устройстве";
     emit statusChanged();
 }
 void SportWorkoutEditor::reportError(const QString& message)
@@ -436,8 +455,7 @@ void SportWorkoutEditor::edited(bool structural)
 {
     m_error.clear();
     m_saved = false;
-    m_status =
-        correcting() ? "Правки не сохранены. Сохраните их перед закрытием приложения." : "Изменения ещё не сохранены";
+    m_status = correcting() ? "Черновик исправления ещё не сохранён." : "Изменения ещё не сохранены";
     if (structural)
     {
         emit changed();
@@ -446,6 +464,10 @@ void SportWorkoutEditor::edited(bool structural)
     if (active())
     {
         emit checkpointRequested();
+    }
+    else if (correcting())
+    {
+        emit correctionCheckpointRequested();
     }
 }
 void SportWorkoutEditor::setField(const QString& key, const QString& value)
@@ -624,6 +646,10 @@ void SportWorkoutEditor::retry()
     {
         emit checkpointRequested();
     }
+    else if (correcting())
+    {
+        emit correctionCheckpointRequested();
+    }
 }
 void SportWorkoutEditor::finish()
 {
@@ -642,15 +668,9 @@ void SportWorkoutEditor::resume()
 }
 void SportWorkoutEditor::close()
 {
-    if (correcting() && !m_saved)
+    if (editing() && !m_saved)
     {
-        m_discardRequested = true;
-        emit changed();
-        return;
-    }
-    if (active() && !m_saved)
-    {
-        reportError("Изменения не сохранены. Повторите локальное сохранение.");
+        reportError("Изменения не сохранены. Повторите локальное сохранение перед выходом.");
         return;
     }
     m_visible = false;
@@ -658,15 +678,48 @@ void SportWorkoutEditor::close()
 }
 void SportWorkoutEditor::beginCorrection()
 {
-    if (!m_original)
+    if (!m_original || m_correcting)
     {
         return;
     }
     m_correcting = true;
+    m_checkpoint.sequence = 0;
+    m_correctionIdentifier.clear();
+    m_saved = false;
     m_discardRequested = false;
     m_status = "Исправление результата. Исходные временные отметки сохраняются.";
     emit changed();
     emit statusChanged();
+    emit correctionStarted();
+}
+void SportWorkoutEditor::requestDiscard()
+{
+    if (!correcting())
+    {
+        return;
+    }
+    m_discardRequested = true;
+    emit changed();
+}
+void SportWorkoutEditor::openCorrection(core::SportCorrectionCheckpoint value)
+{
+    openResult(value.original);
+    m_checkpoint = std::move(value.edited);
+    m_correctionIdentifier = std::move(value.identifier);
+    m_correcting = true;
+    m_saved = true;
+    m_status = "Восстановлен черновик исправления. Сохранённый результат ещё не изменён.";
+    emit changed();
+    emit timeChanged();
+    emit statusChanged();
+}
+core::SportCorrectionCheckpoint SportWorkoutEditor::correctionCheckpoint() const
+{
+    return {m_correctionIdentifier, m_original.value(), m_checkpoint};
+}
+void SportWorkoutEditor::identifyCorrection(std::string identifier)
+{
+    m_correctionIdentifier = std::move(identifier);
 }
 void SportWorkoutEditor::keepEditing()
 {
@@ -675,9 +728,30 @@ void SportWorkoutEditor::keepEditing()
 }
 void SportWorkoutEditor::discardCorrection()
 {
-    if (m_original)
+    if (m_original && correcting() && m_discardRequested)
     {
-        openResult(*m_original);
+        emit correctionDiscardRequested();
+    }
+}
+QVariantList SportWorkoutEditor::additionFields() const
+{
+    return {sportForm::field("_addition/replacementSets", "Количество подходов (1–100)",
+                             sportForm::text(m_checkpoint.editorText, "_addition/replacementSets")),
+            sportForm::field("_addition/replacementReps", "Плановые повторения (1–1000)",
+                             sportForm::text(m_checkpoint.editorText, "_addition/replacementReps"))};
+}
+void SportWorkoutEditor::appendExercise(const core::SportProgramItem& item)
+{
+    if (editing())
+    {
+        apply(core::SportWorkoutService{}.addExercise(m_checkpoint.draft, item));
+    }
+}
+void SportWorkoutEditor::requestAdditionalExercise(const QString& identifier)
+{
+    if (editing())
+    {
+        emit replacementRequested("", identifier);
     }
 }
 } // namespace msa::ui

@@ -236,4 +236,94 @@ QVariantList SportJournalModel::progressExercises() const
     }
     return result;
 }
+SportWorkoutEditor* SportJournalModel::resultEditor()
+{
+    return &m_resultEditor;
+}
+void SportJournalModel::applyCorrections(std::vector<core::SportCorrectionCheckpoint> values)
+{
+    m_corrections = std::move(values);
+    emit changed();
+}
+const std::vector<core::SportCorrectionCheckpoint>& SportJournalModel::savedCorrections() const
+{
+    return m_corrections;
+}
+QVariantList SportJournalModel::corrections() const
+{
+    QVariantList result;
+    for (const auto& value : m_corrections)
+    {
+        result.append(QVariantMap{{"identifier", QString::fromStdString(value.original.workout.identifier)},
+                                  {"title", QString::fromStdString(value.original.workout.originalPlan.title)}});
+    }
+    return result;
+}
+void SportJournalModel::applyBlueprints(std::vector<core::SportProgramBlueprint> values,
+                                        std::vector<core::SportExerciseRevision> catalog)
+{
+    m_blueprints = std::move(values);
+    m_catalog = std::move(catalog);
+    emit changed();
+}
+const std::vector<core::SportProgramBlueprint>& SportJournalModel::savedBlueprints() const
+{
+    return m_blueprints;
+}
+void SportJournalModel::copyBlueprint(const QString& identifier)
+{
+    emit copyBlueprintRequested(identifier);
+}
+QVariantList SportJournalModel::blueprints() const
+{
+    const auto title = [this](const std::string& identifier)
+    {
+        const auto found = std::ranges::find(m_catalog, identifier, &core::SportExerciseRevision::identifier);
+        return found == m_catalog.end() ? QString::fromStdString(identifier) : QString::fromStdString(found->title);
+    };
+    QVariantList result;
+    for (const auto& blueprint : m_blueprints)
+    {
+        QVariantList sessions;
+        for (const auto& session : blueprint.sessions)
+        {
+            QVariantList items;
+            for (const auto& item : session.items)
+            {
+                QVariantList alternatives;
+                for (const auto& alternative : item.alternatives)
+                {
+                    alternatives.append(
+                        QVariantMap{{"identifier", QString::fromStdString(alternative.exerciseIdentifier)},
+                                    {"title", title(alternative.exerciseIdentifier)},
+                                    {"description", QString::fromStdString(alternative.description)}});
+                }
+                items.append(QVariantMap{{"identifier", QString::fromStdString(item.exerciseIdentifier)},
+                                         {"title", title(item.exerciseIdentifier)},
+                                         {"instructions", QString::fromStdString(item.instructions)},
+                                         {"alternatives", alternatives}});
+            }
+            sessions.append(QVariantMap{{"title", QString::fromStdString(session.title)},
+                                        {"description", QString::fromStdString(session.description)},
+                                        {"items", items}});
+        }
+        QStringList equipment, conditions;
+        for (const auto& value : blueprint.equipment)
+        {
+            equipment.append(QString::fromStdString(value));
+        }
+        for (const auto& value : blueprint.conditions)
+        {
+            conditions.append(QString::fromStdString(value));
+        }
+        result.append(QVariantMap{{"identifier", QString::fromStdString(blueprint.identifier)},
+                                  {"title", QString::fromStdString(blueprint.title)},
+                                  {"description", QString::fromStdString(blueprint.description)},
+                                  {"authorship", QString::fromStdString(blueprint.authorship)},
+                                  {"equipment", equipment.join(", ")},
+                                  {"conditions", conditions.join("\n")},
+                                  {"sessions", sessions}});
+    }
+    return result;
+}
 } // namespace msa::ui

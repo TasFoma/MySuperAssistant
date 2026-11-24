@@ -764,53 +764,16 @@ core::SportCheckpoint decodeSportCheckpoint(const QJsonValue& value)
 
     return fields.value("data");
 }
-} // namespace
-QByteArray SportDocumentCodec::encodeExercise(const core::SportExerciseRevision& value)
+void validateCheckpoint(const core::SportCheckpoint& result, bool allowEmpty)
 {
-    const auto bytes = document("Exercise", encodeSportExerciseRevision(value));
-    static_cast<void>(decodeExercise(bytes));
-
-    return bytes;
-}
-core::SportExerciseRevision SportDocumentCodec::decodeExercise(const QByteArray& bytes)
-{
-    const auto result = decodeSportExerciseRevision(payload(bytes, "Exercise"));
-    require(!core::validateSportExercise(result));
-
-    return result;
-}
-QByteArray SportDocumentCodec::encodeProgram(const core::SportProgramRevision& value)
-{
-    const auto bytes = document("Program", encodeSportProgramRevision(value));
-    static_cast<void>(decodeProgram(bytes));
-
-    return bytes;
-}
-core::SportProgramRevision SportDocumentCodec::decodeProgram(const QByteArray& bytes)
-{
-    const auto result = decodeSportProgramRevision(payload(bytes, "Program"));
-    require(!core::validateSportProgram(result));
-
-    return result;
-}
-QByteArray SportDocumentCodec::encodeCheckpoint(const core::SportCheckpoint& value)
-{
-    const auto bytes = document("Checkpoint", encodeSportCheckpoint(value));
-    static_cast<void>(decodeCheckpoint(bytes));
-
-    return bytes;
-}
-core::SportCheckpoint SportDocumentCodec::decodeCheckpoint(const QByteArray& bytes)
-{
-    const auto result = decodeSportCheckpoint(payload(bytes, "Checkpoint"));
     require(!result.draft.identifier.empty() && result.draft.date.ok());
     require(!core::validateSportSession(result.draft.originalPlan));
-    require(!result.draft.items.empty());
+    require(allowEmpty || !result.draft.items.empty());
     require(!core::validateSportWellbeing(result.draft.before) && !core::validateSportWellbeing(result.draft.after));
     std::set<std::string> itemIdentifiers;
     for (const auto& item : result.draft.items)
     {
-        require(itemIdentifiers.insert(item.plan.identifier).second && !item.actual.empty() &&
+        require(itemIdentifiers.insert(item.plan.identifier).second && (allowEmpty || !item.actual.empty()) &&
                 item.actual.size() <= 100);
         require(!core::validateSportSession({"checkpoint", "Проверка", {item.plan}}));
         std::set<std::string> setIdentifiers;
@@ -858,6 +821,47 @@ core::SportCheckpoint SportDocumentCodec::decodeCheckpoint(const QByteArray& byt
             require(interval.active == core::SportDuration::zero());
         }
     }
+}
+} // namespace
+QByteArray SportDocumentCodec::encodeExercise(const core::SportExerciseRevision& value)
+{
+    const auto bytes = document("Exercise", encodeSportExerciseRevision(value));
+    static_cast<void>(decodeExercise(bytes));
+
+    return bytes;
+}
+core::SportExerciseRevision SportDocumentCodec::decodeExercise(const QByteArray& bytes)
+{
+    const auto result = decodeSportExerciseRevision(payload(bytes, "Exercise"));
+    require(!core::validateSportExercise(result));
+
+    return result;
+}
+QByteArray SportDocumentCodec::encodeProgram(const core::SportProgramRevision& value)
+{
+    const auto bytes = document("Program", encodeSportProgramRevision(value));
+    static_cast<void>(decodeProgram(bytes));
+
+    return bytes;
+}
+core::SportProgramRevision SportDocumentCodec::decodeProgram(const QByteArray& bytes)
+{
+    const auto result = decodeSportProgramRevision(payload(bytes, "Program"));
+    require(!core::validateSportProgram(result));
+
+    return result;
+}
+QByteArray SportDocumentCodec::encodeCheckpoint(const core::SportCheckpoint& value)
+{
+    const auto bytes = document("Checkpoint", encodeSportCheckpoint(value));
+    static_cast<void>(decodeCheckpoint(bytes));
+
+    return bytes;
+}
+core::SportCheckpoint SportDocumentCodec::decodeCheckpoint(const QByteArray& bytes)
+{
+    const auto result = decodeSportCheckpoint(payload(bytes, "Checkpoint"));
+    validateCheckpoint(result, false);
 
     return result;
 }
@@ -896,6 +900,27 @@ core::SportProgramCheckpoint SportDocumentCodec::decodeProgramCheckpoint(const Q
     result.sequence = unsignedText(fields.value("sequence"));
     require(!result.program.identifier.empty() && !result.program.revision.empty());
 
+    return result;
+}
+QByteArray SportDocumentCodec::encodeCorrectionCheckpoint(const core::SportCorrectionCheckpoint& value)
+{
+    const auto bytes =
+        document("CorrectionCheckpoint", QJsonObject{{"identifier", encodeText(value.identifier)},
+                                                     {"original", encodeSportWorkoutRevision(value.original)},
+                                                     {"edited", encodeSportCheckpoint(value.edited)}});
+    static_cast<void>(decodeCorrectionCheckpoint(bytes));
+    return bytes;
+}
+core::SportCorrectionCheckpoint SportDocumentCodec::decodeCorrectionCheckpoint(const QByteArray& bytes)
+{
+    const auto fields = object(payload(bytes, "CorrectionCheckpoint"), {"identifier", "original", "edited"});
+    core::SportCorrectionCheckpoint result;
+    result.identifier = textValue(fields.value("identifier"));
+    result.original = decodeSportWorkoutRevision(fields.value("original"));
+    result.edited = decodeSportCheckpoint(fields.value("edited"));
+    require(!result.identifier.empty() && result.original.workout.identifier == result.edited.draft.identifier);
+    static_cast<void>(decodeRevision(document("Revision", encodeSportWorkoutRevision(result.original))));
+    validateCheckpoint(result.edited, true);
     return result;
 }
 } // namespace msa::infra

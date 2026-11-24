@@ -30,13 +30,17 @@ private:
     void onStartWorkout(const QString& identifier, int sessionIndex);
     void onOpenWorkout(const QString& identifier);
     void onWorkoutCheckpoint();
-    void onWorkoutFinish();
+    void onWorkoutFinish(ui::SportWorkoutEditor& editor);
+    void onCorrectionCheckpoint(ui::SportWorkoutEditor& editor);
+    void onDiscardCorrection(ui::SportWorkoutEditor& editor);
     void onWorkoutPause();
     void onWorkoutAbsence(const QString& identifier, const QString& decision);
-    void onWorkoutReplacement(const QString& identifier, const QString& exerciseIdentifier);
+    void onWorkoutReplacement(ui::SportWorkoutEditor& editor, const QString& identifier,
+                              const QString& exerciseIdentifier);
     void observeWorkout();
     void refreshPrograms();
     void onCreateProgram();
+    void onCopyBlueprint(const QString& identifier);
     void onEditProgram(const QString& identifier, bool copy);
     void onResumeProgram(const QString& identifier);
     void onProgramCheckpoint();
@@ -53,5 +57,6 @@ private:
     QElapsedTimer m_elapsed{};
     bool m_absent{false};
     bool m_workoutInitialized{false};
+    bool m_migrationApproved{false};
 };
 } // namespace msa::client

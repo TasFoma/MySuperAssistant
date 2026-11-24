@@ -27,12 +27,16 @@ namespace
 }
 } // namespace
 SportLibraryModel::SportLibraryModel(QObject* parent) : QObject{parent} {}
-SportJournalModel* SportLibraryModel::journal() { return &m_journal; }
+SportJournalModel* SportLibraryModel::journal()
+{
+    return &m_journal;
+}
 void SportLibraryModel::applyData(std::vector<core::SportExerciseRevision> catalog,
                                   std::map<std::string, core::SportExercisePreference> preferences, bool ready)
 {
     m_catalog = std::move(catalog);
     m_preferences = std::move(preferences);
+    m_migrationRequired = false;
     m_storageReady = ready;
     m_error.clear();
     emit changed();
@@ -44,6 +48,7 @@ void SportLibraryModel::applyCatalog(std::vector<core::SportExerciseRevision> ca
 }
 void SportLibraryModel::reportStorageError(const QString& text)
 {
+    m_migrationRequired = false;
     m_storageReady = false;
     reportError(text);
 }
@@ -353,6 +358,10 @@ void SportLibraryModel::navigate(const QString& section)
     {
         return;
     }
+    if (!m_selected.isEmpty() && section != "programs")
+    {
+        clearSelection();
+    }
     m_section = section;
     emit changed();
 }
@@ -375,11 +384,23 @@ void SportLibraryModel::selectExercise(const QString& identifier)
         reportError("Карточка этого варианта ещё готовится.");
         return;
     }
+    if (m_selected.isEmpty())
+    {
+        m_cardOrigin = std::pair{m_section, m_showExercises};
+    }
+    m_section = "programs";
+    m_showExercises = true;
     m_selected = identifier;
     emit changed();
 }
 void SportLibraryModel::selectSnapshot(core::SportExerciseRevision exercise)
 {
+    if (m_selected.isEmpty())
+    {
+        m_cardOrigin = std::pair{m_section, m_showExercises};
+    }
+    m_section = "programs";
+    m_showExercises = true;
     m_selected = QString::fromStdString(exercise.identifier);
     m_snapshot = std::move(exercise);
     emit changed();
@@ -388,6 +409,12 @@ void SportLibraryModel::clearSelection()
 {
     m_snapshot.reset();
     m_selected.clear();
+    if (m_cardOrigin)
+    {
+        m_section = m_cardOrigin->first;
+        m_showExercises = m_cardOrigin->second;
+        m_cardOrigin.reset();
+    }
     emit changed();
 }
 void SportLibraryModel::setEquipmentFilter(const QString& value)
@@ -432,5 +459,22 @@ void SportLibraryModel::resetFilters()
 void SportLibraryModel::retry()
 {
     emit reloadRequested();
+}
+void SportLibraryModel::reportMigrationRequired(const QString& text)
+{
+    m_storageReady = false;
+    m_migrationRequired = true;
+    reportError(text);
+}
+bool SportLibraryModel::migrationRequired() const
+{
+    return m_migrationRequired;
+}
+void SportLibraryModel::approveMigration()
+{
+    if (m_migrationRequired)
+    {
+        emit migrationRequested();
+    }
 }
 } // namespace msa::ui

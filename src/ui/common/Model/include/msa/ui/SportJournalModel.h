@@ -1,5 +1,6 @@
 #pragma once
 
+#include "msa/core/SportProgramBlueprint.h"
 #include "msa/ui/SportProgramEditor.h"
 #include "msa/ui/SportWorkoutEditor.h"
 
@@ -11,6 +12,9 @@ namespace msa::ui
 class SportJournalModel final : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(QVariantList blueprints READ blueprints NOTIFY changed)
+    Q_PROPERTY(msa::ui::SportWorkoutEditor* resultEditor READ resultEditor CONSTANT)
+    Q_PROPERTY(QVariantList corrections READ corrections NOTIFY changed)
     Q_PROPERTY(msa::ui::SportWorkoutEditor* workoutEditor READ workoutEditor CONSTANT)
     Q_PROPERTY(QVariantList history READ history NOTIFY changed)
     Q_PROPERTY(QVariantList progress READ progress NOTIFY changed)
@@ -23,8 +27,17 @@ class SportJournalModel final : public QObject
     Q_PROPERTY(QString errorText READ errorText NOTIFY changed)
 public:
     explicit SportJournalModel(QObject* parent = nullptr);
+    void applyBlueprints(std::vector<core::SportProgramBlueprint> values,
+                         std::vector<core::SportExerciseRevision> catalog);
+    [[nodiscard]] QVariantList blueprints() const;
+    [[nodiscard]] const std::vector<core::SportProgramBlueprint>& savedBlueprints() const;
+    Q_INVOKABLE void copyBlueprint(const QString& identifier);
     [[nodiscard]] SportProgramEditor* programEditor();
     [[nodiscard]] SportWorkoutEditor* workoutEditor();
+    [[nodiscard]] SportWorkoutEditor* resultEditor();
+    [[nodiscard]] QVariantList corrections() const;
+    void applyCorrections(std::vector<core::SportCorrectionCheckpoint> values);
+    [[nodiscard]] const std::vector<core::SportCorrectionCheckpoint>& savedCorrections() const;
     [[nodiscard]] QVariantList history() const;
     [[nodiscard]] QVariantList progress() const;
     [[nodiscard]] QVariantList progressExercises() const;
@@ -57,14 +70,19 @@ signals:
     void restrictionsRequested();
     void openWorkoutRequested(QString identifier);
     void createProgramRequested();
+    void copyBlueprintRequested(QString identifier);
     void editProgramRequested(QString identifier);
     void copyProgramRequested(QString identifier);
     void resumeProgramRequested(QString identifier);
     void startWorkoutRequested(QString identifier, int sessionIndex);
 
 private:
+    std::vector<core::SportProgramBlueprint> m_blueprints{};
+    std::vector<core::SportExerciseRevision> m_catalog{};
     SportProgramEditor m_programEditor{};
     SportWorkoutEditor m_workoutEditor{};
+    SportWorkoutEditor m_resultEditor{};
+    std::vector<core::SportCorrectionCheckpoint> m_corrections{};
     std::vector<core::SportWorkoutRecord> m_history{};
     QString m_restrictions{};
     std::vector<core::SportProgramRevision> m_programs{};

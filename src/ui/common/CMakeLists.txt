@@ -36,6 +36,7 @@ set(msaCommonQmlFiles
     UI/SportFormField.qml
     UI/SportProgramPanel.qml
     UI/SportProgramsList.qml
+    UI/SportBlueprints.qml
     UI/SportFilterBox.qml
     UI/SportLibraryPanel.qml
     UI/PlannerFormDialog.qml

@@ -8,6 +8,8 @@
 
 #include <QDateTime>
 #include <QElapsedTimer>
+#include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QPointer>
 #include <QQmlEngine>
@@ -333,11 +335,11 @@ TEST(SportWorkoutFlowTest, ConcurrentResultCorrectionIsRejectedAndExplicitCancel
     EXPECT_TRUE(stale->correcting());
     EXPECT_TRUE(stale->status().contains("уже изменён"));
     EXPECT_EQ(stale->checkpoint().editorText.at(setKey.toStdString()), "10");
-    stale->close();
+    stale->requestDiscard();
     EXPECT_TRUE(stale->discardRequested());
     stale->keepEditing();
     EXPECT_FALSE(stale->discardRequested());
-    stale->close();
+    stale->requestDiscard();
     stale->discardCorrection();
     EXPECT_FALSE(stale->correcting());
     stale->close();
@@ -520,6 +522,365 @@ TEST(SportWorkoutFlowTest, DesktopWorkoutRendersWithoutHorizontalOverflow)
         view.resize(width, width == 1000 ? 720 : 900);
         settle();
         EXPECT_TRUE(frame(view, QString{"sport-desktop-workout-%1.png"}.arg(width)));
+        const auto setIdentifier =
+            desktop.sport()->journal()->workoutEditor()->checkpoint().draft.items.front().actual.front().identifier;
+        auto* mass = findItem(view.contentItem(), QString::fromStdString("sportField_" + setIdentifier + "/mass"));
+        auto* quantity =
+            findItem(view.contentItem(), QString::fromStdString("sportField_" + setIdentifier + "/quantity"));
+        ASSERT_NE(mass, nullptr);
+        ASSERT_NE(quantity, nullptr);
+        EXPECT_TRUE(quantity->property("readOnly").toBool());
+        EXPECT_NE(mass->property("inputMethodHints").toInt() & Qt::ImhFormattedNumbersOnly, 0);
     }
     EXPECT_TRUE(warnings.empty()) << warnings.join('\n').toStdString();
+}
+
+TEST(SportWorkoutFlowTest, HistoryAndCorrectionDoNotInterruptActiveWorkoutAndSurviveRestart)
+{
+    QTemporaryDir directory;
+    const auto path = directory.filePath("sport.sqlite");
+    QString historyIdentifier, activeIdentifier;
+    {
+        msa::ui::SportLibraryModel library;
+        msa::client::SportController controller{library, path};
+        controller.start();
+        const auto program = makeProgram(library);
+        library.journal()->startWorkout(program, 0);
+        finishOneSet(*library.journal()->workoutEditor(), 8);
+        ASSERT_EQ(library.journal()->savedHistory().size(), 1);
+        historyIdentifier =
+            QString::fromStdString(library.journal()->savedHistory().front().current.workout.identifier);
+        library.journal()->startWorkout(program, 0);
+        auto* active = library.journal()->workoutEditor();
+        activeIdentifier = QString::fromStdString(active->checkpoint().draft.identifier);
+        library.journal()->openWorkout(historyIdentifier);
+        auto* result = library.journal()->resultEditor();
+        EXPECT_TRUE(active->active());
+        EXPECT_FALSE(active->visible());
+        ASSERT_TRUE(result->visible());
+        result->beginCorrection();
+        result->setField("notes", "Незавершённая правка");
+        const auto set = result->checkpoint().draft.items.front().actual.front().identifier;
+        result->setField(QString::fromStdString(set + "/reps"), "1,");
+        ASSERT_TRUE(result->saved()) << result->status().toStdString();
+        result->close();
+        EXPECT_FALSE(result->visible());
+        active->resume();
+        active->setField("notes", "Отдельное активное занятие");
+        EXPECT_EQ(QString::fromStdString(active->checkpoint().draft.identifier), activeIdentifier);
+        EXPECT_EQ(library.journal()->savedHistory().front().current.workout.items.front().actual.front().repetitions,
+                  8);
+    }
+    msa::ui::SportLibraryModel library;
+    msa::client::SportController controller{library, path};
+    controller.start();
+    ASSERT_TRUE(library.journal()->workoutEditor()->active());
+    EXPECT_EQ(QString::fromStdString(library.journal()->workoutEditor()->checkpoint().draft.identifier),
+              activeIdentifier);
+    library.journal()->openWorkout(historyIdentifier);
+    auto* result = library.journal()->resultEditor();
+    ASSERT_TRUE(result->correcting());
+    EXPECT_EQ(result->checkpoint().editorText.at("notes"), "Незавершённая правка");
+    const auto set = result->checkpoint().draft.items.front().actual.front().identifier;
+    EXPECT_EQ(result->checkpoint().editorText.at(set + "/reps"), "1,");
+    result->setField(QString::fromStdString(set + "/reps"), "10");
+    result->finish();
+    ASSERT_FALSE(result->correcting()) << result->status().toStdString();
+    EXPECT_TRUE(library.journal()->workoutEditor()->active());
+    EXPECT_TRUE(library.journal()->corrections().empty());
+    EXPECT_EQ(library.journal()->savedHistory().front().current.workout.items.front().actual.front().repetitions, 10);
+    msa::infra::SqliteSportStore store{path};
+    ASSERT_TRUE(store.activeWorkout());
+    EXPECT_EQ(store.activeWorkout()->editorText.at("notes"), "Отдельное активное занятие");
+}
+TEST(SportWorkoutFlowTest, IncompleteEmptyCorrectionRestoresAndCanAddExerciseWithoutChangingOriginalPlan)
+{
+    QTemporaryDir directory;
+    const auto path = directory.filePath("sport.sqlite");
+    QString identifier;
+    {
+        msa::ui::SportLibraryModel library;
+        msa::client::SportController controller{library, path};
+        controller.start();
+        library.journal()->startWorkout(makeProgram(library), 0);
+        auto* editor = library.journal()->workoutEditor();
+        finishOneSet(*editor, 8);
+        identifier = QString::fromStdString(editor->checkpoint().draft.identifier);
+        editor->beginCorrection();
+        editor->removeItem(QString::fromStdString(editor->checkpoint().draft.items.front().plan.identifier));
+        ASSERT_TRUE(editor->saved());
+        EXPECT_TRUE(editor->checkpoint().draft.items.empty());
+        editor->finish();
+        EXPECT_TRUE(editor->correcting());
+        EXPECT_EQ(library.journal()->savedHistory().front().current.workout.items.size(), 1);
+    }
+    msa::ui::SportLibraryModel library;
+    msa::client::SportController controller{library, path};
+    controller.start();
+    library.journal()->openWorkout(identifier);
+    auto* editor = library.journal()->workoutEditor();
+    ASSERT_TRUE(editor->correcting());
+    EXPECT_TRUE(editor->checkpoint().draft.items.empty());
+    editor->setField("_addition/replacementSets", "1");
+    editor->setField("_addition/replacementReps", "6");
+    editor->requestAdditionalExercise("sport-06");
+    ASSERT_EQ(editor->checkpoint().draft.items.size(), 1);
+    finishOneSet(*editor, 6);
+    ASSERT_FALSE(editor->correcting()) << editor->status().toStdString();
+    EXPECT_EQ(editor->checkpoint().draft.items.front().plan.exercise.identifier, "sport-06");
+    EXPECT_EQ(editor->checkpoint().draft.originalPlan.items.front().exercise.identifier, "sport-03");
+}
+TEST(SportWorkoutFlowTest, BlueprintCopyStartsWithNoDosageAndFirstSetMustBeFilledByUser)
+{
+    QTemporaryDir directory;
+    msa::ui::SportLibraryModel library;
+    msa::client::SportController controller{library, directory.filePath("sport.sqlite")};
+    controller.start();
+    ASSERT_EQ(library.journal()->blueprints().size(), 2);
+    library.journal()->copyBlueprint("sport-p1");
+    auto* editor = library.journal()->programEditor();
+    ASSERT_TRUE(editor->active());
+    ASSERT_TRUE(editor->saved());
+    const auto item = editor->checkpoint().program.sessions.front().items.front();
+    EXPECT_TRUE(item.sets.empty());
+    editor->requestSet(QString::fromStdString(item.identifier));
+    ASSERT_EQ(editor->checkpoint().program.sessions.front().items.front().sets.size(), 1);
+    const auto set = editor->checkpoint().program.sessions.front().items.front().sets.front();
+    EXPECT_TRUE(msa::ui::sportForm::text(editor->checkpoint().editorText, set.identifier + "/reps").isEmpty());
+    EXPECT_TRUE(std::holds_alternative<msa::core::SportRejection>(editor->candidate()));
+    EXPECT_TRUE(library.journal()->savedPrograms().empty());
+}
+TEST(SportWorkoutFlowTest, ProgramTechniqueActuallyOpensAndReturnsToEditorAtPhoneWidth)
+{
+    QTemporaryDir directory;
+    msa::ui::ClientModels client;
+    msa::ui::MobileState mobile{client};
+    msa::client::SportController controller{*mobile.sport(), directory.filePath("sport.sqlite")};
+    controller.start();
+    mobile.navigate(msa::ui::MobileState::Page::Sport);
+    mobile.sport()->journal()->createProgram();
+    auto* editor = mobile.sport()->journal()->programEditor();
+    editor->requestExercise("sport-03");
+    const auto item = editor->checkpoint().program.sessions.front().items.front();
+    editor->showTechnique(QString::fromStdString(item.identifier));
+    QQuickView view;
+    view.setInitialProperties({{"client", QVariant::fromValue(&client)}, {"mobile", QVariant::fromValue(&mobile)}});
+    view.setResizeMode(QQuickView::SizeRootObjectToView);
+    view.setSource(QUrl{"qrc:/qt/qml/Msa/Ui/Mobile/MobileShell.qml"});
+    ASSERT_EQ(view.status(), QQuickView::Ready);
+    view.resize(360, 844);
+    view.show();
+    settle();
+    EXPECT_NE(findItem(view.contentItem(), "sportDetails"), nullptr);
+    EXPECT_TRUE(mobile.goBack());
+    EXPECT_FALSE(mobile.sport()->hasSelection());
+    EXPECT_TRUE(editor->active());
+    EXPECT_FALSE(mobile.sport()->showExercises());
+}
+TEST(SportWorkoutFlowTest, ExistingDatabaseMigrationRequiresExplicitUserAction)
+{
+    QTemporaryDir directory;
+    const auto path = directory.filePath("sport.sqlite");
+    {
+        msa::infra::SqliteSportStore store{path};
+    }
+    const auto name = QUuid::createUuid().toString();
+    {
+        auto database = QSqlDatabase::addDatabase("QSQLITE", name);
+        database.setDatabaseName(path);
+        ASSERT_TRUE(database.open());
+        QSqlQuery query{database};
+        ASSERT_TRUE(query.exec("PRAGMA user_version=4"));
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(name);
+    QFile file{path};
+    ASSERT_TRUE(file.open(QIODevice::ReadOnly));
+    const auto before = file.readAll();
+    file.close();
+    msa::ui::SportLibraryModel library;
+    msa::client::SportController controller{library, path};
+    controller.start();
+    EXPECT_TRUE(library.migrationRequired());
+    EXPECT_FALSE(library.storageReady());
+    EXPECT_EQ(library.exercises().size(), 22);
+    ASSERT_TRUE(file.open(QIODevice::ReadOnly));
+    EXPECT_EQ(file.readAll(), before);
+    file.close();
+    EXPECT_FALSE(QFileInfo::exists(directory.filePath("backups")));
+    library.approveMigration();
+    EXPECT_FALSE(library.migrationRequired());
+    EXPECT_TRUE(library.storageReady()) << library.errorText().toStdString();
+    EXPECT_TRUE(QFileInfo::exists(directory.filePath("backups")));
+}
+
+TEST(SportWorkoutFlowTest, DamagedCorrectionKeepsLastHistoryAndOpeningItReportsFailureWithoutCrash)
+{
+    QTemporaryDir directory;
+    const auto path = directory.filePath("sport.sqlite");
+    msa::ui::SportLibraryModel library;
+    msa::client::SportController controller{library, path};
+    controller.start();
+    library.journal()->startWorkout(makeProgram(library), 0);
+    auto* editor = library.journal()->workoutEditor();
+    finishOneSet(*editor, 8);
+    const auto identifier = QString::fromStdString(editor->checkpoint().draft.identifier);
+    editor->beginCorrection();
+    editor->setField("notes", "Сохранённая правка");
+    editor->close();
+    const auto name = QUuid::createUuid().toString();
+    {
+        auto database = QSqlDatabase::addDatabase("QSQLITE", name);
+        database.setDatabaseName(path);
+        ASSERT_TRUE(database.open());
+        QSqlQuery query{database};
+        ASSERT_TRUE(query.exec("UPDATE correction_drafts SET payload='{}'"));
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(name);
+    library.retry();
+    EXPECT_FALSE(library.storageReady());
+    ASSERT_EQ(library.journal()->savedHistory().size(), 1);
+    library.journal()->openWorkout(identifier);
+    EXPECT_FALSE(library.journal()->errorText().isEmpty());
+    EXPECT_EQ(library.journal()->savedHistory().front().current.workout.items.front().actual.front().repetitions, 8);
+}
+
+TEST(SportWorkoutFlowTest, CorrectionDiscardPromptStaysVisibleAtTopOfPhoneForm)
+{
+    QTemporaryDir directory;
+    msa::ui::ClientModels client;
+    msa::ui::MobileState mobile{client};
+    msa::client::SportController controller{*mobile.sport(), directory.filePath("sport.sqlite")};
+    controller.start();
+    mobile.navigate(msa::ui::MobileState::Page::Sport);
+    mobile.sport()->journal()->startWorkout(makeProgram(*mobile.sport()), 0);
+    auto* editor = mobile.sport()->journal()->workoutEditor();
+    finishOneSet(*editor, 8);
+    editor->beginCorrection();
+    editor->setField("notes", "Черновик исправления");
+    editor->requestDiscard();
+    QQuickView view;
+    view.setInitialProperties({{"client", QVariant::fromValue(&client)}, {"mobile", QVariant::fromValue(&mobile)}});
+    view.setResizeMode(QQuickView::SizeRootObjectToView);
+    view.setSource(QUrl{"qrc:/qt/qml/Msa/Ui/Mobile/MobileShell.qml"});
+    ASSERT_EQ(view.status(), QQuickView::Ready);
+    view.resize(360, 844);
+    view.show();
+    settle();
+    auto* button = findItem(view.contentItem(), "sportDiscardCorrectionConfirm");
+    ASSERT_NE(button, nullptr);
+    const auto position = button->mapToItem(view.contentItem(), QPointF{});
+    EXPECT_GE(position.y(), 0);
+    EXPECT_LE(position.y() + button->height(), view.height());
+    EXPECT_TRUE(frame(view, "sport-mobile-correction-confirm-360.png"));
+    editor->discardCorrection();
+    EXPECT_FALSE(editor->correcting());
+    EXPECT_TRUE(mobile.sport()->journal()->corrections().empty());
+}
+
+TEST(SportWorkoutFlowTest, MvpProgramsHistoryProgressAndParallelCorrectionRenderOnBothClients)
+{
+    QTemporaryDir directory;
+    for (const bool desktopView : {true, false})
+    {
+        msa::ui::ClientModels client;
+        msa::ui::DesktopState desktop{client};
+        msa::ui::MobileState mobile{client};
+        auto* library = desktopView ? desktop.sport() : mobile.sport();
+        msa::client::SportController controller{*library,
+                                                directory.filePath(desktopView ? "desktop.sqlite" : "mobile.sqlite")};
+        controller.start();
+        if (desktopView)
+        {
+            desktop.navigate(msa::ui::DesktopState::Page::Workouts);
+        }
+        else
+        {
+            mobile.navigate(msa::ui::MobileState::Page::Sport);
+        }
+        library->openPrograms();
+        QQuickView view;
+        QStringList warnings;
+        QObject::connect(view.engine(), &QQmlEngine::warnings, &view,
+                         [&warnings](const QList<QQmlError>& errors)
+                         {
+                             for (const auto& error : errors)
+                             {
+                                 warnings.append(error.toString());
+                             }
+                         });
+        QVariantMap properties{{"client", QVariant::fromValue(&client)}};
+        if (desktopView)
+        {
+            properties.insert("desktop", QVariant::fromValue(&desktop));
+        }
+        else
+        {
+            properties.insert("mobile", QVariant::fromValue(&mobile));
+        }
+        view.setInitialProperties(properties);
+        view.setResizeMode(QQuickView::SizeRootObjectToView);
+        view.setSource(QUrl{desktopView ? "qrc:/qt/qml/Msa/Ui/Desktop/DesktopShell.qml"
+                                        : "qrc:/qt/qml/Msa/Ui/Mobile/MobileShell.qml"});
+        ASSERT_EQ(view.status(), QQuickView::Ready) << view.errors().value(0).toString().toStdString();
+        view.resize(desktopView ? 1280 : 360, desktopView ? 900 : 844);
+        view.show();
+        settle();
+        const auto prefix = desktopView ? QString{"sport-mvp-desktop-"} : QString{"sport-mvp-mobile-"};
+        for (const auto& identifier : {QString{"sport-p1"}, QString{"sport-p3"}})
+        {
+            auto* card = findItem(view.contentItem(), "sportBlueprint_" + identifier);
+            ASSERT_NE(card, nullptr);
+            auto* details = findItem(card, "sportBlueprintDetails");
+            ASSERT_NE(details, nullptr);
+            ASSERT_TRUE(QMetaObject::invokeMethod(details, "clicked"));
+        }
+        settle();
+        EXPECT_TRUE(frame(view, prefix + "programs-top.png"));
+        auto* list = findItem(view.contentItem(), "sportProgramsList");
+        ASSERT_NE(list, nullptr);
+        auto* flick = list->property("contentItem").value<QQuickItem*>();
+        ASSERT_NE(flick, nullptr);
+        const auto contentHeight = flick->property("contentHeight").toDouble();
+        EXPECT_GT(contentHeight, flick->height());
+        ASSERT_TRUE(flick->setProperty("contentY", contentHeight - flick->height()));
+        settle();
+        EXPECT_TRUE(frame(view, prefix + "programs-bottom.png"));
+        const auto program = makeProgram(*library);
+        library->journal()->startWorkout(program, 0);
+        auto* active = library->journal()->workoutEditor();
+        finishOneSet(*active, 8);
+        ASSERT_FALSE(active->active()) << active->status().toStdString();
+        const auto historyId = QString::fromStdString(active->checkpoint().draft.identifier);
+        settle();
+        EXPECT_TRUE(frame(view, prefix + "result.png"));
+        active->close();
+        library->navigate("history");
+        settle();
+        EXPECT_TRUE(frame(view, prefix + "history.png"));
+        library->navigate("progress");
+        settle();
+        EXPECT_TRUE(frame(view, prefix + "progress.png"));
+        library->journal()->startWorkout(program, 0);
+        library->journal()->openWorkout(historyId);
+        auto* result = library->journal()->resultEditor();
+        ASSERT_TRUE(result->visible());
+        EXPECT_TRUE(active->active());
+        EXPECT_FALSE(active->visible());
+        result->beginCorrection();
+        result->setField("notes", "Черновик исправления на устройстве");
+        settle();
+        EXPECT_TRUE(frame(view, prefix + "correction-with-active.png"));
+        result->showTechnique(QString::fromStdString(result->checkpoint().draft.items.front().plan.identifier));
+        settle();
+        EXPECT_NE(findItem(view.contentItem(), "sportDetails"), nullptr);
+        EXPECT_TRUE(frame(view, prefix + "historical-technique.png"));
+        library->clearSelection();
+        result->close();
+        active->resume();
+        settle();
+        EXPECT_TRUE(active->active());
+        EXPECT_TRUE(warnings.empty()) << warnings.join('\n').toStdString();
+    }
 }

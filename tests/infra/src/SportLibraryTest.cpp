@@ -103,7 +103,7 @@ TEST(SportLibraryTest, PublishesOnlyCompleteSourceCheckedCards)
             EXPECT_FALSE(exercise.technique.brief.empty());
         }
     }
-    EXPECT_EQ(prepared, 6);
+    EXPECT_EQ(prepared, 22);
 }
 TEST(SportLibraryTest, SearchFiltersAndIndependentMarksSurviveReopen)
 {
@@ -114,16 +114,16 @@ TEST(SportLibraryTest, SearchFiltersAndIndependentMarksSurviveReopen)
         msa::client::SportController controller{model, path};
         controller.start();
         ASSERT_TRUE(model.storageReady()) << model.errorText().toStdString();
-        EXPECT_EQ(model.exercises().size(), 6);
+        EXPECT_EQ(model.exercises().size(), 22);
         model.setQuery("РУМЫНСКАЯ ГАНТЕЛ");
         ASSERT_EQ(model.exercises().size(), 1);
         EXPECT_EQ(model.exercises().front().toMap().value("identifier").toString(), "sport-07");
         model.resetFilters();
         model.setNoFloor(true);
-        EXPECT_EQ(model.exercises().size(), 3);
+        EXPECT_EQ(model.exercises().size(), 17);
         model.resetFilters();
         model.setEquipmentFilter("Без инвентаря");
-        EXPECT_EQ(model.exercises().size(), 4);
+        EXPECT_EQ(model.exercises().size(), 6);
         model.resetFilters();
         model.selectExercise("sport-05");
         model.requestFavorite();
@@ -158,7 +158,7 @@ TEST(SportLibraryTest, FailedWriteNeverChangesDisplayedMark)
     model.requestFavorite();
     EXPECT_FALSE(model.selected().value("favorite").toBool());
     EXPECT_FALSE(model.errorText().isEmpty());
-    EXPECT_EQ(model.exercises().size(), 6);
+    EXPECT_EQ(model.exercises().size(), 22);
 }
 TEST(SportLibraryTest, BrokenDatabaseKeepsCatalogReadableAndReportsLocalFailure)
 {
@@ -173,7 +173,7 @@ TEST(SportLibraryTest, BrokenDatabaseKeepsCatalogReadableAndReportsLocalFailure)
     controller.start();
     EXPECT_FALSE(model.storageReady());
     EXPECT_FALSE(model.errorText().isEmpty());
-    EXPECT_EQ(model.exercises().size(), 6);
+    EXPECT_EQ(model.exercises().size(), 22);
 }
 TEST(SportLibraryTest, DesktopLibraryAndDetailsRenderWithActualBundledContent)
 {

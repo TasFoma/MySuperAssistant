@@ -24,6 +24,9 @@ public:
     skipSet(const SportWorkoutDraft& draft, const std::string& itemIdentifier, const std::string& setIdentifier) const;
     [[nodiscard]] SportResult<SportWorkoutDraft> skipExercise(const SportWorkoutDraft& draft,
                                                               const std::string& itemIdentifier) const;
+    /// @brief Добавляет явно выбранный пункт вне исходного плана, сохраняя исходный снимок.
+    [[nodiscard]] SportResult<SportWorkoutDraft> addExercise(const SportWorkoutDraft& draft,
+                                                             const SportProgramItem& item) const;
     /// @brief Выполненное остаётся у исходного упражнения; новый план явно задан.
     [[nodiscard]] SportResult<SportWorkoutDraft> replaceExercise(const SportWorkoutDraft& draft,
                                                                  const std::string& itemIdentifier,

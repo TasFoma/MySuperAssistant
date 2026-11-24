@@ -1,6 +1,8 @@
 include(${PROJECT_SOURCE_DIR}/cmake/Pcre2.cmake)
 
 add_library(msa_core STATIC
+    include/msa/core/SportProgramBlueprint.h
+    src/SportProgramBlueprint.cpp
     include/msa/core/SportWorkoutRepository.h
     src/SportWorkoutRepository.cpp
     include/msa/core/SportProgramRepository.h

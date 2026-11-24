@@ -248,6 +248,22 @@ SportResult<SportWorkoutDraft> SportWorkoutService::skipExercise(const SportWork
 
     return result;
 }
+SportResult<SportWorkoutDraft> SportWorkoutService::addExercise(const SportWorkoutDraft& draft,
+                                                                const SportProgramItem& item) const
+{
+    if (std::ranges::any_of(draft.items,
+                            [&item](const auto& current) { return current.plan.identifier == item.identifier; }))
+    {
+        return SportRejection{"item", "Пункт уже существует."};
+    }
+    if (const auto error = validateSportSession({"addition", "Дополнительное упражнение", {item}}))
+    {
+        return *error;
+    }
+    auto result = draft;
+    result.items.push_back(makeItem(item));
+    return result;
+}
 SportResult<SportWorkoutDraft> SportWorkoutService::replaceExercise(const SportWorkoutDraft& draft,
                                                                     const std::string& itemIdentifier,
                                                                     const SportProgramItem& replacement) const

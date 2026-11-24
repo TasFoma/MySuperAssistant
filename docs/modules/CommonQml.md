@@ -146,3 +146,8 @@ QGuiApplication, offscreen и программный рендеринг; сущ�
 Спортивные формы SportFormField/SportProgramPanel/SportProgramsList,
 SportWorkoutPanel/SportResultsPanel используют существующие Theme/Controls.
 Их модели и локальная связка описаны в [SportJournal](SportJournal.md).
+
+SportBlueprints показывает состав P1/P3 A/B и копирование без дозировки.
+SportLibraryPanel связывает независимые active/result editor; возврат из полной
+карточки восстанавливает источник. SportFormField передаёт числовые inputMethodHints;
+подтверждение отмены правки находится в видимой верхней части мобильной формы.

@@ -36,15 +36,17 @@ namespace
 {
 using namespace std::chrono_literals;
 constexpr int kWaitMilliseconds = 5000;
+// Холодный запуск отдельного Debug-процесса с Qt/каталогом дольше сетевого ответа.
+constexpr int kProcessStartupMilliseconds = 10000;
 constexpr int kQuietMilliseconds = 100;
 constexpr int kStopMilliseconds = 3000;
 constexpr auto kMoment = std::chrono::local_days{std::chrono::year{2026} / 11 / 9} + 12h;
 const QString kToken{"mobile-test-token"};
-bool waitFor(const std::function<bool()>& predicate)
+bool waitFor(const std::function<bool()>& predicate, int timeoutMilliseconds = kWaitMilliseconds)
 {
     QElapsedTimer timer;
     timer.start();
-    while (timer.elapsed() < kWaitMilliseconds)
+    while (timer.elapsed() < timeoutMilliseconds)
     {
         QGuiApplication::processEvents();
         if (predicate())
@@ -434,9 +436,10 @@ TEST_F(MobileRuntimeTest, MainExecutableLoadsBothPluginsAndConnectsWithoutVisibl
     environment.insert("QT_FORCE_STDERR_LOGGING", "1");
     process.setProcessEnvironment(environment);
     process.setProcessChannelMode(QProcess::MergedChannels);
-    process.start(QString::fromUtf8(MSA_MOBILE_EXECUTABLE), {"--config", config.clientSettingsPath, "--sport-data", m_directory.filePath("sport.sqlite")});
+    process.start(QString::fromUtf8(MSA_MOBILE_EXECUTABLE),
+                  {"--config", config.clientSettingsPath, "--sport-data", m_directory.filePath("sport.sqlite")});
     ASSERT_TRUE(process.waitForStarted(kWaitMilliseconds));
-    const auto ready = waitFor([&server] { return server.m_reads >= 2; });
+    const auto ready = waitFor([&server] { return server.m_reads >= 2; }, kProcessStartupMilliseconds);
     const auto output = QString::fromUtf8(process.readAll());
     EXPECT_TRUE(ready) << output.toStdString();
     EXPECT_EQ(process.state(), QProcess::Running) << output.toStdString();

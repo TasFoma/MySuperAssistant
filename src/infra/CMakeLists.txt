@@ -1,4 +1,6 @@
 add_library(msa_infra STATIC
+    include/msa/infra/SportProgramCatalog.h
+    src/SportProgramCatalog.cpp
     include/msa/infra/SportCatalog.h
     src/SportCatalog.cpp
     include/msa/infra/SportDocumentCodec.h
@@ -71,5 +73,5 @@ msa_apply_warnings(msa_infra)
 qt_add_resources(msa_infra "sport_content"
     PREFIX "/msa/sport"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
-    FILES resources/SportExercises.json
+    FILES resources/SportExercises.json resources/SportPrograms.json
 )

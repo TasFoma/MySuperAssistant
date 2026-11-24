@@ -33,7 +33,15 @@ QString text(const Text& values, const std::string& key, const QString& fallback
 }
 QVariantMap field(const std::string& key, const QString& label, const QString& value)
 {
-    return {{"key", QString::fromStdString(key)}, {"label", label}, {"value", value}};
+    const auto name = QString::fromStdString(key);
+    const bool decimal = name.endsWith("/mass") || name.endsWith("/extra") || name.endsWith("/assistance");
+    const bool integerValue = name.endsWith("/reps") || name.endsWith("/quantity") || name.endsWith("/height") ||
+                              name.endsWith("/distance") || name.endsWith("/replacementSets") ||
+                              name.endsWith("/replacementReps") || name.endsWith("/activeSeconds") ||
+                              name.endsWith("/wellbeing") || name.endsWith("/fatigue") || name.endsWith("/pain") ||
+                              name == "duration";
+    const auto hints = decimal ? Qt::ImhFormattedNumbersOnly : (integerValue ? Qt::ImhDigitsOnly : Qt::ImhNone);
+    return {{"key", name}, {"label", label}, {"value", value}, {"inputHints", static_cast<int>(hints)}};
 }
 int integer(const QString& value, int minimum, int maximum, const QString& label)
 {
@@ -214,7 +222,9 @@ core::SportExecutionConditions readConditions(const core::SportProgramItem& item
         text(values, item.identifier + "/amplitude", QString::fromStdString(result.amplitude)).toStdString();
     result.note = text(values, item.identifier + "/conditionNote", QString::fromStdString(result.note)).toStdString();
     // Без явно описанной амплитуды не объединяем неизвестные условия между занятиями.
-    result.comparable = !result.amplitude.empty();
+    result.comparable =
+        !result.amplitude.empty() && (!item.exercise.requirements.stableSupport.value_or(false) ||
+                                      result.supportHeightMillimeters || result.wallDistanceMillimeters);
     return result;
 }
 } // namespace msa::ui::sportForm

@@ -18,6 +18,7 @@ class SportWorkoutEditor final : public QObject
     Q_PROPERTY(bool correcting READ correcting NOTIFY changed)
     Q_PROPERTY(bool discardRequested READ discardRequested NOTIFY changed)
     Q_PROPERTY(QVariantList fields READ fields NOTIFY changed)
+    Q_PROPERTY(QVariantList additionFields READ additionFields NOTIFY changed)
     Q_PROPERTY(QVariantList items READ items NOTIFY changed)
     Q_PROPERTY(QVariantList wellbeing READ wellbeing NOTIFY changed)
     Q_PROPERTY(QVariantList absences READ absences NOTIFY changed)
@@ -30,6 +31,11 @@ public:
     /// @brief Восстанавливает только переданное состояние; отсутствие учитывает apps отдельно.
     void openDraft(core::SportCheckpoint checkpoint);
     void openResult(core::SportWorkoutRevision revision);
+    /// @brief Восстанавливает исправление с исходной редакцией и точным сырым вводом.
+    void openCorrection(core::SportCorrectionCheckpoint value);
+    [[nodiscard]] core::SportCorrectionCheckpoint correctionCheckpoint() const;
+    void identifyCorrection(std::string identifier);
+    Q_INVOKABLE void requestDiscard();
     [[nodiscard]] bool visible() const;
     [[nodiscard]] bool active() const;
     [[nodiscard]] bool editing() const;
@@ -40,6 +46,9 @@ public:
     [[nodiscard]] QString restrictionsSnapshot() const;
     [[nodiscard]] QString status() const;
     [[nodiscard]] QVariantList fields() const;
+    [[nodiscard]] QVariantList additionFields() const;
+    void appendExercise(const core::SportProgramItem& item);
+    Q_INVOKABLE void requestAdditionalExercise(const QString& identifier);
     [[nodiscard]] QVariantList items() const;
     [[nodiscard]] QVariantList wellbeing() const;
     [[nodiscard]] QVariantList absences() const;
@@ -81,6 +90,9 @@ signals:
     void timeChanged();
     void statusChanged();
     void checkpointRequested();
+    void correctionStarted();
+    void correctionCheckpointRequested();
+    void correctionDiscardRequested();
     void finishRequested();
     void pauseRequested();
     void absenceRequested(QString identifier, QString decision);
@@ -94,6 +106,7 @@ private:
 
 private:
     core::SportCheckpoint m_checkpoint{};
+    std::string m_correctionIdentifier{};
     core::SportDuration m_liveElapsed{};
     std::optional<core::SportWorkoutRevision> m_original{};
     bool m_visible{false};

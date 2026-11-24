@@ -10,6 +10,8 @@ namespace msa::infra
 class SportDocumentCodec final
 {
 public:
+    [[nodiscard]] static QByteArray encodeCorrectionCheckpoint(const core::SportCorrectionCheckpoint& value);
+    [[nodiscard]] static core::SportCorrectionCheckpoint decodeCorrectionCheckpoint(const QByteArray& bytes);
     [[nodiscard]] static QByteArray encodeProgramCheckpoint(const core::SportProgramCheckpoint& value);
     [[nodiscard]] static core::SportProgramCheckpoint decodeProgramCheckpoint(const QByteArray& bytes);
     [[nodiscard]] static QByteArray encodeExercise(const core::SportExerciseRevision& value);

@@ -17,6 +17,12 @@ Item {
     SportWorkoutPanel {
         anchors.fill: parent
         sport: root.sport
+        editor: root.sport.journal.resultEditor
+        visible: root.sport.journal.resultEditor.visible && !root.sport.hasSelection
+    }
+    SportWorkoutPanel {
+        anchors.fill: parent
+        sport: root.sport
         visible: root.sport.journal.workoutEditor.visible && !root.sport.hasSelection
     }
     SportProgramPanel {
@@ -25,7 +31,7 @@ Item {
         visible: root.sport.journal.programEditor.active && !root.sport.hasSelection
     }
     ColumnLayout {
-        visible: (!root.sport.journal.programEditor.active && !root.sport.journal.workoutEditor.visible) || root.sport.hasSelection
+        visible: (!root.sport.journal.programEditor.active && !root.sport.journal.workoutEditor.visible && !root.sport.journal.resultEditor.visible) || root.sport.hasSelection
         anchors.fill: parent
         spacing: Theme.spaceMedium
         SectionHeader {
@@ -35,7 +41,7 @@ Item {
             description: root.sport.summary
         }
         AppButton {
-            visible: (root.sport.journal.programEditor.active || root.sport.journal.workoutEditor.visible) && root.sport.hasSelection
+            visible: (root.sport.journal.programEditor.active || root.sport.journal.workoutEditor.visible || root.sport.journal.resultEditor.visible) && root.sport.hasSelection
             text: root.sport.journal.programEditor.active ? "К программе" : "К занятию"
             onClicked: root.sport.clearSelection()
         }
@@ -49,9 +55,9 @@ Item {
         ErrorBanner {
             Layout.fillWidth: true
             message: root.sport.errorText
-            actionText: "Повторить загрузку"
+            actionText: root.sport.migrationRequired ? "Обновить с копией" : "Повторить загрузку"
             actionEnabled: true
-            onActionRequested: root.sport.retry()
+            onActionRequested: root.sport.migrationRequired ? root.sport.approveMigration() : root.sport.retry()
         }
         Controls.ScrollView {
             Layout.fillWidth: true

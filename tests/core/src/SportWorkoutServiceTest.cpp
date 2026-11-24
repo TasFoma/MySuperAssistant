@@ -80,3 +80,16 @@ TEST(SportWorkoutServiceTest, CorrectionPreservesStartMetadataAndRestrictionSnap
     EXPECT_EQ(corrected.utcOffsetMinutes, 180);
     EXPECT_EQ(corrected.restrictionsSnapshot, "Исходные ограничения");
 }
+
+TEST(SportWorkoutServiceTest, AdditionalExerciseKeepsOriginalPlanAndRejectsDuplicateIdentity)
+{
+    const auto draft = msa::test::sportDraft();
+    auto item = draft.originalPlan.items.front();
+    item.identifier = "additional";
+    const auto result = SportWorkoutService{}.addExercise(draft, item);
+    ASSERT_TRUE(std::holds_alternative<SportWorkoutDraft>(result));
+    const auto& added = std::get<SportWorkoutDraft>(result);
+    EXPECT_EQ(added.items.size(), draft.items.size() + 1);
+    EXPECT_EQ(added.originalPlan.items.size(), draft.originalPlan.items.size());
+    EXPECT_TRUE(std::holds_alternative<SportRejection>(SportWorkoutService{}.addExercise(added, item)));
+}

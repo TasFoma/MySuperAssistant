@@ -30,6 +30,16 @@ Controls.ScrollView {
             Accessible.name: "Упражнение для просмотра динамики"
             onActivated: root.sport.journal.progressExercise = currentValue
         }
+        Repeater {
+            model: root.sport.journal.corrections
+            AppButton {
+                required property var modelData
+                Layout.fillWidth: true
+                text: "Продолжить исправление: " + modelData.title
+                tone: "secondary"
+                onClicked: root.sport.journal.openWorkout(modelData.identifier)
+            }
+        }
         EmptyState {
             Layout.fillWidth: true
             visible: root.progress ? root.sport.journal.progress.length === 0 : root.sport.journal.history.length === 0

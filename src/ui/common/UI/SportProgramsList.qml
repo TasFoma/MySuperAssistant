@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 Controls.ScrollView {
     id: root
+    objectName: "sportProgramsList"
     required property var sport
     contentWidth: availableWidth
     clip: true
@@ -49,10 +50,7 @@ Controls.ScrollView {
                 }
             }
         }
-        EmptyState {
-            Layout.fillWidth: true
-            title: "Готовые P1 и P3 готовятся"
-            description: "Состав и плановые подходы ещё уточняются. Можно составить собственную программу из доступных карточек."
-        }
+        SectionHeader { Layout.fillWidth: true; title: "Готовые составы P1 и P3"; description: "Дозировка не назначена. Создайте свою копию и заполните подходы, повторения и вес." }
+        SportBlueprints { Layout.fillWidth: true; sport: root.sport }
     }
 }

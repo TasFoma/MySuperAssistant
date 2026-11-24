@@ -20,7 +20,7 @@ namespace
 {
 constexpr int kSportApplicationId = 0x4d535350;
 // Версия 4 также ограждает новые поля документов от записи старым клиентом версии 3.
-constexpr int kSportSchemaVersion = 4;
+constexpr int kSportSchemaVersion = 5;
 void require(bool condition, const char* message)
 {
     if (!condition)
@@ -85,7 +85,12 @@ void verifyBackup(const QString& path, const QString& name, int version)
     QSqlDatabase::removeDatabase(name);
 }
 } // namespace
-SqliteSportStore::SqliteSportStore(const QString& path)
+SportMigrationRequired::SportMigrationRequired() :
+    std::runtime_error{"База спорта требует обновления. Она не изменена. Обновление выполняется только с вашего "
+                       "разрешения и с проверенной резервной копией."}
+{
+}
+SqliteSportStore::SqliteSportStore(const QString& path, bool allowMigration)
 {
     require(QSqlDatabase::isDriverAvailable("QSQLITE"), "Драйвер QSQLITE недоступен. Спортивные данные не открыты.");
     require(!path.trimmed().isEmpty(), "Не задан путь клиентской базы спорта.");
@@ -93,7 +98,7 @@ SqliteSportStore::SqliteSportStore(const QString& path)
     m_database = QSqlDatabase::addDatabase("QSQLITE", m_name);
     try
     {
-        initialize(path);
+        initialize(path, allowMigration);
     }
     catch (...)
     {
@@ -139,7 +144,7 @@ void SqliteSportStore::transaction(const std::function<void()>& operation)
         throw;
     }
 }
-void SqliteSportStore::initialize(const QString& path)
+void SqliteSportStore::initialize(const QString& path, bool allowMigration)
 {
     const auto exists = QFileInfo::exists(path);
     int version{};
@@ -159,6 +164,10 @@ void SqliteSportStore::initialize(const QString& path)
         }
         if (version < kSportSchemaVersion)
         {
+            if (!allowMigration)
+            {
+                throw SportMigrationRequired{};
+            }
             const auto directory = QFileInfo{path}.absoluteDir().filePath("backups");
             require(QDir{}.mkpath(directory), "Не удалось создать каталог резервных копий. Миграция отменена.");
             m_lastBackupPath = QDir{directory}.filePath("sport-before-v" + QString::number(kSportSchemaVersion) + "-" +
@@ -184,8 +193,23 @@ void SqliteSportStore::initialize(const QString& path)
     transaction(
         [this, version]
         {
+            if (version != 0)
+            {
+                require(scalar(m_database, "PRAGMA application_id") == kSportApplicationId &&
+                            scalar(m_database, "PRAGMA user_version") == version,
+                        "Тип или версия базы изменились до миграции. Обновление отменено.");
+                auto marker = query(m_database, "SELECT kind FROM sport_meta WHERE slot=1");
+                require(marker.next() && marker.value(0).toString() == "sport-client", "Изменился тип базы спорта.");
+            }
             if (version == 0)
             {
+                require(
+                    scalar(m_database, "PRAGMA application_id") == 0 &&
+                        scalar(m_database, "PRAGMA user_version") == 0 &&
+                        scalar(m_database,
+                               "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'") ==
+                            0,
+                    "По выбранному пути появилась другая база. Она не изменена.");
                 execute("PRAGMA application_id=" + QString::number(kSportApplicationId));
                 execute("CREATE TABLE sport_meta(slot INTEGER PRIMARY KEY CHECK(slot=1),kind TEXT NOT "
                         "NULL,restrictions TEXT NOT NULL DEFAULT '')");
@@ -209,6 +233,8 @@ void SqliteSportStore::initialize(const QString& path)
             execute("CREATE INDEX IF NOT EXISTS sport_workout_date ON workouts(date DESC,id)");
             execute("CREATE TABLE IF NOT EXISTS program_drafts(id TEXT PRIMARY KEY,sequence TEXT NOT NULL,payload BLOB "
                     "NOT NULL)");
+            execute("CREATE TABLE IF NOT EXISTS correction_drafts(workout_id TEXT PRIMARY KEY REFERENCES "
+                    "workouts(id),editing_id TEXT NOT NULL,sequence TEXT NOT NULL,payload BLOB NOT NULL)");
             execute("PRAGMA user_version=" + QString::number(kSportSchemaVersion));
         });
 }
@@ -358,17 +384,35 @@ void SqliteSportStore::finishWorkout(const core::SportWorkoutRevision& value, st
             execute("DELETE FROM checkpoints WHERE slot=1");
         });
 }
-void SqliteSportStore::correctWorkout(const core::SportWorkoutRevision& value, const std::string& expectedRevision)
+void SqliteSportStore::correctWorkout(const core::SportWorkoutRevision& value, const std::string& expectedRevision,
+                                      std::optional<std::uint64_t> expectedDraftSequence,
+                                      const std::optional<std::string>& expectedEditingIdentifier)
 {
     const auto bytes = SportDocumentCodec::encodeRevision(value);
     transaction(
-        [this, &value, &expectedRevision, &bytes]
+        [this, &value, &expectedRevision, &bytes, expectedDraftSequence, &expectedEditingIdentifier]
         {
             const auto previousBytes = revisionBytes(m_database, string(value.identifier));
             if (!previousBytes.isEmpty())
             {
                 require(previousBytes == bytes, "Конфликт идентичности редакции.");
                 return;
+            }
+            if (expectedDraftSequence)
+            {
+                auto draft = query(m_database, "SELECT payload FROM correction_drafts WHERE workout_id=?",
+                                   {string(value.workout.identifier)});
+                require(draft.next(), "Черновик исправления не найден.");
+                const auto saved = SportDocumentCodec::decodeCorrectionCheckpoint(draft.value(0).toByteArray());
+                require(expectedEditingIdentifier && saved.identifier == *expectedEditingIdentifier &&
+                            saved.edited.sequence == *expectedDraftSequence &&
+                            saved.original.identifier == expectedRevision,
+                        "Черновик исправления уже изменён.");
+                auto candidate = saved;
+                candidate.edited.draft = value.workout;
+                require(SportDocumentCodec::encodeCorrectionCheckpoint(candidate) ==
+                            SportDocumentCodec::encodeCorrectionCheckpoint(saved),
+                        "Сначала сохраните последние изменения исправления.");
             }
             auto head =
                 query(m_database, "SELECT revision FROM workouts WHERE id=?", {string(value.workout.identifier)});
@@ -391,6 +435,11 @@ void SqliteSportStore::correctWorkout(const core::SportWorkoutRevision& value, c
                                   .toString(Qt::ISODate);
             static_cast<void>(query(m_database, "UPDATE workouts SET revision=?,date=? WHERE id=?",
                                     {string(value.identifier), date, string(value.workout.identifier)}));
+            if (expectedDraftSequence)
+            {
+                static_cast<void>(query(m_database, "DELETE FROM correction_drafts WHERE workout_id=?",
+                                        {string(value.workout.identifier)}));
+            }
         });
 }
 std::vector<core::SportWorkoutRecord> SqliteSportStore::workoutHistory() const
@@ -539,5 +588,93 @@ std::vector<core::SportProgramCheckpoint> SqliteSportStore::programDrafts() cons
     }
 
     return result;
+}
+
+std::uint64_t SqliteSportStore::checkpointCorrection(const core::SportCorrectionCheckpoint& value,
+                                                     std::uint64_t expected)
+{
+    std::uint64_t sequence{};
+    transaction(
+        [this, &value, expected, &sequence]
+        {
+            const auto originalBytes = revisionBytes(m_database, string(value.original.identifier));
+            require(!originalBytes.isEmpty() &&
+                        SportDocumentCodec::encodeRevision(SportDocumentCodec::decodeRevision(originalBytes)) ==
+                            SportDocumentCodec::encodeRevision(value.original),
+                    "Исходная редакция исправления не совпадает с историей.");
+            auto previous =
+                query(m_database, "SELECT editing_id,sequence,payload FROM correction_drafts WHERE workout_id=?",
+                      {string(value.original.workout.identifier)});
+            const auto exists = previous.next();
+            auto candidate = value;
+            const auto current = exists
+                                     ? SportDocumentCodec::decodeCorrectionCheckpoint(previous.value(2).toByteArray())
+                                     : core::SportCorrectionCheckpoint{};
+            require(!exists || (current.identifier == previous.value(0).toString().toStdString() &&
+                                QString::number(current.edited.sequence) == previous.value(1).toString()),
+                    "Повреждены метаданные исправления.");
+            require(!exists || (current.original.workout.identifier == value.original.workout.identifier &&
+                                SportDocumentCodec::encodeRevision(current.original) ==
+                                    SportDocumentCodec::encodeRevision(value.original)),
+                    "Исходная редакция черновика исправления не может измениться.");
+            require(!exists || current.identifier == value.identifier,
+                    "Другое исправление уже открыто. Сначала откройте сохранённый черновик.");
+            if (exists && current.edited.sequence != expected)
+            {
+                candidate.edited.sequence = current.edited.sequence;
+                require(expected < std::numeric_limits<std::uint64_t>::max() &&
+                            expected + 1 == current.edited.sequence &&
+                            SportDocumentCodec::encodeCorrectionCheckpoint(candidate) ==
+                                SportDocumentCodec::encodeCorrectionCheckpoint(current),
+                        "Черновик исправления уже изменён.");
+                sequence = current.edited.sequence;
+                return;
+            }
+            require((exists || expected == 0) && expected < std::numeric_limits<std::uint64_t>::max(),
+                    "Некорректный номер исправления.");
+            candidate.edited.sequence = expected + 1;
+            const auto bytes = SportDocumentCodec::encodeCorrectionCheckpoint(candidate);
+            static_cast<void>(
+                query(m_database,
+                      "INSERT INTO correction_drafts VALUES(?,?,?,?) ON CONFLICT(workout_id) DO UPDATE SET "
+                      "editing_id=excluded.editing_id,sequence=excluded.sequence,payload=excluded.payload",
+                      {string(value.original.workout.identifier), string(value.identifier),
+                       QString::number(candidate.edited.sequence), bytes}));
+            sequence = candidate.edited.sequence;
+        });
+    return sequence;
+}
+std::vector<core::SportCorrectionCheckpoint> SqliteSportStore::correctionDrafts() const
+{
+    ensureUsable();
+    auto rows =
+        query(m_database, "SELECT workout_id,editing_id,sequence,payload FROM correction_drafts ORDER BY workout_id");
+    std::vector<core::SportCorrectionCheckpoint> result;
+    while (rows.next())
+    {
+        const auto value = SportDocumentCodec::decodeCorrectionCheckpoint(rows.value(3).toByteArray());
+        require(string(value.original.workout.identifier) == rows.value(0).toString() &&
+                    string(value.identifier) == rows.value(1).toString() &&
+                    QString::number(value.edited.sequence) == rows.value(2).toString(),
+                "Повреждены метаданные исправления.");
+        result.push_back(value);
+    }
+    return result;
+}
+void SqliteSportStore::discardCorrection(const std::string& workout, const std::string& editing, std::uint64_t expected)
+{
+    transaction(
+        [this, &workout, &editing, expected]
+        {
+            auto row = query(m_database, "SELECT editing_id,sequence FROM correction_drafts WHERE workout_id=?",
+                             {string(workout)});
+            if (!row.next())
+            {
+                return;
+            }
+            require(row.value(0).toString() == string(editing) && row.value(1).toString() == QString::number(expected),
+                    "Черновик исправления уже изменён. Отмена не выполнена.");
+            static_cast<void>(query(m_database, "DELETE FROM correction_drafts WHERE workout_id=?", {string(workout)}));
+        });
 }
 } // namespace msa::infra

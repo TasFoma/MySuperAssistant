@@ -5,7 +5,8 @@ import QtQuick.Layouts
 Controls.ScrollView {
     id: root
     required property var sport
-    readonly property var editor: sport.journal.workoutEditor
+    property var editor: sport.journal.workoutEditor
+    property bool additionVisible: false
     contentWidth: availableWidth
     clip: true
     objectName: "sportWorkoutScroll"
@@ -14,11 +15,24 @@ Controls.ScrollView {
         x: (root.availableWidth - width) / 2
         spacing: Theme.spaceMedium
         SectionHeader { Layout.fillWidth: true; title: root.editor.title; description: root.editor.status }
+        SurfaceCard {
+            objectName: "sportCorrectionDiscardPrompt"
+            visible: root.editor.discardRequested
+            Layout.fillWidth: true
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: Theme.spaceSmall
+                SectionHeader { Layout.fillWidth: true; title: "Отменить несохранённые исправления?"; description: "Сохранённый результат останется прежним." }
+                AppButton { text: "Продолжить исправление"; onClicked: root.editor.keepEditing() }
+                AppButton { text: "Отменить исправления"; objectName: "sportDiscardCorrectionConfirm"; tone: "secondary"; onClicked: root.editor.discardCorrection() }
+            }
+        }
         Flow {
             Layout.fillWidth: true
             spacing: Theme.spaceSmall
             AppButton { text: "Назад"; tone: "secondary"; objectName: "sportCloseWorkout"; onClicked: root.editor.close() }
-            AppButton { visible: root.editor.active; text: "Сохранить черновик"; tone: "secondary"; onClicked: root.editor.retry() }
+            AppButton { visible: root.editor.editing; text: "Повторить сохранение"; tone: "secondary"; onClicked: root.editor.retry() }
+            AppButton { visible: root.editor.correcting; text: "Отменить исправления"; tone: "secondary"; onClicked: root.editor.requestDiscard() }
             AppButton { visible: !root.editor.editing; text: "Исправить результат"; onClicked: root.editor.beginCorrection() }
         }
         SurfaceCard {
@@ -157,6 +171,22 @@ Controls.ScrollView {
                 }
             }
         }
+        AppButton { visible: root.editor.editing; text: "Добавить упражнение"; tone: "secondary"; onClicked: root.additionVisible = !root.additionVisible }
+        ColumnLayout {
+            Layout.fillWidth: true
+            visible: root.editor.editing && (root.additionVisible || root.editor.items.length === 0)
+            SectionHeader { Layout.fillWidth: true; title: "Дополнительное упражнение"; description: "Задайте план и выберите упражнение. Вес не назначается автоматически." }
+            Repeater {
+                model: root.editor.additionFields
+                SportFormField { required property var modelData; field: modelData; editor: root.editor; viewport: root }
+            }
+            AppTextField { Layout.fillWidth: true; placeholderText: "Найти упражнение"; text: root.sport.query; onTextEdited: root.sport.query = text }
+            AppButton { text: "Все доступные упражнения"; tone: "secondary"; onClicked: root.sport.resetFilters() }
+            Repeater {
+                model: parent.visible ? root.sport.exercises : []
+                AppButton { required property var modelData; Layout.fillWidth: true; text: modelData.title; tone: "secondary"; onClicked: { root.editor.requestAdditionalExercise(modelData.identifier); root.additionVisible = false; } }
+            }
+        }
         SectionHeader { Layout.fillWidth: true; title: "Состояние и итог занятия"; description: "Оценки необязательны. Они не назначают и не увеличивают нагрузку." }
         Repeater {
             model: root.editor.wellbeing
@@ -220,16 +250,6 @@ Controls.ScrollView {
             text: root.editor.correcting ? "Сохранить исправление" : "Завершить занятие"
             onClicked: root.editor.finish()
         }
-        SurfaceCard {
-            visible: root.editor.discardRequested
-            Layout.fillWidth: true
-            ColumnLayout {
-                anchors.fill: parent
-                spacing: Theme.spaceSmall
-                SectionHeader { Layout.fillWidth: true; title: "Отменить несохранённые исправления?"; description: "Сохранённый результат останется прежним." }
-                AppButton { text: "Продолжить исправление"; onClicked: root.editor.keepEditing() }
-                AppButton { text: "Отменить исправления"; tone: "secondary"; onClicked: root.editor.discardCorrection() }
-            }
-        }
+
     }
 }

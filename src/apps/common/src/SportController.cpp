@@ -1,6 +1,7 @@
 #include "msa/client/SportController.h"
 
 #include "msa/infra/SportCatalog.h"
+#include "msa/infra/SportProgramCatalog.h"
 
 #include <QUuid>
 #include <algorithm>
@@ -19,9 +20,16 @@ SportController::SportController(ui::SportLibraryModel& model, QString databaseP
 {
     connect(&m_model, &ui::SportLibraryModel::preferenceRequested, this, &SportController::onPreferenceRequested);
     connect(&m_model, &ui::SportLibraryModel::reloadRequested, this, &SportController::start);
+    connect(&m_model, &ui::SportLibraryModel::migrationRequested, this,
+            [this]
+            {
+                m_migrationApproved = true;
+                start();
+            });
     connectWorkout();
     auto* journal = m_model.journal();
     auto* editor = journal->programEditor();
+    connect(journal, &ui::SportJournalModel::copyBlueprintRequested, this, &SportController::onCopyBlueprint);
     connect(journal, &ui::SportJournalModel::createProgramRequested, this, &SportController::onCreateProgram);
     connect(journal, &ui::SportJournalModel::editProgramRequested, this,
             [this](const QString& identifier) { onEditProgram(identifier, false); });
@@ -64,6 +72,7 @@ void SportController::start()
         catalog = infra::loadBundledSportCatalog();
         m_catalog = catalog;
         m_model.applyCatalog(catalog);
+        m_model.journal()->applyBlueprints(infra::loadBundledSportProgramCatalog(catalog), catalog);
         if (m_databasePath.isEmpty())
         {
             m_model.applyData(catalog, {}, false);
@@ -75,7 +84,7 @@ void SportController::start()
             return;
         }
         m_store.reset();
-        m_store = std::make_unique<infra::SqliteSportStore>(m_databasePath);
+        m_store = std::make_unique<infra::SqliteSportStore>(m_databasePath, m_migrationApproved);
         m_store->importExercises(catalog);
         m_catalog = m_store->exercises();
         m_model.applyData(m_catalog, m_store->preferences(), true);
@@ -83,6 +92,11 @@ void SportController::start()
         refreshHistory();
         m_model.journal()->applyRestrictions(QString::fromStdString(m_store->restrictions()));
         initializeWorkout();
+    }
+    catch (const infra::SportMigrationRequired& error)
+    {
+        m_store.reset();
+        m_model.reportMigrationRequired(QString::fromUtf8(error.what()));
     }
     catch (const std::exception& error)
     {
@@ -117,6 +131,12 @@ void SportController::refreshPrograms()
 void SportController::onCreateProgram()
 {
     auto* editor = m_model.journal()->programEditor();
+    const auto* result = m_model.journal()->resultEditor();
+    if (result->visible() && !result->saved())
+    {
+        m_model.journal()->reportError("Сначала повторите сохранение исправления результата.");
+        return;
+    }
     const auto* workout = m_model.journal()->workoutEditor();
     if (workout->visible() && !workout->saved())
     {
@@ -136,12 +156,19 @@ void SportController::onCreateProgram()
     editor->open(checkpoint, std::nullopt);
     m_model.clearSelection();
     m_model.journal()->workoutEditor()->close();
+    m_model.journal()->resultEditor()->close();
     m_model.openPrograms();
     onProgramCheckpoint();
 }
 void SportController::onResumeProgram(const QString& identifier)
 {
     auto* editor = m_model.journal()->programEditor();
+    const auto* result = m_model.journal()->resultEditor();
+    if (result->visible() && !result->saved())
+    {
+        m_model.journal()->reportError("Сначала повторите сохранение исправления результата.");
+        return;
+    }
     const auto* workout = m_model.journal()->workoutEditor();
     if (workout->visible() && !workout->saved())
     {
@@ -180,6 +207,7 @@ void SportController::onResumeProgram(const QString& identifier)
 
         editor->open(draft, expected);
         m_model.journal()->workoutEditor()->close();
+        m_model.journal()->resultEditor()->close();
         m_model.clearSelection();
         m_model.openPrograms();
         return;
@@ -188,6 +216,12 @@ void SportController::onResumeProgram(const QString& identifier)
 void SportController::onEditProgram(const QString& identifier, bool copy)
 {
     auto* editor = m_model.journal()->programEditor();
+    const auto* result = m_model.journal()->resultEditor();
+    if (result->visible() && !result->saved())
+    {
+        m_model.journal()->reportError("Сначала повторите сохранение исправления результата.");
+        return;
+    }
     const auto* workout = m_model.journal()->workoutEditor();
     if (workout->visible() && !workout->saved())
     {
@@ -250,6 +284,7 @@ void SportController::onEditProgram(const QString& identifier, bool copy)
     editor->open(checkpoint, copy ? std::nullopt : std::optional{found->revision});
     m_model.clearSelection();
     m_model.journal()->workoutEditor()->close();
+    m_model.journal()->resultEditor()->close();
     m_model.openPrograms();
     onProgramCheckpoint();
 }
@@ -260,7 +295,7 @@ void SportController::onProgramCheckpoint()
     {
         if (!m_store && !m_databasePath.isEmpty())
         {
-            m_store = std::make_unique<infra::SqliteSportStore>(m_databasePath);
+            m_store = std::make_unique<infra::SqliteSportStore>(m_databasePath, m_migrationApproved);
         }
         if (!m_store)
         {
@@ -325,5 +360,47 @@ void SportController::onAddExercise(const QString& identifier)
         return;
     }
     m_model.journal()->programEditor()->addExercise(*found, sportId(), sportId());
+}
+void SportController::onCopyBlueprint(const QString& identifier)
+{
+    auto* journal = m_model.journal();
+    try
+    {
+        if (!m_store)
+        {
+            throw std::runtime_error{"Локальное сохранение недоступно."};
+        }
+        if ((journal->programEditor()->active() && !journal->programEditor()->saved()) ||
+            (journal->workoutEditor()->visible() && !journal->workoutEditor()->saved()) ||
+            (journal->resultEditor()->visible() && !journal->resultEditor()->saved()))
+        {
+            throw std::runtime_error{"Сначала повторите сохранение открытых изменений."};
+        }
+        const auto& blueprints = journal->savedBlueprints();
+        const auto found =
+            std::ranges::find(blueprints, identifier.toStdString(), &core::SportProgramBlueprint::identifier);
+        if (found == blueprints.end())
+        {
+            return;
+        }
+        auto copy = core::makeSportProgramBlueprintCopy(*found, m_catalog, sportId(), sportId());
+        if (const auto* error = std::get_if<core::SportRejection>(&copy))
+        {
+            throw std::runtime_error{error->reason};
+        }
+        core::SportProgramCheckpoint checkpoint;
+        checkpoint.program = std::get<core::SportProgramRevision>(std::move(copy));
+        checkpoint.editorText["_baseRevision"] = "";
+        journal->workoutEditor()->close();
+        journal->resultEditor()->close();
+        journal->programEditor()->open(checkpoint, std::nullopt);
+        m_model.clearSelection();
+        m_model.openPrograms();
+        onProgramCheckpoint();
+    }
+    catch (const std::exception& error)
+    {
+        journal->reportError(QString::fromUtf8(error.what()));
+    }
 }
 } // namespace msa::client

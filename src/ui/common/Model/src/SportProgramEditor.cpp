@@ -85,6 +85,21 @@ QVariantList SportProgramEditor::items() const
         {
             auto fields = sportForm::setFields(planned.identifier, planned.load, m_checkpoint.editorText,
                                                QString::number(planned.repetitions));
+            if (item.exercise.requirements.dumbbellQuantity)
+            {
+                const auto required = *item.exercise.requirements.dumbbellQuantity;
+                for (auto& entry : fields)
+                {
+                    auto descriptor = entry.toMap();
+                    if (!descriptor.value("key").toString().endsWith("/quantity"))
+                    {
+                        continue;
+                    }
+                    descriptor["label"] = QString{"Количество гантелей по карточке: %1"}.arg(required);
+                    descriptor["readOnly"] = descriptor.value("value").toString() == QString::number(required);
+                    entry = descriptor;
+                }
+            }
             if (item.exercise.sides.size() > 1)
             {
                 fields.append(sportForm::sideField(planned.identifier, planned.side, item.exercise.sides,
@@ -208,11 +223,28 @@ void SportProgramEditor::addSet(const QString& identifier, const std::string& se
     }
     for (auto& item : m_checkpoint.program.sessions.at(m_sessionIndex).items)
     {
-        if (item.identifier != identifier.toStdString() || item.sets.empty() || item.sets.size() >= 100)
+        if (item.identifier != identifier.toStdString() || item.sets.size() >= 100)
         {
             continue;
         }
-        auto planned = item.sets.back();
+        core::SportPlannedSet planned;
+        if (!item.sets.empty())
+        {
+            planned = item.sets.back();
+        }
+        else
+        {
+            planned.side = item.exercise.sides.front();
+            if (item.exercise.loadKind == 1)
+            {
+                planned.load =
+                    core::DumbbellLoad{std::nullopt, item.exercise.requirements.dumbbellQuantity.value_or(2)};
+            }
+            if (item.exercise.loadKind == 2)
+            {
+                planned.load = core::BarbellLoad{};
+            }
+        }
         planned.identifier = setIdentifier;
         item.sets.push_back(planned);
         m_checkpoint.editorText[setIdentifier + "/reps"] = "";

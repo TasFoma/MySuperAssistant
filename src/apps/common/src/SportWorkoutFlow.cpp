@@ -1,6 +1,7 @@
 #include "msa/client/SportController.h"
 
 #include <QDateTime>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <algorithm>
 #include <cmath>
@@ -33,24 +34,39 @@ void SportController::connectWorkout()
     connect(journal, &ui::SportJournalModel::startWorkoutRequested, this, &SportController::onStartWorkout);
     connect(journal, &ui::SportJournalModel::openWorkoutRequested, this, &SportController::onOpenWorkout);
     connect(editor, &ui::SportWorkoutEditor::checkpointRequested, this, &SportController::onWorkoutCheckpoint);
-    connect(editor, &ui::SportWorkoutEditor::finishRequested, this, &SportController::onWorkoutFinish);
     connect(editor, &ui::SportWorkoutEditor::pauseRequested, this, &SportController::onWorkoutPause);
     connect(editor, &ui::SportWorkoutEditor::absenceRequested, this, &SportController::onWorkoutAbsence);
-    connect(editor, &ui::SportWorkoutEditor::setRequested, this,
-            [this](const QString& identifier) { m_model.journal()->workoutEditor()->addSet(identifier, sportId()); });
-    connect(editor, &ui::SportWorkoutEditor::replacementRequested, this, &SportController::onWorkoutReplacement);
-    connect(editor, &ui::SportWorkoutEditor::techniqueRequested, this,
-            [this](const QString& identifier)
-            {
-                for (const auto& item : m_model.journal()->workoutEditor()->checkpoint().draft.items)
+    for (auto* form : {editor, journal->resultEditor()})
+    {
+        connect(form, &ui::SportWorkoutEditor::finishRequested, this, [this, form] { onWorkoutFinish(*form); });
+        connect(form, &ui::SportWorkoutEditor::setRequested, this,
+                [this, form](const QString& identifier) { form->addSet(identifier, sportId()); });
+        connect(form, &ui::SportWorkoutEditor::replacementRequested, this,
+                [this, form](const QString& identifier, const QString& exercise)
+                { onWorkoutReplacement(*form, identifier, exercise); });
+        connect(form, &ui::SportWorkoutEditor::techniqueRequested, this,
+                [this, form](const QString& identifier)
                 {
-                    if (item.plan.identifier == identifier.toStdString())
+                    for (const auto& item : form->checkpoint().draft.items)
                     {
-                        m_model.selectSnapshot(item.plan.exercise);
-                        return;
+                        if (item.plan.identifier == identifier.toStdString())
+                        {
+                            m_model.selectSnapshot(item.plan.exercise);
+                            return;
+                        }
                     }
-                }
-            });
+                });
+        connect(form, &ui::SportWorkoutEditor::correctionStarted, this,
+                [this, form]
+                {
+                    form->identifyCorrection(sportId());
+                    onCorrectionCheckpoint(*form);
+                });
+        connect(form, &ui::SportWorkoutEditor::correctionCheckpointRequested, this,
+                [this, form] { onCorrectionCheckpoint(*form); });
+        connect(form, &ui::SportWorkoutEditor::correctionDiscardRequested, this,
+                [this, form] { onDiscardCorrection(*form); });
+    }
     connect(journal, &ui::SportJournalModel::restrictionsRequested, this,
             [this]
             {
@@ -107,7 +123,14 @@ void SportController::connectWorkout()
 }
 void SportController::refreshHistory()
 {
-    m_model.journal()->applyHistory(m_store->workoutHistory());
+    if (!m_store)
+    {
+        throw std::runtime_error{"Локальная база временно недоступна. Повторите загрузку."};
+    }
+    auto history = m_store->workoutHistory();
+    auto corrections = m_store->correctionDrafts();
+    m_model.journal()->applyHistory(std::move(history));
+    m_model.journal()->applyCorrections(std::move(corrections));
 }
 void SportController::initializeWorkout()
 {
@@ -156,6 +179,12 @@ void SportController::onStartWorkout(const QString& identifier, int index)
         {
             throw std::runtime_error{"Занятие не найдено."};
         }
+        auto* result = journal->resultEditor();
+        if (result->correcting() && !result->saved())
+        {
+            throw std::runtime_error{"Сначала повторите сохранение исправления результата."};
+        }
+        result->close();
         const auto previous = m_store->activeWorkout();
         const auto now = QDateTime::currentDateTime();
         const auto date = now.date();
@@ -215,7 +244,7 @@ void SportController::onWorkoutCheckpoint()
         observeWorkout();
         if (!m_store && !m_databasePath.isEmpty())
         {
-            m_store = std::make_unique<infra::SqliteSportStore>(m_databasePath);
+            m_store = std::make_unique<infra::SqliteSportStore>(m_databasePath, m_migrationApproved);
         }
         if (!m_store)
         {
@@ -322,9 +351,10 @@ void SportController::onWorkoutAbsence(const QString& identifier, const QString&
         editor->reportError(QString::fromUtf8(error.what()));
     }
 }
-void SportController::onWorkoutReplacement(const QString& identifier, const QString& exerciseIdentifier)
+void SportController::onWorkoutReplacement(ui::SportWorkoutEditor& form, const QString& identifier,
+                                           const QString& exerciseIdentifier)
 {
-    auto* editor = m_model.journal()->workoutEditor();
+    auto* editor = &form;
     try
     {
         const auto exercise =
@@ -336,7 +366,7 @@ void SportController::onWorkoutReplacement(const QString& identifier, const QStr
         const auto& items = editor->checkpoint().draft.items;
         const auto found =
             std::ranges::find(items, identifier.toStdString(), [](const auto& item) { return item.plan.identifier; });
-        if (found == items.end())
+        if (!identifier.isEmpty() && found == items.end())
         {
             return;
         }
@@ -344,7 +374,7 @@ void SportController::onWorkoutReplacement(const QString& identifier, const QStr
         replacement.identifier = sportId();
         replacement.exercise = *exercise;
         const auto& text = editor->checkpoint().editorText;
-        const auto prefix = identifier.toStdString();
+        const auto prefix = identifier.isEmpty() ? std::string{"_addition"} : identifier.toStdString();
         const auto sets =
             ui::sportForm::integer(ui::sportForm::text(text, prefix + "/replacementSets"), 1, 100, "Подходы замены");
         const auto repetitions = ui::sportForm::integer(ui::sportForm::text(text, prefix + "/replacementReps"), 1, 1000,
@@ -366,16 +396,23 @@ void SportController::onWorkoutReplacement(const QString& identifier, const QStr
             }
             replacement.sets.push_back(planned);
         }
-        editor->replaceExercise(identifier, replacement);
+        if (identifier.isEmpty())
+        {
+            editor->appendExercise(replacement);
+        }
+        else
+        {
+            editor->replaceExercise(identifier, replacement);
+        }
     }
     catch (const std::exception& error)
     {
         editor->reportError(QString::fromUtf8(error.what()));
     }
 }
-void SportController::onWorkoutFinish()
+void SportController::onWorkoutFinish(ui::SportWorkoutEditor& form)
 {
-    auto* editor = m_model.journal()->workoutEditor();
+    auto* editor = &form;
     try
     {
         if (!m_store)
@@ -393,7 +430,14 @@ void SportController::onWorkoutFinish()
             const auto& original = *editor->original();
             revision =
                 checked(core::SportWorkoutService{}.correct(original, original.identifier, candidate, sportId()));
-            m_store->correctWorkout(revision, original.identifier);
+            editor->applyPrepared(revision.workout);
+            onCorrectionCheckpoint(*editor);
+            if (!editor->saved())
+            {
+                return;
+            }
+            m_store->correctWorkout(revision, original.identifier, editor->checkpoint().sequence,
+                                    editor->correctionCheckpoint().identifier);
         }
         else if (editor->active())
         {
@@ -412,7 +456,10 @@ void SportController::onWorkoutFinish()
         {
             return;
         }
-        m_workoutTimer.stop();
+        if (editor->active())
+        {
+            m_workoutTimer.stop();
+        }
         editor->openResult(revision);
         m_model.clearSelection();
         m_model.navigate("history");
@@ -434,42 +481,155 @@ void SportController::onWorkoutFinish()
 void SportController::onOpenWorkout(const QString& identifier)
 {
     auto* journal = m_model.journal();
-    auto* editor = journal->workoutEditor();
-    if (editor->active())
+    auto* active = journal->workoutEditor();
+    auto* editor = active->active() ? journal->resultEditor() : active;
+    if ((editor->editing() && !editor->saved()) || (active->active() && !active->saved()))
     {
-        journal->reportError("Сначала завершите текущее занятие. Оно доступно из обзора.");
-        return;
-    }
-    if (editor->correcting() && !editor->saved())
-    {
-        journal->reportError("Сначала сохраните или отмените открытое исправление.");
+        journal->reportError("Сначала повторите локальное сохранение открытых изменений.");
         return;
     }
     try
     {
-        refreshHistory();
-    }
-    catch (const std::exception& error)
-    {
-        journal->reportError(
-            QString{"Не удалось прочитать актуальные результаты. %1"}.arg(QString::fromUtf8(error.what())));
-        return;
-    }
-    for (const auto& record : journal->savedHistory())
-    {
-        if (record.current.workout.identifier != identifier.toStdString())
+        if (!m_store && QFileInfo::exists(m_databasePath))
         {
-            continue;
+            m_store = std::make_unique<infra::SqliteSportStore>(m_databasePath, m_migrationApproved);
         }
+        refreshHistory();
         journal->programEditor()->close();
         if (journal->programEditor()->active())
         {
             return;
         }
-        editor->openResult(record.current);
-        m_model.clearSelection();
-        m_model.navigate("history");
-        return;
+        if (active->active())
+        {
+            active->close();
+        }
+        for (const auto& draft : journal->savedCorrections())
+        {
+            if (draft.original.workout.identifier == identifier.toStdString())
+            {
+                editor->openCorrection(draft);
+                for (const auto& current : journal->savedHistory())
+                {
+                    if (current.current.workout.identifier == draft.original.workout.identifier &&
+                        current.current.identifier != draft.original.identifier)
+                    {
+                        editor->reportError("Сохранённый результат уже изменён. Черновик оставлен без перезаписи; "
+                                            "отмените его для просмотра актуальной записи.");
+                    }
+                }
+                m_model.clearSelection();
+                m_model.navigate("history");
+                return;
+            }
+        }
+        for (const auto& record : journal->savedHistory())
+        {
+            if (record.current.workout.identifier != identifier.toStdString())
+            {
+                continue;
+            }
+            editor->openResult(record.current);
+            m_model.clearSelection();
+            m_model.navigate("history");
+            return;
+        }
+        journal->reportError("Запись больше не найдена в локальной истории.");
+    }
+    catch (const std::exception& error)
+    {
+        journal->reportError(
+            QString{"Не удалось прочитать актуальные результаты. %1"}.arg(QString::fromUtf8(error.what())));
+    }
+}
+void SportController::onCorrectionCheckpoint(ui::SportWorkoutEditor& editor)
+{
+    try
+    {
+        if (!m_store && !m_databasePath.isEmpty())
+        {
+            m_store = std::make_unique<infra::SqliteSportStore>(m_databasePath, m_migrationApproved);
+        }
+        if (!m_store)
+        {
+            throw std::runtime_error{"Локальная запись недоступна."};
+        }
+        const auto sequence =
+            m_store->checkpointCorrection(editor.correctionCheckpoint(), editor.checkpoint().sequence);
+        editor.acknowledge(sequence);
+        try
+        {
+            m_model.journal()->applyCorrections(m_store->correctionDrafts());
+        }
+        catch (const std::exception& error)
+        {
+            m_model.journal()->reportError(QString{"Черновик исправления сохранён, но список не прочитан. %1"}.arg(
+                QString::fromUtf8(error.what())));
+        }
+    }
+    catch (const std::exception& error)
+    {
+        m_store.reset();
+        editor.reportStorageError(QString{"Черновик исправления не сохранён. %1"}.arg(QString::fromUtf8(error.what())));
+    }
+}
+void SportController::onDiscardCorrection(ui::SportWorkoutEditor& editor)
+{
+    try
+    {
+        const auto value = editor.correctionCheckpoint();
+        if (!m_store && !m_databasePath.isEmpty())
+        {
+            m_store = std::make_unique<infra::SqliteSportStore>(m_databasePath, m_migrationApproved);
+        }
+        if (!m_store)
+        {
+            throw std::runtime_error{"Локальная запись недоступна."};
+        }
+        bool newerDraft{};
+        if (value.edited.sequence > 0)
+        {
+            const auto drafts = m_store->correctionDrafts();
+            const auto current = std::ranges::find(drafts, value.original.workout.identifier,
+                                                   [](const auto& draft) { return draft.original.workout.identifier; });
+            if (current != drafts.end() &&
+                (current->identifier != value.identifier || current->edited.sequence != value.edited.sequence))
+            {
+                newerDraft = true;
+            }
+            else
+            {
+                m_store->discardCorrection(value.original.workout.identifier, value.identifier, value.edited.sequence);
+            }
+        }
+        editor.openResult(value.original);
+        try
+        {
+            refreshHistory();
+        }
+        catch (const std::exception& error)
+        {
+            m_model.journal()->reportError(
+                QString{"Локальные правки отменены, но список не прочитан. %1"}.arg(QString::fromUtf8(error.what())));
+            return;
+        }
+        auto result = value.original;
+        for (const auto& current : m_model.journal()->savedHistory())
+        {
+            if (current.current.workout.identifier == value.original.workout.identifier)
+            {
+                result = current.current;
+            }
+        }
+        editor.openResult(result);
+        if (newerDraft)
+        {
+            m_model.journal()->reportError("Локальные правки отменены. Более новый черновик на устройстве сохранён.");
+        }
+    }
+    catch (const std::exception& error)
+    {
+        editor.reportError(QString{"Отмена не выполнена. %1"}.arg(QString::fromUtf8(error.what())));
     }
 }
 } // namespace msa::client

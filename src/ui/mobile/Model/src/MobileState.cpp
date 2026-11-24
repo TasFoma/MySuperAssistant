@@ -207,10 +207,29 @@ bool MobileState::goBack()
         m_sport.clearSelection();
         return true;
     }
+    if (m_page == Page::Sport && m_sport.journal()->resultEditor()->visible())
+    {
+        auto* result = m_sport.journal()->resultEditor();
+        if (result->discardRequested())
+        {
+            result->keepEditing();
+        }
+        else
+        {
+            result->close();
+        }
+        return true;
+    }
     if (m_page == Page::Sport && m_sport.journal()->workoutEditor()->visible())
     {
-        if (m_sport.journal()->workoutEditor()->discardRequested()) m_sport.journal()->workoutEditor()->keepEditing();
-        else m_sport.journal()->workoutEditor()->close();
+        if (m_sport.journal()->workoutEditor()->discardRequested())
+        {
+            m_sport.journal()->workoutEditor()->keepEditing();
+        }
+        else
+        {
+            m_sport.journal()->workoutEditor()->close();
+        }
         return true;
     }
     if (m_page == Page::Sport && m_sport.journal()->programEditor()->active())

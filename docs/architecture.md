@@ -256,6 +256,10 @@ sequenceDiagram
 
 ## Модули
 
+Заготовки P1/P3 без назначенной дозировки: составы, ссылки и независимые неполные копии —
+`src/core/include/msa/core/SportProgramBlueprint.h`,
+[описание](modules/SportPrograms.md).
+
 Локальный сценарий спорта: формы программ/занятий и представление истории/динамики —
 `src/ui/common/Model/include/msa/ui/SportJournalModel.h`,
 [описание](modules/SportJournal.md).
@@ -435,21 +439,33 @@ ServerProcessTest дополнительно запускает собранны
 и большие отдельные сообщения ограничены пределом кадра; сообщения не обрезаются.
 
 Спорт работает локально независимо от серверной сессии: SportController связывает
-SportLibraryModel и SqliteSportStore. База клиента использует отдельную идентичность,
-миграции и AppLocalDataLocation; серверные контракты не менялись. Подробности —
+SportLibraryModel/SportJournalModel и SqliteSportStore. База клиента имеет собственные
+идентичность, схему 5 и AppLocalDataLocation. Старая база сначала проверяется READONLY;
+без согласия SportMigrationRequired останавливает открытие до записи. Явная кнопка
+«Обновить с копией» разрешает проверяемый backup и транзакционный переход.
+Серверные схемы и контракты не менялись. Подробности —
 [SportCore](modules/SportCore.md), [SportStorage](modules/SportStorage.md),
-[SportLibrary](modules/SportLibrary.md). Подключён локальный UI программ, записи, истории/исправления и динамики;
-[сценарий и ограничения](modules/SportJournal.md).
+[SportLibrary](modules/SportLibrary.md), [SportPrograms](modules/SportPrograms.md).
+
+SportJournalModel разделяет programEditor, активный workoutEditor и независимый
+resultEditor. Во время занятия можно открыть историю и исправлять другой результат;
+активный таймер/checkpoint продолжают жить отдельно. Исправления сохраняются в
+correction_drafts с исходной редакцией, editing UUID, номером и сырым вводом.
+Пустая промежуточная форма восстанавливается, но не становится новым результатом.
+Публикация проверяет голову/принадлежность/номер и атомарно снимает только свой
+черновик; явная отмена открывает актуальный результат. Подробнее —
+[локальный сценарий](modules/SportJournal.md).
 
 
 Локальный путь спорта не проходит через TCP:
 
 ```mermaid
 flowchart LR
-    QML[Общие спортивные формы] --> Editors[SportJournalModel и редакторы]
+    QML[Общие спортивные формы] --> Editors[SportJournalModel: programEditor, workoutEditor, resultEditor]
+    Resources[Карточки и P1/P3 в ресурсах infra] --> Controller
     Editors -- команды --> Controller[SportController в apps/common]
     Controller --> Rules[Чистые правила core]
     Controller -- транзакции --> Store[SqliteSportStore в infra]
-    Store --> LocalDB[(Клиентская SQLite спорта)]
+    Store --> LocalDB[(Схема 5: active, correction_drafts, результаты)]
     Controller -- подтверждение commit --> Editors
 ```

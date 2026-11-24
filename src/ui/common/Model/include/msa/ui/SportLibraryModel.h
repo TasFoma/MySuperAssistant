@@ -15,6 +15,7 @@ namespace msa::ui
 class SportLibraryModel final : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool migrationRequired READ migrationRequired NOTIFY changed)
     Q_PROPERTY(msa::ui::SportJournalModel* journal READ journal CONSTANT)
     Q_PROPERTY(QVariantList sections READ sections CONSTANT)
     Q_PROPERTY(QString section READ section NOTIFY changed)
@@ -44,6 +45,9 @@ public:
     void applyCatalog(std::vector<core::SportExerciseRevision> catalog);
     /// @brief Отмечает недоступность хранения без очистки последних данных.
     void reportStorageError(const QString& text);
+    void reportMigrationRequired(const QString& text);
+    [[nodiscard]] bool migrationRequired() const;
+    Q_INVOKABLE void approveMigration();
     /// @brief Показывает историческую карточку без замены её текущей редакцией.
     void selectSnapshot(core::SportExerciseRevision exercise);
     void applyPreference(const std::string& identifier, core::SportExercisePreference preference);
@@ -86,6 +90,7 @@ signals:
     void changed();
     void preferenceRequested(QString identifier, bool favorite, bool progression);
     void reloadRequested();
+    void migrationRequested();
 
 private:
     [[nodiscard]] const core::SportExerciseRevision* find(const std::string& identifier) const;
@@ -102,6 +107,7 @@ private:
     QString m_equipment{};
     QString m_muscle{};
     QString m_selected{};
+    std::optional<std::pair<QString, bool>> m_cardOrigin{};
     std::optional<core::SportExerciseRevision> m_snapshot{};
     QString m_error{};
     bool m_favoritesOnly{false};
@@ -109,5 +115,6 @@ private:
     bool m_noFloor{false};
     bool m_noPalmSupport{false};
     bool m_storageReady{false};
+    bool m_migrationRequired{false};
 };
 } // namespace msa::ui

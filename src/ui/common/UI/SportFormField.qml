@@ -53,7 +53,8 @@ ColumnLayout {
     AppTextField {
         id: input
         visible: root.choices.length === 0
-        readOnly: root.readOnly
+        inputMethodHints: root.field.inputHints || Qt.ImhNone
+        readOnly: root.readOnly || !!root.field.readOnly
         onActiveFocusChanged: if (activeFocus) Qt.callLater(root.revealInput)
         Layout.fillWidth: true
         Layout.minimumWidth: 0
